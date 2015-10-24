@@ -4,7 +4,7 @@
   <subtitle><![CDATA[Life in Macao]]></subtitle>
   <link href="/atom.xml" rel="self"/>
   <link href="http://yoursite.com/"/>
-  <updated>2015-10-24T06:40:35.271Z</updated>
+  <updated>2015-10-24T07:39:27.814Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -16,10 +16,10 @@
   
   <entry>
     <title><![CDATA[Welcome to my Blog]]></title>
-    <link href="http://yoursite.com/2015/10/24/Welcome-to-my-Blog/"/>
-    <id>http://yoursite.com/2015/10/24/Welcome-to-my-Blog/</id>
-    <published>2015-10-24T06:28:13.000Z</published>
-    <updated>2015-10-24T06:40:35.271Z</updated>
+    <link href="http://yoursite.com/2018/10/24/Welcome-to-my-Blog/"/>
+    <id>http://yoursite.com/2018/10/24/Welcome-to-my-Blog/</id>
+    <published>2018-10-24T06:28:13.000Z</published>
+    <updated>2015-10-24T07:39:27.814Z</updated>
     <content type="html"><![CDATA[<ul>
 <li><p>This is the <strong>Grand Lisboa</strong>.<br><img src="https://res.cloudinary.com/djqbxphzo/image/upload/v1445666988/GLH_uopqxo.jpg" alt=""></p>
 </li>
@@ -33,6 +33,44 @@
     </summary>
     
       <category term="Life" scheme="http://yoursite.com/tags/Life/"/>
+    
+  </entry>
+  
+  <entry>
+    <title><![CDATA[Lecture 01 Introduction(Algorithm)]]></title>
+    <link href="http://yoursite.com/2015/10/24/Algorithms-MUST-01/"/>
+    <id>http://yoursite.com/2015/10/24/Algorithms-MUST-01/</id>
+    <published>2015-10-24T07:13:48.000Z</published>
+    <updated>2015-10-24T07:38:38.317Z</updated>
+    <content type="html"><![CDATA[<h2 id="General_infomation">General infomation</h2><ul>
+<li>Course Unit: 3</li>
+<li>Course Type: <em>Compulsory for all majors</em></li>
+<li>Instructor: <a href="http://www.must.edu.mo/images/FI/files/WongHonCheng_v151009.pdf" target="_blank" rel="external">Dr. Hon-Cheng Wong(黃漢青)</a></li>
+</ul>
+<h2 id="Objectives">Objectives</h2><ul>
+<li><strong>MIIZ43</strong> is designed to provide an introduction to the analysis and design of algorithms for graduate students.</li>
+<li>The course will cover the analysis of algorithm efficiency, the force and exhaustive search, decrease-and-conquer, divide-and-conquer, transform-and-conquer, space and time trade-offs, dynamic programming, greedy technique, iterative improvement, and limitations of algorithm power.</li>
+</ul>
+<h2 id="Grading_scheme">Grading scheme</h2><ul>
+<li>Written assignments: 20%</li>
+<li>Midterm: 30%(Closed book)</li>
+<li>Final exam: 50%(Closed book)</li>
+</ul>
+<h2 id="Text_and_references">Text and references</h2><ul>
+<li>Textbook: <a href="http://www.pearsonhighered.com/educator/product/Introduction-to-the-Design-and-Analysis-of-Algorithms/9780132316811.page" target="_blank" rel="external">Levitin. <em>Introduction to the Design and Analysis of Algorithms,</em> Thrid Edition, Pearson, 2012</a></li>
+<li>References</li>
+</ul>
+]]></content>
+    <summary type="html">
+    <![CDATA[<h2 id="General_infomation">General infomation</h2><ul>
+<li>Course Unit: 3</li>
+<li>Course Type: <em>Compulsory for all majors</em></li>
+<li]]>
+    </summary>
+    
+      <category term="MUST Algorithm Introduction" scheme="http://yoursite.com/tags/MUST-Algorithm-Introduction/"/>
+    
+      <category term="Algorithm-MUST" scheme="http://yoursite.com/categories/Algorithm-MUST/"/>
     
   </entry>
   
