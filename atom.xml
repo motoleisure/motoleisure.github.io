@@ -37,11 +37,33 @@
   </entry>
   
   <entry>
+    <title><![CDATA[Lecture 01 Introduction 2(Algorithm)]]></title>
+    <link href="http://yoursite.com/2015/10/24/Algorithms-Must-02/"/>
+    <id>http://yoursite.com/2015/10/24/Algorithms-Must-02/</id>
+    <published>2015-10-24T08:35:43.000Z</published>
+    <updated>2015-10-24T08:42:12.341Z</updated>
+    <content type="html"><![CDATA[<h2 id="What_is_an_algorithm?">What is an algorithm?</h2><ul>
+<li>An <em>algorithm</em> is a sequence of unambiguous instructions for solving a problem, i.e. for obtaining a required output for any legitimate input in a finite amount of time.</li>
+<li><img src="/images/MUST/algo/01_Intro/what algo is.PNG" alt=""></li>
+</ul>
+]]></content>
+    <summary type="html">
+    <![CDATA[<h2 id="What_is_an_algorithm?">What is an algorithm?</h2><ul>
+<li>An <em>algorithm</em> is a sequence of unambiguous instructions for solvin]]>
+    </summary>
+    
+      <category term="MUST Algorithm Introduction" scheme="http://yoursite.com/tags/MUST-Algorithm-Introduction/"/>
+    
+      <category term="Algorithm-MUST" scheme="http://yoursite.com/categories/Algorithm-MUST/"/>
+    
+  </entry>
+  
+  <entry>
     <title><![CDATA[Lecture 01 Introduction(Algorithm)]]></title>
     <link href="http://yoursite.com/2015/10/24/Algorithms-MUST-01/"/>
     <id>http://yoursite.com/2015/10/24/Algorithms-MUST-01/</id>
     <published>2015-10-24T07:13:48.000Z</published>
-    <updated>2015-10-24T08:21:34.008Z</updated>
+    <updated>2015-10-24T08:38:06.150Z</updated>
     <content type="html"><![CDATA[<h2 id="General_infomation">General infomation</h2><ul>
 <li>Course Unit: 3</li>
 <li>Course Type: <em>Compulsory for all majors</em></li>
@@ -62,10 +84,6 @@
 </ul>
 <h2 id="Course_material">Course material</h2><ul>
 <li>You may get the course material from folder “MIIZ43” on <a href="ftp://ftp.must.edu.mo/" target="_blank" rel="external">ftp://ftp.must.edu.mo/</a></li>
-</ul>
-<h2 id="What_is_an_algorithm?">What is an algorithm?</h2><ul>
-<li>An <em>algorithm</em> is a sequence of unambiguous instructions for solving a problem, i.e. for obtaining a required output for any legitimate input in a finite amount of time.</li>
-<li><img src="/images/cover.jpg" alt=""></li>
 </ul>
 ]]></content>
     <summary type="html">
