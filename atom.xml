@@ -41,7 +41,7 @@
     <link href="http://yoursite.com/2015/10/24/Algorithms-MUST-01/"/>
     <id>http://yoursite.com/2015/10/24/Algorithms-MUST-01/</id>
     <published>2015-10-24T07:13:48.000Z</published>
-    <updated>2015-10-24T07:38:38.317Z</updated>
+    <updated>2015-10-24T08:13:56.879Z</updated>
     <content type="html"><![CDATA[<h2 id="General_infomation">General infomation</h2><ul>
 <li>Course Unit: 3</li>
 <li>Course Type: <em>Compulsory for all majors</em></li>
@@ -59,6 +59,13 @@
 <h2 id="Text_and_references">Text and references</h2><ul>
 <li>Textbook: <a href="http://www.pearsonhighered.com/educator/product/Introduction-to-the-Design-and-Analysis-of-Algorithms/9780132316811.page" target="_blank" rel="external">Levitin. <em>Introduction to the Design and Analysis of Algorithms,</em> Thrid Edition, Pearson, 2012</a></li>
 <li>References</li>
+</ul>
+<h2 id="Course_material">Course material</h2><ul>
+<li>You may get the course material from folder “MIIZ43” on <a href="ftp://ftp.must.edu.mo/" target="_blank" rel="external">ftp://ftp.must.edu.mo/</a></li>
+</ul>
+<h2 id="What_is_an_algorithm?">What is an algorithm?</h2><ul>
+<li>An <em>algorithm</em> is a sequence of unambiguous instructions for solving a problem, i.e. for obtaining a required output for any legitimate input in a finite amount of time.</li>
+<li><img src="/assets/imagea/favicon.ico" alt=""></li>
 </ul>
 ]]></content>
     <summary type="html">
