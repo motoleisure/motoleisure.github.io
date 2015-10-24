@@ -4,7 +4,7 @@
   <subtitle><![CDATA[Life in Macao]]></subtitle>
   <link href="/atom.xml" rel="self"/>
   <link href="http://yoursite.com/"/>
-  <updated>2015-10-23T00:55:08.179Z</updated>
+  <updated>2015-10-24T06:40:35.271Z</updated>
   <id>http://yoursite.com/</id>
   
   <author>
@@ -15,15 +15,24 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
-    <title><![CDATA[Test]]></title>
-    <link href="http://yoursite.com/2015/10/23/Test/"/>
-    <id>http://yoursite.com/2015/10/23/Test/</id>
-    <published>2015-10-23T00:55:08.000Z</published>
-    <updated>2015-10-23T00:55:08.179Z</updated>
-    <content type="html"></content>
+    <title><![CDATA[Welcome to my Blog]]></title>
+    <link href="http://yoursite.com/2015/10/24/Welcome-to-my-Blog/"/>
+    <id>http://yoursite.com/2015/10/24/Welcome-to-my-Blog/</id>
+    <published>2015-10-24T06:28:13.000Z</published>
+    <updated>2015-10-24T06:40:35.271Z</updated>
+    <content type="html"><![CDATA[<ul>
+<li><p>This is the <strong>Grand Lisboa</strong>.<br><img src="https://res.cloudinary.com/djqbxphzo/image/upload/v1445666988/GLH_uopqxo.jpg" alt=""></p>
+</li>
+<li><p>This is the <strong>Venetian</strong> in Macao.<br><img src="http://res.cloudinary.com/djqbxphzo/image/upload/v1445668464/The-Venetian-Macao_xdnpbz.jpg" alt=""></p>
+</li>
+</ul>
+]]></content>
     <summary type="html">
-    
+    <![CDATA[<ul>
+<li><p>This is the <strong>Grand Lisboa</strong>.<br><img src="https://res.cloudinary.com/djqbxphzo/image/upload/v1445666988/GLH_uopqxo]]>
     </summary>
+    
+      <category term="Life" scheme="http://yoursite.com/tags/Life/"/>
     
   </entry>
   
