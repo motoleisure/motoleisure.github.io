@@ -41,10 +41,10 @@
     <link href="http://yoursite.com/2015/10/24/Algorithms-Must-02/"/>
     <id>http://yoursite.com/2015/10/24/Algorithms-Must-02/</id>
     <published>2015-10-24T08:35:43.000Z</published>
-    <updated>2015-10-26T05:36:02.712Z</updated>
+    <updated>2015-10-26T05:37:07.268Z</updated>
     <content type="html"><![CDATA[<h2 id="What_is_an_algorithm?">What is an algorithm?</h2><ul>
 <li>An <em>algorithm</em> is a sequence of unambiguous instructions for solving a problem, i.e. for obtaining a required output for any legitimate input in a finite amount of time.</li>
-<li><img src="/images/MUST/algo/01_Intro/what_algo_is.png" alt=""></li>
+<li><img src="./images/MUST/algo/01_Intro/what_algo_is.png" alt=""></li>
 </ul>
 ]]></content>
     <summary type="html">
