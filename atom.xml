@@ -37,6 +37,30 @@
   </entry>
   
   <entry>
+    <title><![CDATA[Apriori Algorithm]]></title>
+    <link href="http://yoursite.com/2015/10/27/Aprior-Algorithm/"/>
+    <id>http://yoursite.com/2015/10/27/Aprior-Algorithm/</id>
+    <published>2015-10-27T06:18:31.000Z</published>
+    <updated>2015-10-27T09:40:16.569Z</updated>
+    <content type="html"><![CDATA[<h2 id="Introduction">Introduction</h2><ul>
+<li>Apriori algorithm is one of the association rules. It was proposed by <a href="http://rakeshagrawal.org/" target="_blank" rel="external">Agrawal</a> and <a href="http://www.rsrikant.com/" target="_blank" rel="external">R. Srikant</a> in 1994. And it was designed to operate on databases that contain transations(for example, collections of items bought by customers, or details of a website frequentation ).</li>
+<li>Apriori is an algorithm for frequent item set mining and association rule learning over transactionsal databases. It proceeds by identifying the frequent individual items in the database and extending them to larger and larger item sets as long as those item sets appear sufficiently often in the database. The frequent item sets determined by Apriori can be used to determine association rules which highlight gerneral trends in the database: this has applications in domains such as market basket analysis.</li>
+</ul>
+<h2 id="Mathematical_Definition">Mathematical Definition</h2><p>$$X \to Y, X \subset L, Y \subset L, X \cap Y = \phi$$</p>
+<h2 id="Hwo">Hwo</h2><h2 id="Pseudocode">Pseudocode</h2><h2 id="Example">Example</h2><h2 id="References">References</h2><ul>
+<li><a href="http://www2.ic.tku.edu.tw/learning/modules/newbb/dl_attachment.php?attachid=1394545624&amp;post_id=3259" target="_blank" rel="external">第10章關聯法則.ppt</a></li>
+<li><a href="https://www.google.com/url?sa=t&amp;rct=j&amp;q=&amp;esrc=s&amp;source=web&amp;cd=1&amp;cad=rja&amp;uact=8&amp;ved=0CCIQFjAAahUKEwis4oOPiuLIAhWkI6YKHRJaCJ8&amp;url=http%3A%2F%2Frakesh.agrawal-family.com%2Fpapers%2Fvldb94apriori.pdf&amp;usg=AFQjCNGxktjMbnNoTWjWcQl1jpQN0l1cGw&amp;sig2=Lth0b5PPEaPtj9bDaTd45g" target="_blank" rel="external">Fast Algorithms for Mining Association Rules 1994</a></li>
+<li><a href="https://en.wikipedia.org/wiki/Apriori_algorithm" target="_blank" rel="external">Apriori algorithm Wiki</a></li>
+</ul>
+]]></content>
+    <summary type="html">
+    <![CDATA[<h2 id="Introduction">Introduction</h2><ul>
+<li>Apriori algorithm is one of the association rules. It was proposed by <a href="http://rakesh]]>
+    </summary>
+    
+  </entry>
+  
+  <entry>
     <title><![CDATA[Lecture 01 Introduction 2(Algorithm)]]></title>
     <link href="http://yoursite.com/2015/10/24/Algorithms-Must-02/"/>
     <id>http://yoursite.com/2015/10/24/Algorithms-Must-02/</id>
