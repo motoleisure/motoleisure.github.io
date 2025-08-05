@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tonghua - Support</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            color: #333;
+        }
+        h1, h2 {
+            color: #2c3e50;
+        }
+        .language-selector {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .language-selector a {
+            margin: 0 10px;
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+        }
+        .content {
+            margin-top: 20px;
+        }
+        .chinese {
+            display: none;
+        }
+        .contact-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+        }
+        .faq-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #ffffff;
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+        }
+        .faq-question {
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .faq-answer {
+            color: #555;
+        }
+    </style>
+    <script>
+        function showLanguage(lang) {
+            document.querySelector('.english').style.display = lang === 'en' ? 'block' : 'none';
+            document.querySelector('.chinese').style.display = lang === 'zh' ? 'block' : 'none';
+        }
+    </script>
+</head>
+<body>
+    <div class="language-selector">
+        <a href="#" onclick="showLanguage('en')">English</a>
+        <a href="#" onclick="showLanguage('zh')">中文</a>
+    </div>
+
+    <div class="content english">
+        <h1>Tonghua App Support</h1>
+        
+        <div class="contact-box">
+            <h2>📧 Contact Us</h2>
+            <p><strong>Email:</strong> support@tonghua-app.com</p>
+            <p><strong>Response Time:</strong> Within 24-48 hours</p>
+            <p><strong>Support Languages:</strong> English, 中文</p>
+        </div>
+
+        <h2>🔧 Frequently Asked Questions</h2>
+        
+        <div class="faq-item">
+            <div class="faq-question">How do I set up API keys?</div>
+            <div class="faq-answer">Go to Settings → API Settings, then enter your DeepSeek and MiniMax API keys. You can obtain these keys from their respective websites.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Why can't I generate stories?</div>
+            <div class="faq-answer">Please check: 1) API keys are correctly configured 2) You have internet connection 3) Your API keys have sufficient credits</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">How does voice cloning work?</div>
+            <div class="faq-answer">Record a 15-second voice sample, then the app will create a voice model. This requires a MiniMax API key and may take a few minutes to process.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">How do I restore my purchase?</div>
+            <div class="faq-answer">Go to Settings and tap "Restore Purchase". This will restore your premium features if you've previously purchased them.</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">Is my data safe?</div>
+            <div class="faq-answer">Yes! All your stories and voice recordings are stored locally on your device. We don't collect or store personal information on our servers.</div>
+        </div>
+
+        <h2>🐛 Report a Bug</h2>
+        <p>When reporting bugs, please include:</p>
+        <ul>
+            <li>Your device model and iOS version</li>
+            <li>App version</li>
+            <li>Steps to reproduce the issue</li>
+            <li>Screenshots if applicable</li>
+        </ul>
+
+        <h2>💡 Feature Requests</h2>
+        <p>We love hearing your ideas! Send us your feature suggestions at support@tonghua-app.com</p>
+
+        <h2>📱 System Requirements</h2>
+        <ul>
+            <li>iOS 18.5 or later</li>
+            <li>Internet connection for story generation</li>
+            <li>Microphone access for voice recording</li>
+        </ul>
+    </div>
+
+    <div class="content chinese">
+        <h1>童话应用技术支持</h1>
+        
+        <div class="contact-box">
+            <h2>📧 联系我们</h2>
+            <p><strong>邮箱：</strong> support@tonghua-app.com</p>
+            <p><strong>回复时间：</strong> 24-48小时内</p>
+            <p><strong>支持语言：</strong> 中文、English</p>
+        </div>
+
+        <h2>🔧 常见问题</h2>
+        
+        <div class="faq-item">
+            <div class="faq-question">如何设置API密钥？</div>
+            <div class="faq-answer">进入设置 → API设置，然后输入您的DeepSeek和MiniMax API密钥。您可以从它们各自的官网获取这些密钥。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">为什么无法生成故事？</div>
+            <div class="faq-answer">请检查：1）API密钥配置正确 2）网络连接正常 3）API密钥有足够的额度</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">语音克隆如何工作？</div>
+            <div class="faq-answer">录制15秒语音样本，应用会创建声音模型。这需要MiniMax API密钥，处理可能需要几分钟时间。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">如何恢复购买？</div>
+            <div class="faq-answer">进入设置，点击"恢复购买"。如果您之前购买过高级功能，这将恢复您的高级功能。</div>
+        </div>
+
+        <div class="faq-item">
+            <div class="faq-question">我的数据安全吗？</div>
+            <div class="faq-answer">是的！所有故事和语音录音都存储在您设备本地。我们不会在服务器上收集或存储个人信息。</div>
+        </div>
+
+        <h2>🐛 报告问题</h2>
+        <p>报告问题时，请包含：</p>
+        <ul>
+            <li>设备型号和iOS版本</li>
+            <li>应用版本</li>
+            <li>重现问题的步骤</li>
+            <li>相关截图（如适用）</li>
+        </ul>
+
+        <h2>💡 功能建议</h2>
+        <p>我们喜欢听到您的想法！请将功能建议发送到 support@tonghua-app.com</p>
+
+        <h2>📱 系统要求</h2>
+        <ul>
+            <li>iOS 18.5或更高版本</li>
+            <li>生成故事需要网络连接</li>
+            <li>语音录制需要麦克风权限</li>
+        </ul>
+    </div>
+
+    <script>
+        // 默认显示英文
+        showLanguage('en');
+    </script>
+</body>
+</html>
