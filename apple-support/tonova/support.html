@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tonova Support</title>
+    <title>Tonova Support | 铃番动支持</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -89,70 +89,190 @@
             padding-top: 20px;
             border-top: 1px solid #eee;
         }
+        .lang-switch {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .lang-btn {
+            background: white;
+            border: 2px solid #9370DB;
+            color: #9370DB;
+            padding: 8px 16px;
+            margin: 0 5px;
+            border-radius: 20px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .lang-btn.active {
+            background: #9370DB;
+            color: white;
+        }
+        .lang-btn:hover {
+            background: #8A2BE2;
+            color: white;
+        }
+        .lang-content {
+            display: none;
+        }
+        .lang-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>📱 Tonova Support</h1>
+        <h1>📱 Tonova Support | 铃番动支持</h1>
         
-        <div class="app-info">
-            <h2>About Tonova (铃番动)</h2>
-            <p>A versatile productivity app combining three powerful tools:</p>
-            <div class="feature">⏰ <strong>Pomodoro Timer</strong>: Focus sessions with customizable intervals</div>
-            <div class="feature">📻 <strong>Internet Radio</strong>: Stream global radio stations</div>
-            <div class="feature">💪 <strong>Tabata Training</strong>: High-intensity interval workouts</div>
+        <div class="lang-switch">
+            <button class="lang-btn active" onclick="switchLanguage('en')">English</button>
+            <button class="lang-btn" onclick="switchLanguage('zh')">中文</button>
         </div>
 
-        <h2>🆓 Free Trial + Premium</h2>
-        <p><strong>Free Download</strong> with <strong>3-day full trial</strong> <span class="badge">All Features</span></p>
-        <p><strong>Premium Unlock</strong>: $1.99 one-time purchase (No subscriptions!)</p>
+        <!-- English Content -->
+        <div id="en-content" class="lang-content active">
+            <div class="app-info">
+                <h2>About Tonova</h2>
+                <p>A versatile productivity app combining three powerful tools:</p>
+                <div class="feature">⏰ <strong>Pomodoro Timer</strong>: Focus sessions with customizable intervals</div>
+                <div class="feature">📻 <strong>Internet Radio</strong>: Stream global radio stations</div>
+                <div class="feature">💪 <strong>Tabata Training</strong>: High-intensity interval workouts</div>
+            </div>
 
-        <h2>❓ Frequently Asked Questions</h2>
-        
-        <div class="faq-item">
-            <div class="faq-question">Q: How long is the free trial?</div>
-            <div class="faq-answer">A: You get 3 full days to try all features for free.</div>
+            <h2>🆓 Free Trial + Premium</h2>
+            <p><strong>Free Download</strong> with <strong>3-day full trial</strong> <span class="badge">All Features</span></p>
+            <p><strong>Premium Unlock</strong>: $1.99 one-time purchase (No subscriptions!)</p>
+
+            <h2>❓ Frequently Asked Questions</h2>
+            
+            <div class="faq-item">
+                <div class="faq-question">Q: How long is the free trial?</div>
+                <div class="faq-answer">A: You get 3 full days to try all features for free.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: How do I restore my purchase on a new device?</div>
+                <div class="faq-answer">A: Open the app → Tap crown icon → "Restore Purchases" button.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: How do I change the app language?</div>
+                <div class="faq-answer">A: Tap the language button in the top-right corner to switch between Chinese and English.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: The timer stops when I switch apps.</div>
+                <div class="faq-answer">A: Make sure Background App Refresh is enabled for Tonova in Settings.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">Q: Radio stations won't play.</div>
+                <div class="faq-answer">A: Check your internet connection and try switching to a different station.</div>
+            </div>
+
+            <h2>📞 Contact Support</h2>
+            <div class="contact-box">
+                <p><strong>Need additional help?</strong></p>
+                <p>Email us with your device model, iOS version, and detailed description of the issue.</p>
+                <a href="mailto:motoleisure@gmail.com?subject=Tonova%20Support%20Request" class="email-link">
+                    📧 motoleisure@gmail.com
+                </a>
+            </div>
+
+            <h2>📋 System Requirements</h2>
+            <ul>
+                <li>iOS 17.0 or later</li>
+                <li>Internet connection required for radio streaming</li>
+                <li>Compatible with iPhone and iPad</li>
+            </ul>
         </div>
 
-        <div class="faq-item">
-            <div class="faq-question">Q: How do I restore my purchase on a new device?</div>
-            <div class="faq-answer">A: Open the app → Tap crown icon → "Restore Purchases" button.</div>
-        </div>
+        <!-- Chinese Content -->
+        <div id="zh-content" class="lang-content">
+            <div class="app-info">
+                <h2>关于铃番动</h2>
+                <p>集三大功能于一体的多功能生产力应用：</p>
+                <div class="feature">⏰ <strong>番茄钟</strong>：可自定义的专注时间和休息间隔</div>
+                <div class="feature">📻 <strong>网络收音机</strong>：收听全球广播电台</div>
+                <div class="feature">💪 <strong>Tabata训练</strong>：高强度间歇训练计时器</div>
+            </div>
 
-        <div class="faq-item">
-            <div class="faq-question">Q: How do I change the app language?</div>
-            <div class="faq-answer">A: Tap the language button in the top-right corner to switch between Chinese and English.</div>
-        </div>
+            <h2>🆓 免费试用 + 高级版</h2>
+            <p><strong>免费下载</strong>，享受<strong>3天完整试用</strong> <span class="badge">全部功能</span></p>
+            <p><strong>高级版解锁</strong>：$1.99 一次性购买（无订阅费用！）</p>
 
-        <div class="faq-item">
-            <div class="faq-question">Q: The timer stops when I switch apps.</div>
-            <div class="faq-answer">A: Make sure Background App Refresh is enabled for Tonova in Settings.</div>
-        </div>
+            <h2>❓ 常见问题</h2>
+            
+            <div class="faq-item">
+                <div class="faq-question">问：免费试用期有多长？</div>
+                <div class="faq-answer">答：您可以免费试用所有功能3天。</div>
+            </div>
 
-        <div class="faq-item">
-            <div class="faq-question">Q: Radio stations won't play.</div>
-            <div class="faq-answer">A: Check your internet connection and try switching to a different station.</div>
-        </div>
+            <div class="faq-item">
+                <div class="faq-question">问：如何在新设备上恢复购买？</div>
+                <div class="faq-answer">答：打开应用 → 点击皇冠图标 → 点击"恢复购买"按钮。</div>
+            </div>
 
-        <h2>📞 Contact Support</h2>
-        <div class="contact-box">
-            <p><strong>Need additional help?</strong></p>
-            <p>Email us with your device model, iOS version, and detailed description of the issue.</p>
-            <a href="mailto:motoleisure@gmail.com?subject=Tonova%20Support%20Request" class="email-link">
-                📧 motoleisure@gmail.com
-            </a>
-        </div>
+            <div class="faq-item">
+                <div class="faq-question">问：如何切换应用语言？</div>
+                <div class="faq-answer">答：点击右上角的语言按钮即可在中英文之间切换。</div>
+            </div>
 
-        <h2>📋 System Requirements</h2>
-        <ul>
-            <li>iOS 17.0 or later</li>
-            <li>Internet connection required for radio streaming</li>
-            <li>Compatible with iPhone and iPad</li>
-        </ul>
+            <div class="faq-item">
+                <div class="faq-question">问：切换应用时计时器停止了。</div>
+                <div class="faq-answer">答：请在设置中为铃番动启用"后台App刷新"功能。</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question">问：收音机电台无法播放。</div>
+                <div class="faq-answer">答：请检查网络连接，或尝试切换到其他电台。</div>
+            </div>
+
+            <h2>📞 联系支持</h2>
+            <div class="contact-box">
+                <p><strong>需要更多帮助？</strong></p>
+                <p>请发邮件告知您的设备型号、iOS版本和问题的详细描述。</p>
+                <a href="mailto:motoleisure@gmail.com?subject=铃番动技术支持" class="email-link">
+                    📧 motoleisure@gmail.com
+                </a>
+            </div>
+
+            <h2>📋 系统要求</h2>
+            <ul>
+                <li>iOS 17.0 或更高版本</li>
+                <li>收音机功能需要网络连接</li>
+                <li>兼容iPhone和iPad</li>
+            </ul>
+        </div>
 
         <div class="version-info">
             <strong>Version 1.0.2</strong> • Last Updated: August 2025 • Developer: Tim Chen
         </div>
     </div>
+
+    <script>
+        function switchLanguage(lang) {
+            // Hide all content
+            document.querySelectorAll('.lang-content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.lang-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected content
+            document.getElementById(lang + '-content').classList.add('active');
+            
+            // Add active class to selected button
+            event.target.classList.add('active');
+            
+            // Update page language attribute
+            document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+        }
+    </script>
 </body>
 </html>
