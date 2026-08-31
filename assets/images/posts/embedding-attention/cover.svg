@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="「忘记密码」和「登录信息忘了」，大模型为什么知道是一回事？">
+  <rect width="1200" height="630" fill="#eef6fd"/>
+  <g stroke="#b2d5ff" stroke-width="2" opacity="0.55">
+    <path d="M120 90 v24 M108 102 h24"/><path d="M1080 130 v24 M1068 142 h24"/>
+    <path d="M170 520 v24 M158 532 h24"/><path d="M1020 500 v24 M1008 512 h24"/>
+  </g>
+  <g fill="#b2d5ff" opacity="0.8">
+    <circle cx="90" cy="300" r="5"/><circle cx="1110" cy="330" r="5"/>
+  </g>
+  <rect x="150" y="90" width="900" height="450" rx="18" fill="none" stroke="#be185d" stroke-width="2.5" stroke-dasharray="10 12" opacity="0.45"/>
+  <rect x="440" y="150" width="320" height="52" rx="26" fill="#00172e"/>
+  <text x="600" y="185" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="600" fill="#ffffff" letter-spacing="4">深度长文</text>
+  <text x="600" y="400" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="64" font-weight="600" fill="#00172e" letter-spacing="-2">「忘记密码」和「登录信息忘了」，大…</text>
+  <rect x="560" y="440" width="80" height="10" rx="5" fill="#be185d"/>
+</svg>

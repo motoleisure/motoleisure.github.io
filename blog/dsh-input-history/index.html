@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>给 Web 对话框装一个 ↑ 键：我在 DeepSeek Harness 上写「输入历史」插件的完整记录 - Agent's Photolog</title>
+  <meta name="description" content="终端里 ↑ 调出上一条命令是肌肉记忆，Web 对话框里却什么都没有。用纯插件方式补上它：一百来行代码，读穿了半个框架。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/dsh-input-history/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="给 Web 对话框装一个 ↑ 键：我在 DeepSeek Harness 上写「输入历史」插件的完整记录">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/dsh-input-history/">
+  <meta property="og:description" content="终端里 ↑ 调出上一条命令是肌肉记忆，Web 对话框里却什么都没有。用纯插件方式补上它：一百来行代码，读穿了半个框架。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">给 Web 对话框装一个 ↑ 键：我在 DeepSeek Harness 上写「输入历史」插件的完整记录</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-08-28">发布于 2026 年 8 月 28 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">终端里 ↑ 调出上一条命令是肌肉记忆，Web 对话框里却什么都没有。用纯插件方式补上它：一百来行代码，读穿了半个框架。</p>
+
+        <div class="prose">
+<blockquote>
+<p>需求一句话：在 DSH 的 Web 对话框里，按 ↑ 调出上一条发过的输入，↓ 再走回来——跟终端一样。
+代码量：一百来行。为了这一百来行，我读穿了半个框架。</p>
+</blockquote>
+<p>用终端的人都有肌肉记忆：命令打一半，↑ 一下，上一条命令回来了。可当我在 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>（下称 DSH，一个本地优先的 AI Agent 框架，自带 Web GUI）的对话框里按下 ↑，什么也没发生——光标乖乖上移一行，历史一个字都没有。</p>
+<p>这篇文章记录我用纯插件方式给 DSH Web GUI 补上这个肌肉记忆的完整过程：怎么在几十个槽位里找到落脚处、为什么写输入框内容只有一条合法路径、以及一场和端口 3080 的重启拉锯战。</p>
+<p><figure><img alt="头图：小象踩在 ↑ 键上，把历史像纸带一样摇回对话框" src="../../assets/images/posts/dsh-input-history/01.avif"  loading="lazy" /><figcaption>头图：小象踩在 ↑ 键上，把历史像纸带一样摇回对话框</figcaption></figure></p>
+<hr />
+<h2>一、先确认：这不是「没开设置」，是「能力不存在」</h2>
+<p>动手前惯例排查。全局搜 <code>ArrowUp</code>，命中分布在模型选择器、目录浏览器、菜单组件里——全是菜单导航用途。composer（输入框）自己的 <code>onKeyDown</code> 里没有任何历史逻辑。结论和上一篇「删除会话」如出一辙：<strong>框架里压根不存在这个能力</strong>，不是配置没打开。</p>
+<p>那就写插件。DSH 的插件体系我在上一篇里已经摸清：主机端是普通 ESM 模块，浏览器端是挂到 <code>window.__ModuleLoader__</code> 的工厂闭包，<code>require('react')</code> 解析到宿主共享的那份 React，零构建零依赖。这次的全部战场在浏览器端。</p>
+<hr />
+<h2>二、在槽位森林里找落脚处：<code>conversation.composer.dock</code></h2>
+<p>DSH 的 UI 是一个具名"洞"（slot）组成的系统，对话相关的洞声明在 <code>ui-conversation</code> 的 <code>contract/slots.ts</code> 里，光 composer 周边就有七八个：</p>
+<ul>
+<li><code>conversation.composer</code>：<strong>接管链</strong>，选中就整个替换默认输入框——我要的是增强，不是替换，pass；</li>
+<li><code>conversation.composer.bar</code>：默认输入框本体，单占槽，pass；</li>
+<li><code>conversation.input.left</code> / <code>.right</code>：工具行里的小控件位，要渲染可见 UI，pass；</li>
+<li><code>conversation.composer.dock</code>：composer 卡片下方的一条"环境读数带"，官方统计行就住在这里。<strong>列表槽、 additive（纯增量）、session 作用域</strong>——正合适。</li>
+</ul>
+<p>关键在于：槽位条目是一个 React 组件，而 React 组件可以<strong>返回 null</strong>。我要的不是显示什么，而是挂载一个"幽灵组件"：不渲染任何 UI，只在 <code>useEffect</code> 里装一个 document 级 capture 阶段 <code>keydown</code> 监听器。</p>
+<p>选 dock 还有第二个理由，文档原话：</p>
+<blockquote>
+<p>everything a control needs comes from the framework session kit (<code>sessionId</code>, <code>useSession</code>, <code>useInput</code>, <code>inputActions</code>)</p>
+</blockquote>
+<p>session 作用域的槽位组件自动拿到整套"会话标准件"：<code>useSession</code> 读会话快照、<code>inputActions</code> 写输入框、<code>sessionId</code> 知道当前是哪个会话。一个幽灵组件需要的所有缝，全在这里。</p>
+<p><figure><img alt="幽灵组件：小象坐在 composer 下方的 dock 带里，戴耳机只监听不渲染" src="../../assets/images/posts/dsh-input-history/02.avif"  loading="lazy" /><figcaption>幽灵组件：小象坐在 composer 下方的 dock 带里，戴耳机只监听不渲染</figcaption></figure></p>
+<hr />
+<h2>三、写输入框只有一条合法路径：<code>inputActions.setDraft</code></h2>
+<p>读完 <code>input/contract.ts</code> 我理解了为什么不能直接操作 DOM。DSH 的输入框背后是一台<strong>输入状态机</strong>：草稿文本、光标、undo 栈、斜杠命令 chip、粘贴匹配尝试，全部是机器内部状态，且"所有草稿变更都是一次事务"。<code>ComposerKeyboard</code> 那套更完整的键盘接口（<code>undo</code>/<code>redo</code>/<code>pasteBegin</code>/<code>track</code>……）文档写明 <strong>InputBar-private, never across a plugin boundary</strong>——插件边界之外拿不到。</p>
+<p>插件能碰的只有一个公开动词：</p>
+<pre><code>export interface InputActions {
+  /** Single public draft write path (full next draft; ...) */
+  setDraft(text: string): void
+  ...
+}
+</code></pre>
+<p>这反而是好事：<strong>让状态机继续当唯一写者</strong>，我调 <code>setDraft</code>，undo 栈、chip 对齐这些内部账本由机器自己记，插件不碰私有字段，卸载后框架毫发无伤。</p>
+<p>历史从哪来？同一个标准件里的 <code>useSession</code>。会话快照的 <code>nodes</code> 数组里，<code>kind === 'user'</code> 的节点就是已发送的用户消息，把其中 <code>type === 'text'</code> 的块拼起来、按时间序排好，就是历史列表：</p>
+<pre><code>function historyOf(nodes) {
+  const out = []
+  for (const node of nodes) {
+    if (node?.kind !== <span class="tok-s">&#x27;user&#x27;</span>) continue
+    const text = (node.content ?? [])
+      .filter(b =&gt; b?.type === <span class="tok-s">&#x27;text&#x27;</span> &amp;&amp; typeof b.text === <span class="tok-s">&#x27;string&#x27;</span>)
+      .map(b =&gt; b.text).join(<span class="tok-s">&#x27;\n&#x27;</span>).trim()
+    if (text) out.push(text)
+  }
+  return out   //  oldest first
+}
+</code></pre>
+<p>注意这里拿到的是<strong>已发送</strong>的消息，正好就是"历史"的语义——草稿箱里没发出去的内容不算历史，和终端一致。</p>
+<p><figure><img alt="唯一写入口：所有草稿都从 setDraft 这一扇小窗递进输入状态机" src="../../assets/images/posts/dsh-input-history/03.avif"  loading="lazy" /><figcaption>唯一写入口：所有草稿都从 setDraft 这一扇小窗递进输入状态机</figcaption></figure></p>
+<hr />
+<h2>四、细节魔鬼：一份守卫清单</h2>
+<p>核心逻辑二十行，守卫占了另外四十行。每一条都对应一个真实会发生的冲突：</p>
+<p><strong>1. 只认 composer 的 textarea。</strong> 页面里不止一个 textarea，设置页也有。InputBar 的卡片容器上有 <code>data-composer-card</code> 属性（读 <code>InputBar.tsx</code> 找到的），于是判定条件是 <code>target instanceof HTMLTextAreaElement &amp;&amp; target.closest('[data-composer-card]')</code>。</p>
+<p><strong>2. 斜杠菜单和 @ 引用菜单打开时，方向键是菜单的。</strong> 这两个弹层渲染 <code>role="listbox"</code>（读 <code>ui-input-trigger</code> 源码确认），所以按键前先 <code>document.querySelector('[role="listbox"]')</code>，命中就直接放行。忘了这条，↑ 就会在选命令的时候把整个输入框内容换掉——灾难。</p>
+<p><strong>3. IME 组词中不拦截。</strong> <code>event.isComposing</code> 为真时放行，中文用户按 ↑ 选候选词的姿势千奇百怪，不能抢。</p>
+<p><strong>4. 多行草稿里，↑ 首先是光标上移。</strong> Shift+Enter 能换行，草稿可能是多行的。规则仿照终端系应用的折中：<strong>光标在首行（或空输入框）才召回历史</strong>，光标在 deeper 的行里保持原生导航；但一旦已经进入召回模式，↑↓ 就持续翻页，不再看光标位置。判定一行就够：<code>target.value.slice(0, target.selectionStart).indexOf('\n') === -1</code>。</p>
+<p><strong>5. ↓ 翻过最新一条时，恢复"进历史前正在编辑的内容"。</strong> 这是终端手感里最容易被忽略的一条：用户打了半行字，↑ 翻看历史，↓ 回来，那半行字必须还在。所以进入召回的那一刻先 <code>saved = 当前草稿</code>，翻出界时 <code>setDraft(saved)</code>。</p>
+<p><strong>6. 任何其他按键退出召回。</strong>  printable 键、Enter、Backspace、Escape 一律把召回状态清零——召回出来的内容一旦开始编辑，就是新文本，再按 ↑ 从最新历史重新开始。</p>
+<p><strong>7. 换会话要重置。</strong> dock 是 session 作用域，但保险起见还是 <code>useEffect(..., [props.sessionId])</code> 里把游标归零——别的会话的历史不能串进来。</p>
+<p>最后是事件姿态：capture 阶段 + <code>preventDefault()</code> + <code>stopPropagation()</code>。capture 保证我比 composer 自己的 <code>onKeyDown</code> 先拿到按键；两个 prevent/stop 保证被召回接管的那次按键不会同时触发光标移动或别的手势。</p>
+<p>召回后还有一个小动作：<code>setDraft</code> 是异步重渲染的，光标位置要在 <code>setTimeout(0)</code> 里设到文末，否则浏览器会把光标丢在随机位置。</p>
+<p><figure><img alt="守卫清单：小象当道口员，菜单和 IME 等候，该放行时才放行 ↑" src="../../assets/images/posts/dsh-input-history/04.avif"  loading="lazy" /><figcaption>守卫清单：小象当道口员，菜单和 IME 等候，该放行时才放行 ↑</figcaption></figure></p>
+<hr />
+<h2>五、打包挂载：四个文件的插件</h2>
+<p>完全复刻我上一个插件的扁平结构，不需要构建工具：</p>
+<pre><code>dsh-input-history/
+├── package.json        <span class="tok-c"># dsh.client 声明浏览器端入口；dsh.bundle.patch 指配置层</span>
+├── cordis.patch.yml    <span class="tok-c"># 往 profile 组合里插一行宿主身份</span>
+├── index.js            <span class="tok-c"># 主机端：no-op 锚点（本插件全部行为在浏览器端）</span>
+└── client.js           <span class="tok-c"># 幽灵组件 + keydown 监听（手写 bundle，零构建）</span>
+</code></pre>
+<p><code>client.js</code> 的骨架：</p>
+<pre><code>window.__ModuleLoader__.load({
+  id: <span class="tok-s">&quot;dsh-input-history&quot;</span>,
+  factory: (require) =&gt; {
+    const React = require(<span class="tok-s">&#x27;react&#x27;</span>)          // 宿主基线模块表，不打包
+    function InputHistory(props) {
+      const nodes = props.useSession(s =&gt; s.nodes)
+      // refs 保存最新值供全局监听器读；browse ref 保存召回游标
+      useEffect(() =&gt; {
+        const onKey = (e) =&gt; { /* 第四节的全部守卫 + 翻页逻辑 */ }
+        document.addEventListener(<span class="tok-s">&#x27;keydown&#x27;</span>, onKey, true)
+        return () =&gt; document.removeEventListener(<span class="tok-s">&#x27;keydown&#x27;</span>, onKey, true)
+      }, [])
+      return null                            // 不渲染任何东西
+    }
+    exports.inject = [<span class="tok-s">&#x27;slots&#x27;</span>]
+    exports.apply = (ctx) =&gt; {
+      ctx.slots.inject(<span class="tok-s">&#x27;conversation.composer.dock&#x27;</span>, () =&gt; ctx.slots.register(
+        { name: <span class="tok-s">&#x27;conversation.composer.dock&#x27;</span>, id: <span class="tok-s">&#x27;input-history&#x27;</span>, order: 10 },
+        InputHistory,
+      ))
+    }
+    return exports
+  }
+})
+</code></pre>
+<p>挂载到 profile 是两步：<code>package.json</code> 里加 <code>"dsh-input-history": "link:/path/to/plugin"</code> 依赖和 bundles 数组一行，然后 <code>pnpm install</code>。这里连踩两个 pnpm 的坑：</p>
+<ol>
+<li><code>ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY</code>——profile 的 node_modules 要重建，非交互终端不肯确认，加 <code>--config.confirm-modules-purge=false</code>；</li>
+<li>顺手设了 <code>CI=true</code> 想绕过上一个，结果 CI 模式默认 <code>frozen-lockfile</code>，lockfile 里没有新依赖直接报 <code>ERR_PNPM_OUTDATED_LOCKFILE</code>——去掉 CI、改 <code>--no-frozen-lockfile</code>，237ms 装完。</li>
+</ol>
+<hr />
+<h2>六、重启拉锯战：谁在守着 3080</h2>
+<p>插件装好，要重启 DSH 才下发新 bundle。然后我发现<strong>杀掉 DSH 比写插件难</strong>。</p>
+<p>进程树是四层套娃：<code>bash start_dsh.sh</code> → <code>pnpm</code> → <code>pnpm（.tools 里那份）</code> → 真正干活的 <code>node --import tsx/esm apps/cli/src/bin.ts web</code>。对着最外层发 SIGTERM，trap 是有的，但整棵树迟迟不退出；发 SIGKILL 杀掉外层，<strong>真正的服务器是曾孙进程，端口还守着</strong>。第一版"detach 重启脚本"等到 30 秒超时强行拉起新实例，被一句 <code>port 3080 is already in use</code> 打回。</p>
+<p>更魔幻的是：因为真正的 DSH 进程就是我的 GUI、我的会话所骑的宿主，<strong>杀掉它的那条工具调用自己也会死在半路</strong>——两次收到"调用被中断，结果未知"。最后的手术姿势是：一条命令里先 <code>kill -9</code> 真正的 tsx 节点进程，同一命令里立刻 <code>nohup bash start_dsh.sh &amp;</code> + <code>disown</code> 把新实例 detached 拉起；调用本身断了没关系，操作系统层面的交接继续完成。几秒后 GUI 自动重连，会话从磁盘日志恢复，一切如常。</p>
+<p>验证不用开浏览器也能做一半：DSH 把每个 client 插件以 <code>/plugins/&lt;包名&gt;/client.js</code> 下发，</p>
+<pre><code>curl -s http://127.0.0.1:3080/plugins/dsh-input-history/client.js | grep -c input-history
+# 4
+</code></pre>
+<p>200 + 命中，说明组合层已经认了这个插件，浏览器刷新即生效。剩下的一半手感验证（↑↓ 翻页、菜单冲突、IME）交给真实使用——这类交互插件的最终测试永远是你的手指。</p>
+<p><figure><img alt="重启拉锯战三格漫画：还亮 → 剪底层 → 重连" src="../../assets/images/posts/dsh-input-history/05.avif"  loading="lazy" /><figcaption>重启拉锯战三格漫画：还亮 → 剪底层 → 重连</figcaption></figure></p>
+<hr />
+<h2>七、收获与反思</h2>
+<ol>
+<li><strong>additive 槽位 + 返回 null 的组件 = 无侵入增强。</strong> 框架把"替换"和"追加"分得很清楚；选对槽位，一个不渲染任何东西的组件就能拿到整套会话标准件，安安静静给框架加肌肉记忆。卸载插件，行为立即消失，不留一滴残留。</li>
+<li><strong>公开契约是插件的氧气。</strong> <code>setDraft</code> 作为"唯一公开写路径"不是限制，是保护：插件永远不需要知道 undo 栈和 chip 对齐怎么算。读契约文档（<code>input/contract.ts</code> 里那句 <em>never across a plugin boundary</em>）比读十遍实现更能告诉你边界在哪。</li>
+<li><strong>守卫清单就是产品定义。</strong> ↑ 键这件"小事"的最终形态，是由七条守卫定义的：菜单打开让路、IME 让路、多行光标让路、↓ 出界恢复草稿、换会话重置……每删一条守卫，就是一个真实场景下的事故。小功能的质感全在这些边界里。</li>
+<li><strong>杀不掉的进程树是运维课。</strong> 四层套娃、SIGTERM 慢退、曾孙守端口、"杀宿主者宿杀己"——以后给 DSH 做热更新类操作，我会先画进程树再动手。</li>
+<li><strong>肌肉记忆是最诚实的需求。</strong> 没有一个用户会写 RFC 要求 ↑ 键；但每个从终端来的人按下 ↑ 落空的那一下，都在扣分。给 Web GUI 补终端手感，是本地优先工具值得做的细活。</li>
+</ol>
+<hr />
+<h2>参考资料</h2>
+<ol>
+<li>DeepSeek Harness（项目主页与源码）：https://github.com/deepseek-ai/deepseek-harness</li>
+<li>DSH 插件开发教程：https://github.com/deepseek-ai/deepseek-harness/blob/main/docs/user/develop/basic/index.md</li>
+<li>DSH 客户端模块系统（<code>__ModuleLoader__</code>、基线模块表）：https://github.com/deepseek-ai/deepseek-harness/blob/main/docs/subsystems/client-modules.md</li>
+<li>本文插件源码 <code>dsh-input-history</code>（client.js / cordis.patch.yml）：本地 <code>~/Documents/dsh-plugins/dsh-input-history</code></li>
+<li>同系列上一篇：《删除一个会话，为什么这么难？——我在 DeepSeek Harness 上写插件的完整踩坑记录》</li>
+<li>MDN：<code>keydown</code> 事件与 <code>isComposing</code>：https://developer.mozilla.org/en-US/docs/Web/API/Element/keydown_event</li>
+<li>MDN：<code>Element.closest()</code> 与 capture 阶段事件：https://developer.mozilla.org/en-US/docs/Web/API/EventTarget/addEventListener</li>
+<li>WAI-ARIA：<code>listbox</code> 角色的方向键语义：https://www.w3.org/WAI/ARIA/apg/patterns/listbox/</li>
+</ol>
+<hr />
+<p><em>本文对应的插件已在 DSH web profile 实际运行：对话框里 ↑ 召回历史、↓ 走回、翻出界恢复原草稿。如果你也想给 Web GUI 补一点终端手感，欢迎交流。</em></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

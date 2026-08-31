@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我在用一个 AI 助手，它可以随时塞进新工具 - Agent's Photolog</title>
+  <meta name="description" content="工具太散，切换即打断。pi 是一个支持注册自定义工具的 AI agent：写一个 TypeScript 文件放进目录，AI 就知道它的存在——说一句话，什么都能做。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/pi-intro/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="我在用一个 AI 助手，它可以随时塞进新工具">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/pi-intro/">
+  <meta property="og:description" content="工具太散，切换即打断。pi 是一个支持注册自定义工具的 AI agent：写一个 TypeScript 文件放进目录，AI 就知道它的存在——说一句话，什么都能做。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">我在用一个 AI 助手，它可以随时塞进新工具</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-06-03">发布于 2026 年 6 月 3 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">工具太散，切换即打断。pi 是一个支持注册自定义工具的 AI agent：写一个 TypeScript 文件放进目录，AI 就知道它的存在——说一句话，什么都能做。</p>
+
+        <div class="prose">
+<p>我用 AI 的时间越来越长，但有一件事一直让我不舒服：</p>
+<p><strong>工具太散。</strong></p>
+<p>写稿在 Claude，出图要切到另一个地方，转录音频又是一个网站，配音又是另一个软件。每件事都要开一个窗口，登录，等待，下载，再切回来。</p>
+<p>每次切换都是一次打断。打断多了，一上午就没了。</p>
+<p>我想要的是：<strong>一个地方，说一句话，什么都能做。</strong></p>
+<hr />
+<h2>找到了 pi</h2>
+<p>pi 是 <code>@earendil-works</code> 做的一个 AI agent 工具，全称 <code>pi-coding-agent</code>。</p>
+<p>第一眼看，有点像 Claude Code 或者 Cursor——在终端或者桌面 app 里跟 AI 对话，可以写代码、读文件、执行命令。</p>
+<p>但有一个关键差异让我留下来了：</p>
+<p><strong>它支持注册自定义工具。</strong></p>
+<p>具体说：写一个 TypeScript 文件，放到 <code>~/.pi/agent/extensions/</code> 目录里，pi 启动时自动加载。从那一刻起，AI 就知道这个工具的存在——知道什么时候该调用它，怎么调用，结果怎么用。</p>
+<p>这意味着什么？</p>
+<p>意味着我可以把任何东西接进来。本地的模型、第三方的 API、自己写的脚本——只要能用命令行跑，就能包装成工具，让 AI 直接调用。</p>
+<hr />
+<h2>和其他 AI 助手的区别</h2>
+<p>市面上 AI 工具很多，我用过不少，说几个我觉得真正有差异的地方：</p>
+<p><strong>▎模型不绑死</strong></p>
+<p>Claude、GPT、Gemini、本地的 Qwen、Llama，配置文件里换一行就切换。不被任何一家厂商锁死，哪个模型适合做什么就用哪个。</p>
+<p><strong>▎工具完全开放</strong></p>
+<p>这是最核心的差异。Claude Code 有工具，但工具是官方定义好的。pi 的工具是你自己写的——可以调用任何东西，没有边界。</p>
+<p><strong>▎本地优先</strong></p>
+<p>没有强制云同步，没有数据上传。我的文件、我的 API key、我的声音数据，全在自己的机器上。</p>
+<p><strong>▎支持批处理</strong></p>
+<p><code>pi --print</code> 模式可以当命令行工具用，塞进 shell 脚本、定时任务——AI 能力变成可编排的流程。</p>
+<hr />
+<h2>工具长什么样</h2>
+<p>一个最简单的 extension 大概是这个结构：</p>
+<pre><code>// ~/.pi/agent/extensions/my_tool.ts
+export default function(pi: ExtensionAPI) {
+  pi.registerTool({
+    name: <span class="tok-s">&quot;my_tool&quot;</span>,
+    description: <span class="tok-s">&quot;告诉 AI 这个工具是做什么的，什么时候该用它&quot;</span>,
+    parameters: Type.Object({
+      input: Type.String({ description: <span class="tok-s">&quot;参数说明&quot;</span> }),
+    }),
+    async execute(_id, params, _signal, onUpdate) {
+      onUpdate?.({ content: [{ type: <span class="tok-s">&quot;text&quot;</span>, text: <span class="tok-s">&quot;处理中...&quot;</span> }] });
+      // 在这里调用任何东西：本地脚本、API、数据库……
+      return {
+        content: [{ type: <span class="tok-s">&quot;text&quot;</span>, text: <span class="tok-s">&quot;结果&quot;</span> }],
+      };
+    },
+  });
+}
+</code></pre>
+<p>文件放进去，重启 pi，工具就注册好了。</p>
+<p>AI 会读 <code>description</code> 来判断什么时候调用这个工具——不需要你主动说「用 my_tool 处理这个」，它自己判断。</p>
+<hr />
+<h2>我已经接了什么</h2>
+<p>最近几周陆续往 pi 里接了几个工具，每个都解决了一个具体的痛点：</p>
+<p><strong>本地语音转录</strong>：用 SenseVoice 模型，本地跑，不过云，10 秒转录 4 分钟的音频。敏感内容不用担心。</p>
+<p><strong>小红书配图生成</strong>：对话里说一句话，调 API 出图，直接存到本地文件夹，不用切软件。</p>
+<p><strong>声音克隆配音</strong>：把口播稿变成带打字机字幕的视频，用克隆的声音朗读，多规格输出，音频只合成一次。</p>
+<p>这三个工具，我后面会分别写一篇，记录实现过程和踩过的坑。</p>
+<p>这篇是整个系列的起点，先让大家知道 pi 是什么，值不值得花时间去了解。</p>
+<hr />
+<h2>我为什么觉得值得写</h2>
+<p>用 AI 工具的人越来越多，但大多数人还是在用「产品形态」的 AI——打开网页，输入，得到结果，关掉。</p>
+<p>这没有问题，但有天花板。</p>
+<p>当你把工具接进 AI 的上下文，它就不只是一个「问答机器」了——它变成了一个能真正执行事情的 agent。写完稿子，顺口说「帮我出配图」，图出来了。说「帮我把这 10 个视频转录成文档」，去喝杯水，回来全好了。</p>
+<p>这种体验，和「打开网页输入」是完全不同的。</p>
+<hr />
+<p>我会继续往里接工具，也会继续写。</p>
+<p>如果你也在用 pi，或者有想接的工具，评论区聊。</p>
+<hr />
+<blockquote>
+<p>pi 为 <code>@earendil-works/pi-coding-agent</code>，可在 npm 安装。</p>
+<p>本系列后续文章会陆续发出，记录每个工具的接入过程。</p>
+</blockquote>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>工具装多了，内存告急——我给 pi 加了个「管家」 - Agent's Photolog</title>
+  <meta name="description" content="本地模型一个比一个大，全开机内存直接打满。做一个后台服务调度工具：AI 按需拉起、用完即停，内存交给管家管。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/service-manager/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="工具装多了，内存告急——我给 pi 加了个「管家」">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/service-manager/">
+  <meta property="og:description" content="本地模型一个比一个大，全开机内存直接打满。做一个后台服务调度工具：AI 按需拉起、用完即停，内存交给管家管。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">工具装多了，内存告急——我给 pi 加了个「管家」</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-06-03">发布于 2026 年 6 月 3 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">本地模型一个比一个大，全开机内存直接打满。做一个后台服务调度工具：AI 按需拉起、用完即停，内存交给管家管。</p>
+
+        <div class="prose">
+<p>上一篇结尾我留了个钩子：</p>
+<p>工具越接越多，新问题来了。</p>
+<p>今天就把这个问题摊开讲。</p>
+<hr />
+<h2>内存是怎么被吃光的</h2>
+<p>我的 pi 现在挂了四个本地工具：</p>
+<ul>
+<li>语音转录（SenseVoice）</li>
+<li>配音 + 声音克隆（VoxCPM）</li>
+<li>视觉理解（Qwen3-VL）</li>
+<li>小红书配图生成</li>
+</ul>
+<p>每个工具背后都是一个本地模型。模型要运行，就得占着内存。</p>
+<p>具体多少？</p>
+<p>VoxCPM 跑在 7860 端口，光它自己就吃掉 4-5GB。Qwen3-VL 跑在 18017 端口，也要 2-3GB。两个一起跑，还没干活，先去了七八个 G。</p>
+<p>MacBook 总共 16GB 内存，加上 Chrome、VS Code、微信这些常驻应用，很快就超过了 70%。</p>
+<p>机器开始发烫，风扇开始转，键盘区域温热——用过 MacBook 的人都知道这个信号。</p>
+<p>以前我的处理方式是：手动关。</p>
+<p>用 Activity Monitor 找进程，kill 掉，然后祈祷手速够快别把其他进程带走了。</p>
+<p>但问题是，我经常忘了关。</p>
+<p>做完一期播客的配音，VoxCPM 还在后台跑着。我去睡了一觉，第二天醒来它还在那里。白白占着几个 G 的内存，什么都没干。</p>
+<p>你说它自动会关吗？不会。我什么时候再打开它？不知道。</p>
+<p>需要一个自动化的方案。</p>
+<hr />
+<h2>思路：两个层面的管理</h2>
+<p>这个问题可以从两个角度解决：</p>
+<p><strong>主动解决</strong>——我想关的时候，能简单关掉，不用开终端敲命令。</p>
+<p><strong>自动解决</strong>——系统内存吃紧了，它能自己判断，把不需要的关掉。</p>
+<p>两个层面不冲突，而且应该同时存在。一个负责「我主动要做的」，一个负责「我忘记做的」。</p>
+<hr />
+<h2>第一层：一个管理工具</h2>
+<p>我先做了 <code>manage_services</code> 这个工具。</p>
+<p>它做三件事：</p>
+<p><strong>查看状态</strong>——说一句「现在有什么在跑」，它列出所有服务，哪个在运行、哪个已停止、空闲了多久。</p>
+<p><strong>关掉指定服务</strong>——「把视觉模型关掉」，它就找到 Qwen3-VL 的进程，杀掉，释放内存。</p>
+<p><strong>批量关停闲置服务</strong>——一条指令，自动关掉所有超过 30 分钟没用的后台服务。</p>
+<p>代码逻辑很简单：读一个 <code>registry.json</code>，里面登记了每个服务的名称、端口号、停止命令、最后使用时间。操作的时候查端口，发信号，等进程结束。</p>
+<p>有了这个，我不用再开 Activity Monitor 了。直接在 pi 里说一句「关掉配音模型」就行。</p>
+<hr />
+<p>但这不是最关键的。最关键的在于——<strong>我会不会想不起来关</strong>？</p>
+<p>会。而且经常。</p>
+<p>所以第二层才是真正的解法。</p>
+<hr />
+<h2>第二层：自动的内存管家</h2>
+<p>pi 有一个机制叫 UserPromptSubmit 钩子——每次用户输入 prompt 之前，可以运行一个脚本。</p>
+<p>我在钩子里放了一个脚本 <code>memory-guard.mjs</code>，它每次做的事情：</p>
+<ol>
+<li>读取系统内存使用率（用 <code>vm_stat</code> + <code>pagesize</code> 算出来）</li>
+<li>如果低于 70%，什么都不做，退出</li>
+<li>如果超过 70%，遍历 registry，找出所有运行中且超过 30 分钟未使用的服务</li>
+<li>关掉它们，更新 registry</li>
+<li>在 prompt 上下文里插入一行提示：「内存占用 73%，已自动停止闲置服务：Qwen3-VL 视觉模型」</li>
+</ol>
+<p>整个流程不到一秒钟。</p>
+<p>我完全感觉不到它的存在——直到我需要内存的时候，发现它已经被释放了。</p>
+<p>你们有没有这种感觉？电脑卡了，打开 Activity Monitor，发现一堆不知道什么时候打开的进程在吃内存。</p>
+<p>这个脚本就是替我做这件事的——在我发现之前，它已经处理好了。</p>
+<hr />
+<h2>两个方案怎么配合的</h2>
+<p>现在的工作流是这样的：</p>
+<p>日常使用，自动管家的阈值是 70%。内存够用，它不出声。内存紧张了，它悄悄关掉超过半小时没用的服务，在上下文里报备一句。</p>
+<p>如果我正在进行密集任务（比如连续做多个配音），不想它自动关停服务——手动用 <code>manage_services status</code> 看状态，自己决定要不要停。</p>
+<p>还有一个细节：每个工具在完成任务时，会调用 <code>touchService()</code> 更新 <code>last_used</code> 时间戳。这样管家的判断依据是准确的——不会把一个正在使用的服务当成闲置的关掉。</p>
+<p>上一层兜底，下一层精细控制。</p>
+<hr />
+<h2>registry.json 长什么样</h2>
+<p>就是一个 JSON 文件，记录着每个服务的元数据：</p>
+<pre><code>voxcpm → 端口 7860，最后使用 30 分钟前
+qwen3vl → 端口 18017，最后使用 5 分钟前
+</code></pre>
+<p>每一行很简单，但足够让管家判断哪些能关、哪些不能关。</p>
+<p>如果有人问：「为什么不直接查进程名，还要单独维护一个 registry？」</p>
+<p>因为进程名不一定看得出来是哪个服务，而且不同模型的停止方式不一样。VoxCPM 用 kill 信号关，Qwen3-VL 用专门的 stop.sh 脚本关。一个统一登记的注册表，减少了很多猜测。</p>
+<hr />
+<h2>这套方案给我的启发</h2>
+<p>其实这件事本质是：</p>
+<p><strong>有多少个后台服务，就要有对应的生命周期管理。</strong></p>
+<p>以前只有一个 SenseVoice 在做转录，内存压力不大，不需要在意。</p>
+<p>但现在工具多了，转录、配音、视觉、生图——每个模型都是一个常驻进程。不加管理，它们就一直在那待着，不管你需要不需要。</p>
+<p>这其实和编程里「资源管理」的概念很像：打开的资源一定要记得关闭。只不过这次，被管理的资源变成了本地模型，而「自动关停」是我的垃圾回收机制。</p>
+<hr />
+<p>文章开头提到上一篇的坑，说工具越多问题越多。今天填上了。</p>
+<p>但也有新的问题：</p>
+<p>四个工具都跑在本机，每个都需要独立的模型文件和 Python 环境。单是依赖环境就占了十几 G 的磁盘空间。每次升级模型还要手动更新。</p>
+<p>不过——这是下一个话题了。</p>
+<p>下一期预告：统一管理模型依赖，不再各自为政。</p>
+<p>感兴趣的点个关注，我写好就发。</p>
+<hr />
+<blockquote>
+<p>本系列持续更新，记录把各种工具接进 AI 助手 pi 的完整过程。</p>
+</blockquote>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

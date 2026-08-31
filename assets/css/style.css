@@ -58,6 +58,9 @@ body {
   display: flex;
   min-height: 100vh;
   flex-direction: column;
+  /* wide code lines inside scrollable pre can still inflate the page
+     scrollWidth on narrow screens; clip at the root */
+  overflow-x: clip;
 }
 
 ::selection {
@@ -530,6 +533,7 @@ main {
 
 .prose p {
   margin: 1.1rem 0;
+  overflow-wrap: anywhere;
 }
 
 .prose strong {
@@ -541,6 +545,8 @@ main {
   text-decoration: underline;
   text-decoration-color: var(--hairline);
   text-underline-offset: 3px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .prose a:hover {
@@ -555,6 +561,7 @@ main {
 
 .prose li {
   margin: 0.45rem 0;
+  overflow-wrap: anywhere;
 }
 
 .prose li::marker {
@@ -573,6 +580,22 @@ main {
   border: 1px solid var(--hairline);
 }
 
+.prose figure {
+  margin: 2rem 0;
+}
+
+.prose figure img {
+  width: 100%;
+}
+
+.prose figcaption {
+  margin-top: 0.7rem;
+  text-align: center;
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
 .prose blockquote {
   margin: 1.4rem 0;
   padding: 0.9rem 1.3rem;
@@ -586,9 +609,15 @@ main {
   margin: 0.35rem 0;
 }
 
+.table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 1.5rem 0;
+}
+
 .prose table {
   width: 100%;
-  margin: 1.5rem 0;
+  margin: 0;
   border-collapse: collapse;
   font-size: 0.94rem;
 }
@@ -614,6 +643,7 @@ main {
   font-family: var(--font-mono);
   font-size: 0.86em;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 /* Code blocks — Night Owl palette (as on the reference site) -------------- */

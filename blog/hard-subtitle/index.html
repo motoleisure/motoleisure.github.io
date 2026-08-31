@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>视频里的字幕，我让 AI 自己读出来了 - Agent's Photolog</title>
+  <meta name="description" content="硬字幕烧在画面里，复制不出来。OCR 逐帧提取接进 pi：扔进去一个视频，字幕文本直接回到对话里。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/hard-subtitle/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="视频里的字幕，我让 AI 自己读出来了">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/hard-subtitle/">
+  <meta property="og:description" content="硬字幕烧在画面里，复制不出来。OCR 逐帧提取接进 pi：扔进去一个视频，字幕文本直接回到对话里。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">视频里的字幕，我让 AI 自己读出来了</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-06-04">发布于 2026 年 6 月 4 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">硬字幕烧在画面里，复制不出来。OCR 逐帧提取接进 pi：扔进去一个视频，字幕文本直接回到对话里。</p>
+
+        <div class="prose">
+<p>做播客内容，有一类素材让我特别头疼。</p>
+<p>不是没有字幕——是有，但读不出来。</p>
+<hr />
+<h2>硬字幕是什么问题</h2>
+<p>视频字幕有两种。</p>
+<p>一种是「软字幕」：字幕单独存在一个轨道里，可以开关，可以导出，ffmpeg 一行命令就能提取成 SRT 文件。</p>
+<p>另一种是「硬字幕」：字幕直接烧录进画面，和视频融为一体。你看到的字幕，是画面的一部分，不是独立的数据。</p>
+<p>我做内容研究的时候，大量素材来自短视频平台。这些视频的字幕，绝大多数是硬字幕——平台在处理视频的时候，已经把字幕压进去了。</p>
+<p>想提取字幕？只能靠眼睛看，手动打。</p>
+<p>一条 60 秒的视频，快的话打 5 分钟，慢的话 15 分钟。一期播客要研究十几条视频，加起来就是两三个小时的纯体力劳动。</p>
+<p>我做了一段时间，实在受不了了。</p>
+<hr />
+<h2>思路：用 OCR 逐帧识别</h2>
+<p>解决硬字幕的思路很清楚：</p>
+<p>视频本质上是一帧一帧的图片。字幕烧录在画面上，那就把每一帧图片拿出来，用 OCR 识别图片里的文字，再把相邻的相同文字合并成一条字幕，最后输出时间轴。</p>
+<p>这套流程走通了，就能自动把硬字幕变成 SRT 文件。</p>
+<p>问题是：用什么 OCR？</p>
+<p>我本地已经有一个模型——<strong>GLM-OCR</strong>，智谱开源的文档识别模型，0.9B 参数，很小，跑在本机端口 8080，用 Apple Silicon 的 MLX 框架推理。</p>
+<p>这个模型平时主要用来识别截图里的文字、扫描文档之类的事。</p>
+<p>字幕识别，理论上也能干。</p>
+<hr />
+<h2>怎么做的</h2>
+<p>工具做了三个阶段：</p>
+<p><strong>第一阶段：探测字幕位置</strong></p>
+<p>不同视频的字幕位置不一样，有的在底部，有的在中间。</p>
+<p>我用视频前5秒的画面做探测——把画面切成10个水平条带（每条15%高度，滑动扫描），每个条带单独送去 OCR，看哪个条带识别出的文字最多，那就是字幕所在的区域。</p>
+<p>加上一点边距，把字幕区域锁定。</p>
+<p><strong>第二阶段：逐帧识别</strong></p>
+<p>确定了字幕区域，就只裁这一块区域，不用处理整张图。</p>
+<p>每0.5秒抽一帧，裁切字幕区域，送 GLM-OCR 识别。</p>
+<p><strong>第三阶段：合并输出</strong></p>
+<p>相邻帧如果识别出的文字一样，说明这条字幕还在屏幕上——把它们合并成一条，记录开始和结束时间。</p>
+<p>最后写成标准的 SRT 格式。</p>
+<hr />
+<h2>测试下来什么效果</h2>
+<p>拿了一条 103 秒的英文访谈短视频测试。</p>
+<p>黄色粗体字幕，位置在画面中间偏上。</p>
+<p>探测阶段，5帧扫完，定位到字幕在垂直方向 40%-55% 的区域。</p>
+<p>识别阶段，206 帧，全部跑完，输出 100 条字幕。</p>
+<p>随便摘几条：</p>
+<pre><code>1
+00:00:00,000 --&gt; 00:00:01,000
+during sex
+
+2
+00:00:01,000 --&gt; 00:00:02,500
+the average man lasts
+
+3
+00:00:02,500 --&gt; 00:00:03,500
+2.5 minutes
+</code></pre>
+<p>准确率很高，基本没有错字，时间轴也对得上。</p>
+<p>整个过程大概花了4分钟——以前手打这条视频要15分钟。</p>
+<hr />
+<h2>一个小细节</h2>
+<p>GLM-OCR 有时候遇到空白帧会返回奇怪的东西——<code>no text</code>、或者一个空的 markdown 代码块。</p>
+<p>需要过滤掉这些无效输出，不然 SRT 文件里会混进一堆乱码。</p>
+<p>我加了一个清洗函数，把这类模型幻觉直接过滤，保证输出干净。</p>
+<p>这种小问题不处理的话，工具就不稳定。稳定比「功能多」重要。</p>
+<hr />
+<h2>现在的工具合集</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>工具</th>
+<th>做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>transcribe_audio</code></td>
+<td>本地语音转录（SenseVoice）</td>
+</tr>
+<tr>
+<td><code>generate_xiaohongshu_card</code></td>
+<td>小红书配图生成</td>
+</tr>
+<tr>
+<td><code>dub_narration</code></td>
+<td>声音克隆配音 + 字幕视频</td>
+</tr>
+<tr>
+<td><code>vision_analyze</code></td>
+<td>本地视觉理解（Qwen3-VL）</td>
+</tr>
+<tr>
+<td><code>manage_services</code></td>
+<td>后台服务调度，释放内存</td>
+</tr>
+<tr>
+<td><code>extract_subtitles</code></td>
+<td>硬字幕提取（GLM-OCR）</td>
+</tr>
+</tbody>
+</table></div>
+<p>六个工具，全部本地运行。</p>
+<hr />
+<p>做内容的人，很多时间花在这种「搬运」工作上——把视频里的字幕打出来，把音频转成文字，把图片描述给 AI 听。</p>
+<p>这些都是体力活，不是脑力活。</p>
+<p>AI 应该把这些事接走，让人去做真正需要判断的部分。</p>
+<p>这是我一直在做的事。</p>
+<hr />
+<blockquote>
+<p>本系列持续更新，记录把各种工具接进 AI 助手 pi 的完整过程。</p>
+</blockquote>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

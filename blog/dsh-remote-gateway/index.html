@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DSH 远程控制实战：无需 VPS，用 Cloudflare Tunnel 把电脑工作台装进手机 - Agent's Photolog</title>
+  <meta name="description" content="电脑上的 DSH 工作台只听本机，出门在外够不着。用 Cloudflare Named Tunnel 配认证网关：需要时手机扫码访问，不用时一键关闭。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/dsh-remote-gateway/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="DSH 远程控制实战：无需 VPS，用 Cloudflare Tunnel 把电脑工作台装进手机">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/dsh-remote-gateway/">
+  <meta property="og:description" content="电脑上的 DSH 工作台只听本机，出门在外够不着。用 Cloudflare Named Tunnel 配认证网关：需要时手机扫码访问，不用时一键关闭。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">DSH 远程控制实战：无需 VPS，用 Cloudflare Tunnel 把电脑工作台装进手机</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-08-24">发布于 2026 年 8 月 24 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">电脑上的 DSH 工作台只听本机，出门在外够不着。用 Cloudflare Named Tunnel 配认证网关：需要时手机扫码访问，不用时一键关闭。</p>
+
+        <div class="prose">
+<blockquote>
+<p>记录时间：2026-08-24<br />
+主角：DeepSeek Harness / DSH、<code>dsh-remote-web-gateway</code>、Cloudflare Named Tunnel、cloudflared<br />
+目标：电脑上的 DSH 平时只听本机；需要时手机扫码访问；不用时一键关闭。</p>
+</blockquote>
+<p><figure><img alt="DSH 远程控制：手机通过 Cloudflare Tunnel 安全访问电脑工作台" src="../../assets/images/posts/dsh-remote-gateway/01.avif"  loading="lazy" /><figcaption>DSH 远程控制：手机通过 Cloudflare Tunnel 安全访问电脑工作台</figcaption></figure></p>
+<h2>0. 背景：使用 DSH 时，我发现了一个远程控制插件</h2>
+<p>这件事开始于我正常使用 DSH 的时候。DSH 是我电脑里的高权限工作台，能进入工作区、读写文件、执行任务、调用工具，不是普通网页应用。平时它只监听：</p>
+<pre><code>http://127.0.0.1:3080
+</code></pre>
+<p>这很安全，但也很不方便。我经常遇到一个场景：任务已经在电脑上跑着，人却不在电脑前——可能在客厅看资料，可能拿着手机站在白板前，也可能临时出门后还想看一眼工具执行到哪一步。</p>
+<p>就在这个场景下，我在插件市场里看到了 <code>dsh-remote-web-gateway</code>：</p>
+<pre><code>https://deepseek1024.com/plugins/summer1238/dsh-remote-web-gateway/plugin
+</code></pre>
+<p>它的介绍正好打中我的兴趣点：通过 Cloudflare 给 DSH Web 提供远程入口，支持手机登录、二维码配对、手动配对码、设备管理和可选 GitHub 登录。我当时的第一反应不是“我要马上装”，而是“如果安全模型成立，这就很有意思——手机打开网页就能控制电脑里的 DSH”。</p>
+<p>不过我没有直接把它当成可用方案。它离本地权限太近，必须先弄清两件事：</p>
+<pre><code>1. 它的安全模型是不是真的成立；
+2. 默认的 Quick Tunnel 是否适合长期使用。
+</code></pre>
+<p>我让 AI 先做了一次源码级安全审查，重点看监听地址、凭据保存、配对流程、管理接口和 cloudflared 二进制来源。结论是：没有发现恶意行为，核心拓扑也确实把公网请求挡在认证网关外。但这时我也确认了一个关键事实：它默认使用的是随机 Quick Tunnel，也就是临时 <code>trycloudflare.com</code> 地址。方便是真的方便，可长期使用的稳定性、域名可控性和运维体验都不够。</p>
+<p>于是目标变得明确：</p>
+<pre><code>保留它的安全模型，
+但把随机 Quick Tunnel 换成自己的固定域名 Named Tunnel，
+让 DSH 远程控制无需 VPS 也能长期可用。
+</code></pre>
+<p>这篇文章先交代背景和原理，再把所有踩坑集中记录，最后给出现在可用的架构和使用方式。</p>
+<h2>1. 原理：这不是“把端口暴露出去”</h2>
+<p>很多人一听到“手机访问电脑里的 Web 应用”，第一反应是改监听地址：</p>
+<pre><code>127.0.0.1:3080  →  0.0.0.0:3080
+</code></pre>
+<p>这对 DSH 这种高权限工作台非常危险。DSH 不是普通宣传页，它能进入工作区、读写文件、执行任务、调用工具。如果直接暴露端口，等于把一个有本机操作能力的控制台挂到局域网甚至公网。</p>
+<p>所以这次要做的是五件事同时成立：</p>
+<pre><code>1. DSH 继续只监听 127.0.0.1
+2. 公网入口不直连 DSH
+3. 流量先经过认证网关
+4. 新设备必须扫码或输入一次性配对码
+5. 不用时能立刻关闭入口
+</code></pre>
+<p>最终链路可以画成这样：</p>
+<pre><code>┌────────────┐
+│ 手机浏览器 │
+└─────┬──────┘
+      │ ① HTTPS 访问固定域名
+      ▼
+┌─────────────────────────────┐
+│ Cloudflare Edge             │
+│ https://dsh.example.com     │
+└─────┬───────────────────────┘
+      │ ② Cloudflare Tunnel 转发
+      ▼
+┌─────────────────────────────┐
+│ 本机 cloudflared 进程       │
+│ 只向外连接 Cloudflare        │
+│ 不在家宽路由器开端口         │
+└─────┬───────────────────────┘
+      │ ③ 指向本地回环网关
+      ▼
+┌─────────────────────────────┐
+│ dsh-remote-web-gateway      │
+│ 127.0.0.1:61238             │
+│ 校验配对码 / 设备会话        │
+└─────┬───────────────────────┘
+      │ ④ 只有认证后的请求才继续
+      ▼
+┌─────────────────────────────┐
+│ DSH Web                     │
+│ http://127.0.0.1:3080       │
+└─────────────────────────────┘
+</code></pre>
+<p>这里的关键是：<strong>公网请求的终点不是 DSH，而是插件网关</strong>。DSH 始终躲在回环地址后面。</p>
+<p>再把安全层拆开看：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>层级</th>
+<th>控制点</th>
+<th>失败时的表现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>传输层</td>
+<td>浏览器到 Cloudflare 是 HTTPS</td>
+<td>明文访问不应存在</td>
+</tr>
+<tr>
+<td>隧道层</td>
+<td>cloudflared 只从本机向外连接 Cloudflare</td>
+<td>不需要在路由器做端口映射</td>
+</tr>
+<tr>
+<td>入口层</td>
+<td>固定域名只指向插件网关 <code>61238</code></td>
+<td>不能绕过网关直达 DSH</td>
+</tr>
+<tr>
+<td>认证层</td>
+<td>第一次接入需要一次性配对凭据</td>
+<td>未配对访问返回 401 / 403</td>
+</tr>
+<tr>
+<td>会话层</td>
+<td>已配对设备有可撤销会话</td>
+<td>设备丢失时可立即撤销</td>
+</tr>
+<tr>
+<td>管理层</td>
+<td>开启 / 停止远程控制只能在电脑端管理</td>
+<td>手机页面不能反向开启入口</td>
+</tr>
+<tr>
+<td>应用层</td>
+<td>DSH 仍监听 <code>127.0.0.1:3080</code></td>
+<td>公网无法直接触达 DSH</td>
+</tr>
+</tbody>
+</table></div>
+<p>一次完整开启的生命周期是这样：</p>
+<pre><code>[电脑 DSH 设置页]
+      │ 点击「开启远程控制」
+      ▼
+[插件读取本地私有配置]
+      │ publicHostname / tunnelToken / gatewayPort
+      ▼
+[启动回环网关]
+      │ 监听 127.0.0.1:61238
+      ▼
+[spawn cloudflared]
+      │ cloudflared tunnel ... run --token ... --url http://127.0.0.1:61238
+      ▼
+[等待 Registered tunnel connection]
+      │ Cloudflare Edge 确认连接
+      ▼
+[publicOrigin 置为可用]
+      │ https://dsh.example.com
+      ▼
+[签发一次性配对票据]
+      │ 二维码 secret + 8 位手动码
+      ▼
+[手机扫码 / 输入配对码]
+      │ 成功后票据消费
+      ▼
+[设备获得受控会话]
+      │ 后续请求通过设备 Cookie 认证
+      ▼
+[网关代理到 DSH Web]
+      │ http://127.0.0.1:3080
+</code></pre>
+<p>停止时则要反着收尾：</p>
+<pre><code>点击「停止远程控制」
+      ↓
+publicOrigin 立即关闭
+      ↓
+未使用配对票动作废
+      ↓
+cloudflared 收到终止信号
+      ↓
+本地网关关闭
+      ↓
+公网重新不可达
+</code></pre>
+<p>理解这张图后，后面第 8 章的每一个坑都会变得很好解释：要么是链路断在 Cloudflare，要么是断在本机端口，要么是认证层没生效，要么是生命周期定时器误杀进程。</p>
+<h2>2. 需求与约束</h2>
+<p>DSH 默认 Web 地址是：</p>
+<pre><code>http://127.0.0.1:3080
+</code></pre>
+<p>这很安全，但也很不方便。我希望在手机上完成这些事：</p>
+<ul>
+<li>查看正在跑的任务；</li>
+<li>发送新的指令；</li>
+<li>观察工具执行进度；</li>
+<li>必要时暂停或者调整任务；</li>
+<li>在客厅、阳台或者外出时继续掌控电脑上的工作流。</li>
+</ul>
+<p>直接改监听地址当然最快，但风险太大。我的候选方案因此收敛到一个方向：使用带认证网关的 Cloudflare Tunnel 插件：</p>
+<pre><code>dsh-remote-web-gateway
+</code></pre>
+<p>它的描述很接近我的需求：</p>
+<ul>
+<li>一键远程访问 DSH Web GUI；</li>
+<li>通过 Cloudflare Quick Tunnel 提供公网入口；</li>
+<li>二维码扫码配对；</li>
+<li>支持手动输入配对码；</li>
+<li>有设备管理；</li>
+<li>可选 GitHub Device Flow 登录。</li>
+</ul>
+<p>它不是简单反代，而是试图解决“远程访问必须带认证和生命周期”的问题。这引起了我的兴趣。</p>
+<h2>3. 先审计，再安装</h2>
+<p>这个插件的权限太敏感，不能看到 README 就装。它一旦有问题，影响的不只是浏览器页面，而是整个本地工作区。</p>
+<p>我把源码拉到临时目录里重点看了几类内容：</p>
+<pre><code>1. 是否监听公网；
+2. 是否收集或上传敏感数据；
+3. 配对码如何生成、保存、过期；
+4. 设备 Cookie 是否明文落盘；
+5. 管理 RPC 是否可能被远程页面调用；
+6. cloudflared 二进制是否会被任意替换；
+7. 隧道关闭后是否会留下孤儿进程；
+8. 日志是否会把 token 或二维码凭据打出来。
+</code></pre>
+<p>这次静态审计结论是干净的。它的架构和宣传基本一致：</p>
+<ul>
+<li>本地网关绑定回环地址；</li>
+<li>cloudflared 只向外连接 Cloudflare；</li>
+<li>新设备必须经过一次性配对；</li>
+<li>设备原始 Token 只保存在浏览器 Cookie；</li>
+<li>服务端保存的是 SHA-256 哈希；</li>
+<li>管理面走 loopback 权限，并拒绝公网路径；</li>
+<li>可选 GitHub 登录使用 Device Flow。</li>
+</ul>
+<p>但我仍然给自己定了几个原则：</p>
+<pre><code>1. 版本锁定，不盲目自动更新；
+2. 只在本机配置里保存 Tunnel Token；
+3. 远程控制按需开启，用完即关；
+4. 定期检查已配对设备；
+5. 不把二维码、配对码、Token 截图发出去。
+</code></pre>
+<p><figure><img alt="先做源码级安全审查，再决定是否安装远程控制插件" src="../../assets/images/posts/dsh-remote-gateway/02.avif"  loading="lazy" /><figcaption>先做源码级安全审查，再决定是否安装远程控制插件</figcaption></figure></p>
+<h2>4. Quick Tunnel 是什么？它到底有没有风险？</h2>
+<p>插件默认使用 Cloudflare Quick Tunnel。命令形式大致是：</p>
+<pre><code>cloudflared tunnel --url http://127.0.0.1:61238
+</code></pre>
+<p>运行后会得到一个临时地址：</p>
+<pre><code>https://random-words.trycloudflare.com
+</code></pre>
+<p>它的优点很明显：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>优点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>免配置</td>
+<td>不需要提前建 Named Tunnel</td>
+</tr>
+<tr>
+<td>免域名</td>
+<td>不需要自己的域名</td>
+</tr>
+<tr>
+<td>快速验证</td>
+<td>几分钟就能打通</td>
+</tr>
+<tr>
+<td>无公网 IP 也能用</td>
+<td>cloudflared 从内网向外连 Cloudflare</td>
+</tr>
+</tbody>
+</table></div>
+<p>但长期使用时，我开始担心几件事。</p>
+<h3>4.1 地址不稳定</h3>
+<p>Quick Tunnel 的 URL 是临时的。进程退出、电脑重启、隧道重开，URL 很可能变化。</p>
+<p>这意味着：</p>
+<pre><code>昨天手机收藏的链接 → 今天可能失效
+旧二维码 → 可能指向旧入口
+自动化脚本 → 需要重新取地址
+</code></pre>
+<h3>4.2 入口身份不可控</h3>
+<p>随机域名虽然不容易猜，但它仍然是公共 <code>trycloudflare.com</code> 空间下的地址。链接一旦泄露，别人至少能打到我的插件网关入口。</p>
+<p>后面还有认证保护，不代表能进入 DSH，但我更希望入口本身也可管理、可撤销、可审计。</p>
+<h3>4.3 运维面太弱</h3>
+<p>Quick Tunnel 不方便绑定自己的 DNS，也不容易接自己的访问策略、日志和告警。它适合试用，不适合作为长期私人工作台入口。</p>
+<h3>4.4 公共域名的信誉不可控</h3>
+<p><code>trycloudflare.com</code> 是公共服务空间，历史上可能被各种用途共享过。某些公司网络、校园网或安全软件可能会对它采取更严格的策略。</p>
+<h3>4.5 但也不能妖魔化它</h3>
+<p>要说句公道话：Quick Tunnel 并不是“天生不加密”或者“必然被入侵”。</p>
+<p>它的正确评价应该是：</p>
+<pre><code>传输上：浏览器到 Cloudflare 是 HTTPS；
+拓扑上：cloudflared 从内网向外建立连接；
+风险上：主要来自临时入口、泄露二维码、运维不可控和公共域名信誉；
+边界上：真正的安全仍然取决于插件认证、设备会话和 DSH 权限。
+</code></pre>
+<p>所以我的结论是：</p>
+<pre><code>Quick Tunnel：适合第一次试通。
+Named Tunnel：适合长期使用。
+</code></pre>
+<p>我已经有自己的域名，而且 DNS 托管在 Cloudflare，没有理由继续忍受随机地址。</p>
+<p><figure><img alt="Quick Tunnel 的临时入口和长期使用风险" src="../../assets/images/posts/dsh-remote-gateway/03.avif"  loading="lazy" /><figcaption>Quick Tunnel 的临时入口和长期使用风险</figcaption></figure></p>
+<h2>5. 为什么选 Named Tunnel？</h2>
+<p>Named Tunnel 的结构变成：</p>
+<pre><code>dsh.example.com
+      ↓ CNAME / Public Hostname
+Cloudflare Tunnel
+      ↓ 出站连接
+本机 cloudflared
+      ↓ 固定指向
+http://127.0.0.1:61238
+      ↓ 认证
+http://127.0.0.1:3080
+</code></pre>
+<p>对比一下：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Quick Tunnel</th>
+<th>Named Tunnel</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>公网地址</td>
+<td>随机临时域名</td>
+<td>自己的固定域名</td>
+</tr>
+<tr>
+<td>DNS 管理</td>
+<td>不可控</td>
+<td>可控</td>
+</tr>
+<tr>
+<td>二维码稳定性</td>
+<td>差</td>
+<td>好</td>
+</tr>
+<tr>
+<td>手机收藏体验</td>
+<td>差</td>
+<td>好</td>
+</tr>
+<tr>
+<td>入口撤销</td>
+<td>关进程即可，但地址不可预测</td>
+<td>可停 Tunnel / 删除 Public Hostname</td>
+</tr>
+<tr>
+<td>长期运维</td>
+<td>弱</td>
+<td>强</td>
+</tr>
+<tr>
+<td>初始成本</td>
+<td>最低</td>
+<td>需要有域名并配置 Cloudflare</td>
+</tr>
+</tbody>
+</table></div>
+<p>目标体验也明确了：</p>
+<pre><code>平时：公网不可达。
+要用：电脑端点击开启。
+接入：手机打开固定域名。
+首次：扫码或输配对码。
+后续：设备会话认证。
+异常：电脑端一键撤销设备。
+结束：一键停止远程控制。
+</code></pre>
+<h2>6. 创建 Cloudflare Named Tunnel</h2>
+<p>这一步分三件事：创建 Tunnel、绑定 Public Hostname、让本机 cloudflared 接入。</p>
+<h3>6.1 创建 Tunnel</h3>
+<p>进入 Cloudflare Zero Trust 控制台：</p>
+<pre><code>Networks → Tunnels → Create a tunnel
+</code></pre>
+<p>给 Tunnel 起名：</p>
+<pre><code>dsh
+</code></pre>
+<p>Cloudflare 会生成一个 Connector Token。这个 Token 必须当成密码保管，本文统一写作：</p>
+<pre><code>&lt;CLOUDFLARE_TUNNEL_TOKEN&gt;
+</code></pre>
+<h3>6.2 配置 Public Hostname</h3>
+<p>假设自己的域名是：</p>
+<pre><code>example.com
+</code></pre>
+<p>想让 DSH 使用：</p>
+<pre><code>dsh.example.com
+</code></pre>
+<p>那么 Public Hostname 应该类似：</p>
+<pre><code>Subdomain: dsh
+Domain:     example.com
+Service:    http://localhost:61238
+</code></pre>
+<p>注意这里的 Service 是 <code>61238</code>，不是 DSH 的 <code>3080</code>。</p>
+<p>原因看这张图就清楚了：</p>
+<pre><code>正确：
+手机 → Cloudflare → cloudflared → 61238 认证网关 → 3080 DSH
+
+危险或错误：
+手机 → Cloudflare → cloudflared → 3080 DSH
+                         ↑
+                    绕过了认证网关
+</code></pre>
+<p>Cloudflare 通常会自动创建类似的 DNS 记录：</p>
+<pre><code>dsh.example.com  CNAME  &lt;TUNNEL_ID&gt;.cfargotunnel.com
+</code></pre>
+<p><figure><img alt="Cloudflare Named Tunnel 从固定域名进入本地认证网关" src="../../assets/images/posts/dsh-remote-gateway/04.avif"  loading="lazy" /><figcaption>Cloudflare Named Tunnel 从固定域名进入本地认证网关</figcaption></figure></p>
+<h3>6.3 手动验证 Connector</h3>
+<p>为了排除插件因素，我先手动跑最小命令：</p>
+<pre><code>cloudflared tunnel run \
+  --token <span class="tok-s">&#x27;&lt;CLOUDFLARE_TUNNEL_TOKEN&gt;&#x27;</span> \
+  --url http://127.0.0.1:61238
+</code></pre>
+<p>日志出现这类内容才算注册成功：</p>
+<pre><code>Registered tunnel connection
+</code></pre>
+<p>如果这时访问域名返回：</p>
+<pre><code>HTTP 401 / 403
+forbidden
+</code></pre>
+<p>反而是好现象，说明流量已经穿过 Cloudflare 到达认证网关，只是还没有配对。</p>
+<h2>7. 开始魔改插件：让它支持一键 Named Tunnel</h2>
+<p>我不想每次都手动开终端。目标是在 DSH 设置页点击按钮后，插件自己完成：</p>
+<pre><code>读配置 → 启动网关 → 启动 cloudflared → 等 Tunnel Ready → 展示二维码
+</code></pre>
+<p>于是给插件增加三个关键配置概念：</p>
+<pre><code>tunnelToken?: string      // Cloudflare Tunnel Token
+publicHostname?: string   // dsh.example.com
+gatewayPort: number       // 固定 61238
+</code></pre>
+<p>插件配置样例：</p>
+<pre><code>- id: dsh-remote-web-gateway
+  config:
+    gatewayPort: 61238
+    publicHostname: dsh.example.com
+    tunnelToken: <span class="tok-s">&quot;&lt;CLOUDFLARE_TUNNEL_TOKEN&gt;&quot;</span>
+</code></pre>
+<p>Web profile 中使用本地魔改版：</p>
+<pre><code>{
+  <span class="tok-s">&quot;dependencies&quot;</span>: {
+    <span class="tok-s">&quot;dsh-remote-web-gateway&quot;</span>: <span class="tok-s">&quot;link:/absolute/path/to/dsh-remote-web-gateway&quot;</span>
+  }
+}
+</code></pre>
+<p>运行时的启动参数最终应该等价于：</p>
+<pre><code>cloudflared tunnel \
+  --protocol http2 \
+  --no-autoupdate \
+  --logfile /path/to/cloudflared.log \
+  run \
+  --token <span class="tok-s">&#x27;&lt;CLOUDFLARE_TUNNEL_TOKEN&gt;&#x27;</span> \
+  --url http://127.0.0.1:61238
+</code></pre>
+<p>其中：</p>
+<ul>
+<li><code>--protocol http2</code>：避开默认 QUIC 在个别网络下带来的不确定性；</li>
+<li><code>--no-autoupdate</code>：避免长连接期间自动更新干扰；</li>
+<li><code>--logfile</code>：让问题能追到日志；</li>
+<li><code>--url</code>：明确告诉 cloudflared 本地目标是哪个服务；</li>
+<li><code>--token</code>：只从本地私有配置读取，绝不写进文章或仓库。</li>
+</ul>
+<h2>8. 踩坑实录：所有问题集中在这里</h2>
+<p>这一章把整个过程里散落的坑集中记录。它们分别发生在四个层面：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>层面</th>
+<th>问题</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DSH Profile</td>
+<td>bundle 路径失效</td>
+<td>启动失败</td>
+</tr>
+<tr>
+<td>Cloudflare Tunnel</td>
+<td>没有 ingress / 连接未注册</td>
+<td>503、1033、空白页</td>
+</tr>
+<tr>
+<td>本地端口</td>
+<td>网关随机端口和固定转发端口错位</td>
+<td>公网打不到认证网关</td>
+</tr>
+<tr>
+<td>插件生命周期</td>
+<td>定时器误杀、构建产物陈旧、输入清洗缺失</td>
+<td>30 秒断开、配对失败</td>
+</tr>
+</tbody>
+</table></div>
+<p><figure><img alt="踩坑实录：配置、隧道、端口和生命周期问题逐层排查" src="../../assets/images/posts/dsh-remote-gateway/05.avif"  loading="lazy" /><figcaption>踩坑实录：配置、隧道、端口和生命周期问题逐层排查</figcaption></figure></p>
+<h3>8.1 DSH 启动报 cannot resolve profile bundle</h3>
+<p>还没走到 Tunnel，项目搬家后 DSH 就先失败了：</p>
+<pre><code>dsh: cannot resolve profile bundle <span class="tok-s">&quot;dsh-plugin-session-delete&quot;</span>
+</code></pre>
+<p>这个错误说明 Web profile 解析不到某个 bundle。常见原因有三类：</p>
+<pre><code>1. profile/package.json 里的 link 路径还是旧机器或旧目录；
+2. bundle 名字没有加入 profile 的 bundles 列表；
+3. 插件没有被正确 install 到当前 profile。
+</code></pre>
+<p>我的处理方式：</p>
+<pre><code># 检查当前 Web profile 依赖
+cat ~/.dsh/profiles/web/package.json
+
+# 把插件依赖改成当前绝对路径
+<span class="tok-s">&quot;dsh-plugin-session-delete&quot;</span>: <span class="tok-s">&quot;link:/current/path/to/dsh-plugin-session-delete&quot;</span>
+<span class="tok-s">&quot;dsh-remote-web-gateway&quot;</span>: <span class="tok-s">&quot;link:/current/path/to/dsh-remote-web-gateway&quot;</span>
+</code></pre>
+<p>同时确认 bundles 里包含对应 id：</p>
+<pre><code>{
+  <span class="tok-s">&quot;dsh&quot;</span>: {
+    <span class="tok-s">&quot;profile&quot;</span>: {
+      <span class="tok-s">&quot;bundles&quot;</span>: [
+        <span class="tok-s">&quot;@deepseek-ai/dsh-base&quot;</span>,
+        <span class="tok-s">&quot;@deepseek-ai/dsh-web-app&quot;</span>,
+        <span class="tok-s">&quot;dsh-plugin-session-delete&quot;</span>,
+        <span class="tok-s">&quot;dsh-remote-web-gateway&quot;</span>
+      ]
+    }
+  }
+}
+</code></pre>
+<p>这件事提醒我：DSH 是插件化架构，profile 不只是配置文本，还会解析依赖、bundle 和补丁层。目录一搬家，所有隐含路径都要重查。</p>
+<h3>8.2 No ingress rules，公网全部 503</h3>
+<p>手动测试 Named Tunnel 时，日志反复出现：</p>
+<pre><code>WRN No ingress rules were defined in provided config (if any) nor from the cli,
+cloudflared will return 503 for all incoming HTTP requests
+</code></pre>
+<p>这句话已经把问题说得很直白：cloudflared 不知道 HTTP 请求进来以后该转发到哪里。</p>
+<p>用图表示就是：</p>
+<pre><code>手机请求 dsh.example.com
+        ↓
+Cloudflare 找到了 Tunnel
+        ↓
+cloudflared 也在线
+        ↓
+但是问：我要转发到哪个本地服务？
+        ↓
+没有 ingress 规则，也没有 --url
+        ↓
+只能 503
+</code></pre>
+<p>修复方式有两种。</p>
+<p>方式一，在 Cloudflare Dashboard 明确配置：</p>
+<pre><code>Public Hostname: dsh.example.com
+Service:         http://localhost:61238
+</code></pre>
+<p>方式二，命令行显式指定：</p>
+<pre><code>--url http://127.0.0.1:61238
+</code></pre>
+<p>为了避免两边不一致，我最后要求两者同时对齐：</p>
+<pre><code>Dashboard Service: http://localhost:61238
+插件启动参数:      --url http://127.0.0.1:61238
+</code></pre>
+<p>这也是这次的一个重要原则：<strong>关键链路上的端口不要靠默认值猜。</strong></p>
+<h3>8.3 公网打开是空白页，或者 Cloudflare Error 1033</h3>
+<p>这个问题最容易误判成“前端炸了”。实际上要先判断错误发生在哪一层。</p>
+<p>我用这张表分流：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>返回结果</th>
+<th>含义</th>
+<th>检查方向</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cloudflare 530 + Error 1033</td>
+<td>Cloudflare 找不到健康 Tunnel 连接</td>
+<td>cloudflared 是否运行、Token 是否正确、Tunnel ID 是否匹配</td>
+</tr>
+<tr>
+<td>503 unavailable</td>
+<td>请求接近网关，但入口未开放或上游不可达</td>
+<td>是否真的点了开启、网关端口是否一致</td>
+</tr>
+<tr>
+<td>401 / 403 forbidden</td>
+<td>已经到达认证网关但未配对</td>
+<td>正常中间态，去扫码或输码</td>
+</tr>
+<tr>
+<td>浏览器空白页</td>
+<td>可能是资源加载失败、路由错误或代理层拦截</td>
+<td>打开开发者工具看 Network 和 Console</td>
+</tr>
+<tr>
+<td>ERR_CONNECTION_REFUSED</td>
+<td>本地目标端口没人监听</td>
+<td>检查 61238 或 3080</td>
+</tr>
+</tbody>
+</table></div>
+<p>当时最迷惑的是“空白页”。它不像 530 那样一眼看出是 Cloudflare 错误页，也不像 401 能明显提示认证。后来靠分层请求才定位：</p>
+<pre><code># 第一层：DSH 本体是否活着
+lsof -nP -iTCP:3080 -sTCP:LISTEN
+
+# 第二层：插件网关是否监听
+lsof -nP -iTCP:61238 -sTCP:LISTEN
+
+# 第三层：公网到底返回什么
+curl -i https://dsh.example.com/
+
+# 第四层：cloudflared 是否注册
+tail -f /path/to/cloudflared.log
+</code></pre>
+<p>日志里必须有：</p>
+<pre><code>Registered tunnel connection
+</code></pre>
+<p>如果没有这行，UI 显示什么都不能算成功。</p>
+<h3>8.4 网关随机端口，Cloudflare 却固定打向 61238</h3>
+<p>这是整条链路里最关键的坑之一。</p>
+<p>插件原来的默认配置是：</p>
+<pre><code>gatewayPort: 0
+</code></pre>
+<p>Node.js 里端口 <code>0</code> 表示交给操作系统分配一个随机可用端口。这在 Quick Tunnel 模式下没问题，因为插件自己知道实际端口，可以把 cloudflared 的 <code>--url</code> 动态指过去。</p>
+<p>但 Named Tunnel 场景不同。我在 Cloudflare Dashboard 里已经写死了：</p>
+<pre><code>Service: http://localhost:61238
+</code></pre>
+<p>于是出现了这种错位：</p>
+<pre><code>Cloudflare：我永远把流量送到 61238。
+cloudflared：收到，我去找 127.0.0.1:61238。
+插件网关：不好意思，我今天被分配的是 59xxx。
+手机：所以我看到空白 / 失败。
+</code></pre>
+<p>修复很简单，但要改变思路：</p>
+<pre><code>config:
+  gatewayPort: 61238
+</code></pre>
+<p>然后验证：</p>
+<pre><code>lsof -nP -iTCP:61238 -sTCP:LISTEN
+</code></pre>
+<p>必须看到：</p>
+<pre><code>node xxxxx tim IPv4 TCP 127.0.0.1:61238 LISTEN
+</code></pre>
+<p>这一步修完后，“完全空白”开始变成“认证拒绝”。虽然还没成功，但这是正确的中间状态，因为流量终于走到了安全门。</p>
+<h3>8.5 开启 30 秒后突然自动关闭</h3>
+<p>这是最折磨人的问题。</p>
+<p>现象非常稳定：</p>
+<pre><code>00:00 点击「开启远程控制」
+00:02 显示「已开启」
+00:03 出现二维码和剩余时间
+00:30 左右自动退回「未开启」或显示「连接已断开」
+</code></pre>
+<p>界面有时给出错误码：</p>
+<pre><code>connection-lost
+</code></pre>
+<p>我一开始怀疑很多方向：</p>
+<pre><code>1. 插件里有 30 秒定时器没清理；
+2. cloudflared 被 macOS 或网络杀掉；
+3. Cloudflare 边缘主动断开；
+4. QUIC 协议在这个网络不稳定；
+5. 插件构建产物没有更新；
+6. Token 权限不足。
+</code></pre>
+<p>最后证明，多个因素叠加。</p>
+<h4>8.5.1 根因 A：ready 之后没有清掉启动定时器</h4>
+<p>启动逻辑应该是一个很清晰的状态机：</p>
+<pre><code>idle
+  ↓ start()
+resolving / verifying / downloading
+  ↓
+starting
+  ↓
+connecting
+  ↓ Registered tunnel connection
+ready
+</code></pre>
+<p>为了保证不会无限等待，代码里有一个启动超时定时器：</p>
+<pre><code>const timer = setTimeout(() =&gt; {
+  killChild()
+  fail(new TunnelStartError(<span class="tok-s">&#x27;start-timeout&#x27;</span>, <span class="tok-s">&#x27;...&#x27;</span>))
+}, startTimeoutMs)
+</code></pre>
+<p>正常语义必须是：</p>
+<pre><code>30 秒内没 ready → 杀进程并失败
+一旦 ready    → clearTimeout(timer)
+</code></pre>
+<p>如果 <code>finish()</code> 里漏掉清理，就会出现诡异现象：</p>
+<pre><code>cloudflared 明明已经注册成功，
+但旧的 30 秒定时器还在事件循环里，
+时间一到，它把健康进程杀了。
+</code></pre>
+<p>修复逻辑：</p>
+<pre><code>const finish = (url: URL): void =&gt; {
+  if (settled) return
+  settled = true
+
+  // 关键：ready 后取消启动超时
+  clearTimeout(timer)
+
+  phase = <span class="tok-s">&#x27;ready&#x27;</span>
+  publicUrl = url
+  options.onReady?.(url)
+  resolve(url)
+}
+</code></pre>
+<h4>8.5.2 根因 B：cloudflared 参数顺序放错</h4>
+<p>我想给长连接加上稳定参数：</p>
+<pre><code>--protocol http2
+--no-autoupdate
+--logfile ...
+</code></pre>
+<p>一开始把这些放在 <code>run</code> 后面，cloudflared 直接报：</p>
+<pre><code>Incorrect Usage: flag provided but not defined
+</code></pre>
+<p>更麻烦的是，有些尝试看起来退出码还不吓人，很容易误判成“正常退出”。</p>
+<p>最后验证可用的顺序是把这类参数放在 <code>run</code> 前：</p>
+<pre><code>cloudflared tunnel \
+  --protocol http2 \
+  --no-autoupdate \
+  --logfile /path/to/cloudflared.log \
+  run \
+  --token <span class="tok-s">&#x27;&lt;CLOUDFLARE_TUNNEL_TOKEN&gt;&#x27;</span> \
+  --url http://127.0.0.1:61238
+</code></pre>
+<p>这不是说所有版本的 cloudflared 都一定一样，而是提醒：参数顺序本身就是协议的一部分，不能靠感觉排。</p>
+<h4>8.5.3 根因 C：源码修好了，但运行的不是新源码</h4>
+<p>这是最隐蔽的一层，也是这次最有价值的工程教训。</p>
+<p>当时的现象是：</p>
+<pre><code>源码里明明已经加了 --url；
+源码里已经在 finish() 里 clearTimeout(timer)；
+类型检查也通过；
+但 DSH 里跑出来的行为仍然是旧的。
+</code></pre>
+<p>我把构建链路拆开看，发现问题出在 vendored core 复制逻辑。</p>
+<p>真实的新编译产物在这里：</p>
+<pre><code>dsh-remote-web-gateway/core-src/dist/
+</code></pre>
+<p>但打包脚本却去找上一级的陈旧目录：</p>
+<pre><code>const repoRoot = resolve(pluginRoot, <span class="tok-s">&#x27;..&#x27;</span>)
+const sourceDist = join(repoRoot, <span class="tok-s">&#x27;dist&#x27;</span>)
+</code></pre>
+<p>也就是说：</p>
+<pre><code>你以为是：
+core-src/src
+  → core-src/dist
+    → vendor/
+      → DSH 运行时
+
+实际变成了：
+core-src/src
+  → core-src/dist          新产物躺在这里
+某个上级旧 dist           被复制进 vendor
+DSH                       继续加载旧逻辑
+</code></pre>
+<p>修复脚本语义：</p>
+<pre><code>const coreDistRoot = join(pluginRoot, <span class="tok-s">&#x27;core-src&#x27;</span>)
+const sourceDist = join(coreDistRoot, <span class="tok-s">&#x27;dist&#x27;</span>)
+</code></pre>
+<p>然后强制重建：</p>
+<pre><code>cd /absolute/path/to/dsh-remote-web-gateway/core-src
+npx tsc -p tsconfig.build.json
+
+cd /absolute/path/to/dsh-remote-web-gateway
+npm run build
+</code></pre>
+<p>再重启 DSH。</p>
+<p>这一步完成后，同一个按钮的行为终于变了。</p>
+<p>我总结成一句话：</p>
+<blockquote>
+<p>TypeScript 编译通过，不代表运行时代码更新了。一定要证明最终加载的那份 JS 是新产物。</p>
+</blockquote>
+<h4>8.5.4 怎么确认 30 秒问题真的消失</h4>
+<p>我没有靠肉眼感觉，而是做了四组验证。</p>
+<p>第一，独立运行原始命令：</p>
+<pre><code>cloudflared tunnel run \
+  --token <span class="tok-s">&#x27;&lt;CLOUDFLARE_TUNNEL_TOKEN&gt;&#x27;</span> \
+  --url http://127.0.0.1:61238
+</code></pre>
+<p>连续超过 45 秒正常，日志出现两条注册连接：</p>
+<pre><code>Registered tunnel connection
+Registered tunnel connection
+</code></pre>
+<p>这说明 Token、域名、网络都没问题。</p>
+<p>第二，直接调用插件编译后的 <code>createQuickTunnelService()</code>。</p>
+<p>旧产物会在 ready 后大约 30 秒触发：</p>
+<pre><code>onClosed
+phase: error
+lastErrorCode: connection-lost
+</code></pre>
+<p>新产物持续保持：</p>
+<pre><code>phase: ready
+publicUrl: https://dsh.example.com
+</code></pre>
+<p>第三，观察 UI 倒计时。</p>
+<p>开启后显示：</p>
+<pre><code>远程控制 · 已开启
+剩余 04:40
+</code></pre>
+<p>超过 40 秒再看，仍然是：</p>
+<pre><code>远程控制 · 已开启
+剩余 03:56
+</code></pre>
+<p>总开关没有退回「未开启」，倒计时自然减少。</p>
+<p>第四，看日志和公网响应。</p>
+<p>日志确认：</p>
+<pre><code>protocol=http2
+Registered tunnel connection
+</code></pre>
+<p>公网未配对访问返回：</p>
+<pre><code>HTTP 401 / 403
+forbidden
+</code></pre>
+<p>这不是故障，而是认证层在工作。</p>
+<h3>8.6 配对码格式不正确</h3>
+<p>隧道稳定后，我以为马上能用，结果手机提交配对码时报：</p>
+<pre><code>配对码格式不正确
+</code></pre>
+<p>电脑上显示的是：</p>
+<pre><code>ABCD EFGH
+</code></pre>
+<p>中间那个空格只是为了人眼阅读。但手机端最初的处理是：</p>
+<pre><code>var code = input.value.trim().toUpperCase()
+</code></pre>
+<p><code>trim()</code> 只删首尾空格，不删中间空格，所以实际提交值仍是：</p>
+<pre><code><span class="tok-s">&quot;ABCD EFGH&quot;</span>
+</code></pre>
+<p>长度是 9，当然匹配不了 8 位正则：</p>
+<pre><code>/^[A-HJ-NP-Z2-9]{8}$/
+</code></pre>
+<p>流程画出来就是：</p>
+<pre><code>屏幕展示：<span class="tok-s">&quot;ABCD EFGH&quot;</span>
+            ↑ 这里只是视觉分隔
+
+用户复制 / 输入：<span class="tok-s">&quot;ABCD EFGH&quot;</span>
+
+旧代码：
+.trim()          → <span class="tok-s">&quot;ABCD EFGH&quot;</span>
+.toUpperCase()   → <span class="tok-s">&quot;ABCD EFGH&quot;</span>
+正则校验          → 长度 9，失败
+
+新代码：
+.replace(/\s+/g, <span class="tok-s">&#x27;&#x27;</span>) → <span class="tok-s">&quot;ABCDEFGH&quot;</span>
+.trim()              → <span class="tok-s">&quot;ABCDEFGH&quot;</span>
+.toUpperCase()       → <span class="tok-s">&quot;ABCDEFGH&quot;</span>
+正则校验              → 通过
+</code></pre>
+<p>前端修复：</p>
+<pre><code>var code = input.value.replace(/\s+/g, <span class="tok-s">&#x27;&#x27;</span>).trim().toUpperCase()
+</code></pre>
+<p>服务端也必须同样清洗，不能只信前端：</p>
+<pre><code>credential = body.code.replace(/\s+/g, <span class="tok-s">&#x27;&#x27;</span>).trim().toUpperCase()
+
+if (!CODE_PATTERN.test(credential)) {
+  // reject
+}
+</code></pre>
+<p>这是一个很典型的人机交互边界问题：<strong>展示格式不能等同于机器格式。</strong></p>
+<p>顺带说一下配对码设计，它比看上去讲究：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>设计点</th>
+<th>目的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>去掉 <code>I / L / O</code></td>
+<td>避免字母混淆</td>
+</tr>
+<tr>
+<td>去掉 <code>0 / 1</code></td>
+<td>避免数字与字母混淆</td>
+</tr>
+<tr>
+<td>拒绝采样</td>
+<td>避免简单取模造成概率偏差</td>
+</tr>
+<tr>
+<td>256-bit QR secret</td>
+<td>二维码通道具备高强度熵</td>
+</tr>
+<tr>
+<td>8 位手动码约 39.6 bits 熵</td>
+<td>人能输入，同时暴力猜测不现实</td>
+</tr>
+<tr>
+<td>一次性消费</td>
+<td>同一个票据不能复用</td>
+</tr>
+<tr>
+<td>默认 5 分钟过期</td>
+<td>缩短泄露窗口</td>
+</tr>
+<tr>
+<td>全局限速</td>
+<td>抑制在线暴力尝试</td>
+</tr>
+<tr>
+<td>隧道停止即作废</td>
+<td>避免票据跨生命周期残留</td>
+</tr>
+</tbody>
+</table></div>
+<h3>8.7 GitHub 绑定来不及点完</h3>
+<p>插件支持可选的 GitHub Device Flow 登录。流程大致是：</p>
+<pre><code>DSH 页面显示设备码
+      ↓
+用户打开 GitHub 授权页
+      ↓
+输入设备码
+      ↓
+GitHub 显示授权请求
+      ↓
+用户确认
+      ↓
+插件轮询拿到结果
+      ↓
+设置页显示已绑定身份
+</code></pre>
+<p>以前 30 秒断开的问题会让这个流程几乎不可能顺利完成。你可能刚切到 GitHub 页面，插件那边已经开始倒计时甚至断开。</p>
+<p>30 秒生命周期修复后，这个入口恢复正常。设置页最终只显示非敏感信息：</p>
+<pre><code>已绑定
+@username · id xxxx · 时间
+</code></pre>
+<p>我的理解是：GitHub 登录是辅助身份能力，不应该替代一次性配对。两者职责不同：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>机制</th>
+<th>解决什么问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>配对码 / 二维码</td>
+<td>“这台设备能不能第一次接入”</td>
+</tr>
+<tr>
+<td>设备会话</td>
+<td>“这台已接入设备后续是否还能访问”</td>
+</tr>
+<tr>
+<td>GitHub 身份</td>
+<td>“这个远端身份是否是允许的绑定人”</td>
+</tr>
+<tr>
+<td>管理开关</td>
+<td>“公网入口现在是否应该存在”</td>
+</tr>
+</tbody>
+</table></div>
+<h2>9. 最终架构定稿</h2>
+<p>最后固定下来的链路是：</p>
+<pre><code>手机 / 平板
+   │ HTTPS
+   ▼
+https://dsh.example.com
+   │ Cloudflare Public Hostname
+   ▼
+Cloudflare Tunnel
+   │ 出站连接
+   ▼
+本机 cloudflared
+   │ --url http://127.0.0.1:61238
+   ▼
+dsh-remote-web-gateway
+   │ 配对码 / 设备会话认证
+   ▼
+http://127.0.0.1:3080
+   ▼
+DSH Web
+</code></pre>
+<p>每个端口都有明确职责：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>端口</th>
+<th>服务</th>
+<th>是否公网直达</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3080</td>
+<td>DSH Web</td>
+<td>否</td>
+<td>真正的应用界面</td>
+</tr>
+<tr>
+<td>61238</td>
+<td>插件网关</td>
+<td>仅经 Cloudflare Tunnel 到达</td>
+<td>认证、代理、生命周期管理</td>
+</tr>
+<tr>
+<td>Cloudflare 443</td>
+<td>公网入口</td>
+<td>是</td>
+<td>固定域名和 TLS</td>
+</tr>
+</tbody>
+</table></div>
+<p>关键配置保持三处一致：</p>
+<pre><code>Cloudflare Dashboard:
+  Service = http://localhost:61238
+
+DSH 插件配置:
+  gatewayPort = 61238
+  publicHostname = dsh.example.com
+  tunnelToken = &lt;CLOUDFLARE_TUNNEL_TOKEN&gt;
+
+cloudflared 参数:
+  --url http://127.0.0.1:61238
+</code></pre>
+<p>任何一处不一致，都会出现“看似启动成功，实际手机打不开”的情况。</p>
+<h2>10. 安全模型：便利不能吃掉安全边界</h2>
+<p>自建 Tunnel 只是解决了入口稳定问题，不能放松认证。</p>
+<p>我最终保留的安全边界如下。</p>
+<h3>10.1 DSH 永远只听本机</h3>
+<p>DSH Web 保持：</p>
+<pre><code>http://127.0.0.1:3080
+</code></pre>
+<p>不改成 <code>0.0.0.0</code>。</p>
+<h3>10.2 公网只进插件网关</h3>
+<p>Cloudflare Service 不指向 DSH，而是指向：</p>
+<pre><code>http://localhost:61238
+</code></pre>
+<h3>10.3 配对码只是短期门禁</h3>
+<p>默认 5 分钟有效、一次性消费、可重新生成。它不是长期密码。</p>
+<h3>10.4 设备可单独撤销</h3>
+<p>每台已配对浏览器都是一个 device session。可以在设置页单独撤销，也可以全部撤销。</p>
+<h3>10.5 Token 只放本机</h3>
+<p><code>tunnelToken</code> 属于高价值凭据。它只能放在本机私有配置里。</p>
+<p>如果曾经误发到聊天、截图、仓库或公开文章，应立即在 Cloudflare 里刷新或重建 Tunnel。</p>
+<h3>10.6 按需开启，用完关闭</h3>
+<p>远程控制在 DSH 设置页手动开启。不用时点停止。</p>
+<p>停止后应满足：</p>
+<pre><code>cloudflared 退出；
+publicOrigin 清空；
+未使用票据作废；
+公网重新返回不可达；
+必要时撤销设备会话。
+</code></pre>
+<h2>11. 排障速查表</h2>
+<p>这次踩坑后，我把最常见症状整理成表。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>现象</th>
+<th>大概率含义</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cloudflare 530 / Error 1033</td>
+<td>Tunnel 没有健康连接</td>
+<td>检查 cloudflared 进程、Token、Tunnel ID、日志</td>
+</tr>
+<tr>
+<td>No ingress rules</td>
+<td>cloudflared 不知道本地目标</td>
+<td>显式 <code>--url</code>，检查 Dashboard Service</td>
+</tr>
+<tr>
+<td>503 unavailable</td>
+<td>请求到达网关附近，但入口未开放或上游异常</td>
+<td>确认是否已开启、网关端口是否正确</td>
+</tr>
+<tr>
+<td>401 / 403 forbidden</td>
+<td>已到认证网关，但未配对</td>
+<td>正常，去扫码或输配对码</td>
+</tr>
+<tr>
+<td>页面空白</td>
+<td>分层不清，可能是资源、路由或代理层问题</td>
+<td>分别测 3080、61238、公网响应</td>
+</tr>
+<tr>
+<td>30 秒断开</td>
+<td>定时器未清或运行的是旧构建</td>
+<td>检查 <code>clearTimeout(timer)</code> 和最终 vendor 产物</td>
+</tr>
+<tr>
+<td>配对码格式不正确</td>
+<td>展示空格进入提交值</td>
+<td>前后端统一清除所有空白</td>
+</tr>
+<tr>
+<td>GitHub 授权来不及</td>
+<td>总开关生命周期太短</td>
+<td>先修 30 秒断开，再重新绑定</td>
+</tr>
+<tr>
+<td>重启后又失效</td>
+<td>配置未持久化或加载了旧 profile</td>
+<td>检查 profile patch、link 路径、bundle 列表</td>
+</tr>
+</tbody>
+</table></div>
+<p>遇到问题时，推荐按这个顺序查：</p>
+<pre><code>1. cloudflared 日志有没有 Registered tunnel connection？
+2. 127.0.0.1:61238 有没有人监听？
+3. Cloudflare Public Hostname 是否指向 61238？
+4. 公网 curl 返回的是 530 / 503 / 401 哪一种？
+5. UI 显示的 phase 和错误码是什么？
+6. 最终加载的 JS 构建产物是不是刚刚编译出来的？
+</code></pre>
+<h2>12. 这次学到的六件事</h2>
+<h3>12.1 高权限应用不能裸露端口</h3>
+<p>DSH 不是普通网页。只要它能触达文件和工作区，就必须把公网入口挡在认证网关之外。</p>
+<h3>12.2 Quick Tunnel 适合试，Named Tunnel 适合用</h3>
+<p>Quick Tunnel 能快速验证可行性，但长期使用需要一个稳定、可管理、可撤销的入口。</p>
+<h3>12.3 图比直觉可靠</h3>
+<p>把链路画出来后，很多问题立刻显形：</p>
+<pre><code>Cloudflare → cloudflared → 61238 → 3080
+</code></pre>
+<p>只要有一段指错，症状就会往后传播。</p>
+<h3>12.4 日志是最短路径</h3>
+<p><code>Registered tunnel connection</code>、<code>No ingress rules</code>、<code>connection-lost</code> 这些信息，比 UI 表象可靠得多。</p>
+<h3>12.5 构建产物必须验尸</h3>
+<p>源码对了、类型检查过了、UI 还旧行为，就要去看最终加载的 JS 文件到底来自哪里。</p>
+<h3>12.6 人机输入边界要显式规范化</h3>
+<p>屏幕上的 <code>"ABCD EFGH"</code> 是给人看的；提交前应转换成机器格式 <code>"ABCDEFGH"</code>。前后端都要做同样的清洗。</p>
+<h2>13. 现在的使用体验</h2>
+<p><figure><img alt="最终工作流：电脑一键开启，手机扫码接入，用完立即关闭" src="../../assets/images/posts/dsh-remote-gateway/06.avif"  loading="lazy" /><figcaption>最终工作流：电脑一键开启，手机扫码接入，用完立即关闭</figcaption></figure></p>
+<p>最终流程非常干净：</p>
+<pre><code>1. 电脑启动 DSH；
+2. 设置 → 远程控制；
+3. 点击「开启远程控制」；
+4. 插件自动启动固定域名 Tunnel；
+5. 手机打开 https://dsh.example.com；
+6. 扫码，或输入 8 位配对码；
+7. 配对成功，进入 DSH；
+8. 用完点「停止远程控制」。
+</code></pre>
+<p>不再需要手动开终端，不再追着一串 <code>trycloudflare.com</code> 地址跑，也不会因为 30 秒断开来不及配对。</p>
+<p>更重要的是，整个系统始终保留了一个原则：</p>
+<pre><code>公网入口存在时，必须经过认证；
+不需要它存在时，就让它彻底消失。
+</code></pre>
+<h2>14. 上线前检查清单</h2>
+<p>如果你也想复刻这套方案，建议逐项确认：</p>
+<pre><code>[ ] DSH 仍监听 127.0.0.1:3080
+[ ] 插件网关固定监听 127.0.0.1:61238
+[ ] Cloudflare Public Hostname Service 指向 http://localhost:61238
+[ ] publicHostname 与 Cloudflare 域名一致
+[ ] tunnelToken 只存在于本机私有配置
+[ ] cloudflared 启动参数显式包含 --url
+[ ] 日志出现 Registered tunnel connection
+[ ] 未配对公网访问返回 401 / 403
+[ ] 配对码展示中的空格不会导致校验失败
+[ ] 配对码 5 分钟内一次性使用
+[ ] 已配对设备可在设置页撤销
+[ ] 用完点击停止远程控制
+[ ] 重启后确认不会遗留 cloudflared 孤儿进程
+</code></pre>
+<h2>15. 结语</h2>
+<p>这次折腾表面上是“让手机打开一个网页”，实际上是把五个问题串起来解决：</p>
+<pre><code>入口从哪来？
+入口是否稳定？
+谁能通过入口？
+通过后能做什么？
+不用时怎么收回权限？
+</code></pre>
+<p>Quick Tunnel 回答了第一问，Named Tunnel 回答了第二问，配对码和设备会话回答了第三、四问，「开启 / 停止远程控制」回答了第五问。</p>
+<p>少任何一层，都会在某次重启、换网、分享二维码或误点按钮时变成一次惊吓。</p>
+<p>现在它终于变成了一个干净的私人工具：平时安静，用时可控，用完即走。</p>
+<h2>参考资料</h2>
+<ol>
+<li>
+<p>DeepSeek Harness 项目仓库：<br />
+<a href="https://github.com/deepseek-ai/deepseek-harness">https://github.com/deepseek-ai/deepseek-harness</a></p>
+</li>
+<li>
+<p><code>dsh-remote-web-gateway</code> 插件市场页面：<br />
+<a href="https://deepseek1024.com/plugins/summer1238/dsh-remote-web-gateway/plugin">https://deepseek1024.com/plugins/summer1238/dsh-remote-web-gateway/plugin</a></p>
+</li>
+<li>
+<p><code>dsh-remote-web-gateway</code> 源码仓库：<br />
+<a href="https://github.com/summer1238/dsh-remote-web-gateway">https://github.com/summer1238/dsh-remote-web-gateway</a></p>
+</li>
+<li>
+<p><code>dsh-remote-web-gateway</code> 用户指南：<br />
+<a href="https://github.com/summer1238/dsh-remote-web-gateway/blob/main/docs/USER_GUIDE.md">https://github.com/summer1238/dsh-remote-web-gateway/blob/main/docs/USER_GUIDE.md</a></p>
+</li>
+<li>
+<p>Cloudflare Tunnel 官方文档：<br />
+<a href="https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/">https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/</a></p>
+</li>
+<li>
+<p>Cloudflare Quick Tunnel 说明：<br />
+<a href="https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/">https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/</a></p>
+</li>
+<li>
+<p>Cloudflare 本地管理 Tunnel 配置文档：<br />
+<a href="https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/local-management/configuration-file/">https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/local-management/configuration-file/</a></p>
+</li>
+<li>
+<p><code>cloudflared</code> 下载与安装：<br />
+<a href="https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/">https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/</a></p>
+</li>
+<li>
+<p>GitHub OAuth App Device Flow 授权说明：<br />
+<a href="https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow">https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow</a></p>
+</li>
+</ol>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

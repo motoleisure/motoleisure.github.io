@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>硬盘快满了，我让 AI 帮我找出问题在哪 - Agent's Photolog</title>
+  <meta name="description" content="256GB 的 Mac Mini 用了一年多就报警磁盘不足。做一个硬盘扫描工具接进 pi，让 AI 自己去找大文件和垃圾目录。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/disk-scan/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="硬盘快满了，我让 AI 帮我找出问题在哪">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/disk-scan/">
+  <meta property="og:description" content="256GB 的 Mac Mini 用了一年多就报警磁盘不足。做一个硬盘扫描工具接进 pi，让 AI 自己去找大文件和垃圾目录。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">硬盘快满了，我让 AI 帮我找出问题在哪</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-06-04">发布于 2026 年 6 月 4 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">256GB 的 Mac Mini 用了一年多就报警磁盘不足。做一个硬盘扫描工具接进 pi，让 AI 自己去找大文件和垃圾目录。</p>
+
+        <div class="prose">
+<p>上周收到一个系统提示：启动磁盘空间不足。</p>
+<p>我的 Mac Mini M4 是 256GB 的，买来才一年多。</p>
+<p>256GB，怎么就不够了？</p>
+<hr />
+<h2>硬盘是怎么被吃满的</h2>
+<p>我打开 macOS 自带的「关于本机」，点进去看存储用量。</p>
+<p>系统说：「其他」占了 180GB。</p>
+<p>其他是什么？它没告诉我。</p>
+<p>这是 macOS 存储分析的一个经典让人抓狂的地方——它告诉你空间不够，但不告诉你谁占的。</p>
+<p>以前的处理方式是：下一个 CleanMyMac，扫一遍，删掉它建议删的东西，然后祈祷别把重要文件误删了。</p>
+<p>后来我开始做 AI 开发，问题变得更复杂：</p>
+<p>每搭一个项目，就会产生一个 <code>node_modules</code> 或者 <code>.venv</code>。这些依赖目录动辄几百 MB，大的能到 2-3GB。搭了几十个项目，就默默吃掉几十 GB。</p>
+<p>你不去找它，它就一直在那里。</p>
+<hr />
+<h2>四类问题，四种扫描</h2>
+<p>想清楚了，硬盘被吃满无非四类来源：</p>
+<p><strong>大文件</strong>——某个视频、某个模型权重文件、某个备份，体积巨大，但你已经忘了它在哪。</p>
+<p><strong>开发垃圾</strong>——<code>node_modules</code>、<code>.venv</code>、<code>build</code>、<code>__pycache__</code>……每个项目都会产生，从来不会自动清理。</p>
+<p><strong>临时/缓存</strong>——<code>~/Library/Caches</code>、系统日志、崩溃报告，系统自己产生，也不会自己删干净。</p>
+<p><strong>重复文件</strong>——同一份文件存了好几份，分散在不同目录，每一份你都以为是唯一的。</p>
+<p>我做了一个工具 <code>disk_scan</code>，专门对付这四类情况。</p>
+<hr />
+<h2>怎么用的</h2>
+<p>直接在 pi 里说：</p>
+<blockquote>
+<p>「帮我扫一下硬盘，找出占空间的东西」</p>
+</blockquote>
+<p>它会跑四种模式，逐一报告。</p>
+<p><strong>大文件扫描</strong>，按体积从大到小排列：</p>
+<pre><code>大文件（&gt;100MB），共 15 个：
+  8.2 GB    /Users/tim/Documents/vibe-coding/MVP/model/GLM-OCR
+  4.1 GB    /Users/tim/Documents/vibe-coding/MVP/VoxCPM/.venv
+  2.3 GB    /Users/tim/Downloads/nvidia-keynote.mp4
+  ...
+</code></pre>
+<p><strong>开发垃圾目录</strong>，算出每个目录的实际体积：</p>
+<pre><code>开发垃圾目录，共 23 个，合计 18.4 GB：
+  3.2 GB    /Users/tim/my-sys/glm-ocr-local/.venv-mlx
+  2.1 GB    /Users/tim/Documents/vibe-coding/project-a/node_modules
+  1.8 GB    /Users/tim/Documents/vibe-coding/project-b/.venv
+  ...
+</code></pre>
+<p><strong>缓存目录</strong>，一眼看清各个系统目录占了多少：</p>
+<pre><code>临时/缓存目录，合计 12.1 GB：
+  9.4 GB    /Users/tim/Library/Caches
+  1.2 GB    /Users/tim/.cache
+  0.8 GB    /private/var/folders
+  ...
+</code></pre>
+<p><strong>重复文件</strong>，按浪费的空间排序，告诉你哪两份文件内容完全一样：</p>
+<pre><code>重复文件，共 3 组，可释放约 4.2 GB：
+  [2.1 GB x2，可省 2.1 GB]
+    /Users/tim/Downloads/backup-2024.zip
+    /Users/tim/Documents/archive/backup-2024.zip
+  ...
+</code></pre>
+<hr />
+<h2>一个设计决定</h2>
+<p>工具只报告，不删除。</p>
+<p>我专门这样设计的。</p>
+<p>自动清理工具最大的风险是误删——它不知道哪些文件你还需要，哪些已经过期。节点目录看起来像垃圾，但可能某个项目还在跑。视频文件看起来重复，但可能版本不同。</p>
+<p>让工具来找，让人来判断，这个分工更安全。</p>
+<p>拿到报告之后，我自己决定删什么，在 Finder 里操作，删完清空废纸篓。全程可控。</p>
+<hr />
+<h2>一次扫描的收获</h2>
+<p>第一次跑完整扫描，发现了几件事：</p>
+<p><code>~/Library/Caches</code> 一个人就占了将近 10GB。这是各种 App 的缓存，大部分删掉之后 App 会自动重建，没有风险。</p>
+<p>废弃项目的 <code>.venv</code> 和 <code>node_modules</code> 合计 20GB 出头。这些项目已经不用了，目录却还在。</p>
+<p>有一个 4GB 的视频文件存了两份，一份在 Downloads，一份手动备份到了 Documents，内容完全一样。</p>
+<p>三类加起来，释放了 30GB 多。</p>
+<p>磁盘告警消失了。</p>
+<hr />
+<h2>现在的工具合集</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>工具</th>
+<th>做什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>transcribe_audio</code></td>
+<td>本地语音转录（SenseVoice）</td>
+</tr>
+<tr>
+<td><code>generate_xiaohongshu_card</code></td>
+<td>小红书配图生成</td>
+</tr>
+<tr>
+<td><code>dub_narration</code></td>
+<td>声音克隆配音 + 字幕视频</td>
+</tr>
+<tr>
+<td><code>vision_analyze</code></td>
+<td>本地视觉理解（Qwen3-VL）</td>
+</tr>
+<tr>
+<td><code>manage_services</code></td>
+<td>后台服务调度，释放内存</td>
+</tr>
+<tr>
+<td><code>extract_subtitles</code></td>
+<td>硬字幕提取（GLM-OCR）</td>
+</tr>
+<tr>
+<td><code>disk_scan</code></td>
+<td>硬盘空间扫描</td>
+</tr>
+</tbody>
+</table></div>
+<p>七个工具，各管一块。</p>
+<hr />
+<p>有时候我想，AI 助手的价值不只是回答问题。</p>
+<p>更重要的是，它能帮你把那些「知道该做但一直拖着没做」的事情，变得足够简单，简单到你愿意做。</p>
+<p>清硬盘就是这样——不是不知道该清，是懒得去找、懒得去查、懒得一个一个判断。</p>
+<p>现在说一句话，它帮我找出来，我扫一眼，删掉，完事。</p>
+<p>够了。</p>
+<hr />
+<blockquote>
+<p>本系列持续更新，记录把各种工具接进 AI 助手 pi 的完整过程。</p>
+</blockquote>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

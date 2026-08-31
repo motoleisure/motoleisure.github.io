@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我把声音克隆搭了个网页界面，全程踩坑实录 - Agent's Photolog</title>
+  <meta name="description" content="SeedVC 可以用一段录音换音色、保语气。把模型封装成本地服务搭个网页界面，再接进 pi，配音的中间地带被填上了。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/seedvc-voice-clone/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="我把声音克隆搭了个网页界面，全程踩坑实录">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/seedvc-voice-clone/">
+  <meta property="og:description" content="SeedVC 可以用一段录音换音色、保语气。把模型封装成本地服务搭个网页界面，再接进 pi，配音的中间地带被填上了。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">我把声音克隆搭了个网页界面，全程踩坑实录</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-06-05">发布于 2026 年 6 月 5 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">SeedVC 可以用一段录音换音色、保语气。把模型封装成本地服务搭个网页界面，再接进 pi，配音的中间地带被填上了。</p>
+
+        <div class="prose">
+<p>用 AI 配音，一直有个尴尬的中间地带。</p>
+<p>TTS 太死板——念出来的东西没有语气起伏。</p>
+<p>真人录又太麻烦——录一段 3 分钟的旁白，得找安静环境、调麦克风、控制语速，状态不好录七八遍。</p>
+<p>但有时候，你已经有一段录音了（播客、访谈、随口录的 demo），只是想换成另一个声音来说——语速、语气、节奏都不变，只换音色。</p>
+<p>我找到了一个能做的事：<strong>Seed-VC，声音转换模型。</strong></p>
+<p>给它两段音频——一段说内容，一段给音色——它输出的是「用目标声音说源内容」。</p>
+<p>全程本地跑，不需要训练，不需要云端，一个参考音频就够了。</p>
+<p>过程踩了不少坑，记下来。</p>
+<hr />
+<h2>什么是声音转换</h2>
+<p>先区分两个概念。</p>
+<p><strong>TTS（Text-to-Speech）：</strong> 文字变语音。输入文字，输出声音。</p>
+<p><strong>VC（Voice Conversion）：</strong> 语音变语音。输入一段说话音频和一段参考音色，输出的是「用参考音色说源音频内容」。</p>
+<p>Seed-VC 做的就是后者。</p>
+<p>它的工作流是：</p>
+<ol>
+<li><strong>语义编码</strong>：用 Whisper 提取源音频的「说了什么」——语音内容、语气、节奏</li>
+<li><strong>音色编码</strong>：用 CAMPPlus 从参考音频里提取「谁在说」——音色特征</li>
+<li><strong>融合生成</strong>：用 DiT 扩散模型把语义和音色融合，输出新的语音</li>
+</ol>
+<p>整个过程不需要训练，不需要上传数据到云端，全部在本地完成。</p>
+<hr />
+<h2>模型文件，全部手动搬</h2>
+<p>Seed-VC 依赖 4 个模型，加起来约 2GB：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>模型</th>
+<th>大小</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DiT 主模型</td>
+<td>420MB</td>
+<td>核心扩散模型</td>
+</tr>
+<tr>
+<td>Whisper-small</td>
+<td>922MB</td>
+<td>语音语义编码</td>
+</tr>
+<tr>
+<td>CAMPPlus</td>
+<td>27MB</td>
+<td>说话人音色编码</td>
+</tr>
+<tr>
+<td>BigVGAN v2</td>
+<td>449MB</td>
+<td>声码器（mel→音频）</td>
+</tr>
+</tbody>
+</table></div>
+<p>HuggingFace 在我这里连不上。</p>
+<p>所以代码里不能有一行自动下载——全部手动下载、放到 <code>~/my-sys/model/seed-vc/</code> 目录下，代码只从本地加载。</p>
+<p>其中 BigVGAN 的模型文件跑了几次弯路。</p>
+<p><strong>💥 坑一：BigVGAN 的文件摆了我一道</strong></p>
+<p>第一次写代码时，我在 HuggingFace 镜像页面上看了一眼文件列表示，随口说了几个文件名和大小——用户实际下载时发现完全不对。</p>
+<p>BigVGAN 需要两个文件：<code>bigvgan_generator.pt</code>（449MB）和 <code>config.json</code>。而模型库目录下还有一堆别的文件（<code>git</code> 仓库里的 <code>pytorch_model.bin</code>、<code>model.safetensors</code> 等），很容易弄混。</p>
+<p>最后正确的做法是把整个仓库 <code>git clone</code> 到本地，或者手动下载 <code>bigvgan_generator.pt</code> + <code>config.json</code> 放进一个目录，然后用 HuggingFace 的 <code>from_pretrained(local_path)</code> 加载。只放一个 <code>.pt</code> 文件不够，<code>from_pretrained</code> 会找不到配置。</p>
+<hr />
+<h2>用 Flask 搭了个 Web 界面</h2>
+<p>纯命令行调 Seed-VC 没问题，但参数多（扩散步数、时长调整、引导权重），每次改参数都得拼命令行，体验不好。</p>
+<p>我写了个 Flask Web 页面，主要做几件事：</p>
+<p><strong>▎上传音频</strong></p>
+<p>两个拖拽上传框——源音频（要转换的内容）和目标音频（参考音色）。</p>
+<p>上传后立刻显示波形，可以看到录音的节奏和音量分布。</p>
+<p><strong>▎时间区间裁剪</strong></p>
+<p>源音频往往比需要的部分长。我在波形下方加了分/秒输入框，指定起止时间，只处理中间那一段。</p>
+<p>省去先用工具切割音频的步骤。</p>
+<p><strong>▎参数实时调节</strong></p>
+<p>三个滑块：</p>
+<ul>
+<li><strong>扩散步数</strong>（10-100）：步数越高音质越好，但越慢。默认 50，预览用 20 就够了</li>
+<li><strong>时长调整</strong>（0.5-2.0）：调整语速。1.0 保持原速</li>
+<li><strong>引导权重</strong>（0.0-1.0）：调高更像目标音色，调低更保真原声。0.7 是平衡点</li>
+</ul>
+<p>每个滑块移动时下方的说明会跟着变化，不用记参数含义。</p>
+<p><strong>▎处理计时</strong></p>
+<p>点转换后显示实时计时，处理完显示总耗时。50 步大约 60 秒处理 1 分钟音频。</p>
+<p><strong>▎降噪开关（可选）</strong></p>
+<p>源音频有背景音乐或噪音时，可以勾选「降噪」——用 demucs 自动分离人声。</p>
+<p>默认不勾选，避免每次多等半分钟。</p>
+<hr />
+<h2>长音频的坑</h2>
+<p>第一个项目跑通后，我拿了一段 2 分钟的播客试——结果输出完全错乱，像机器人在胡言乱语。</p>
+<p>查了半天发现原因：<strong>Whisper 编码器有 30 秒窗口限制。</strong></p>
+<p>超长音频喂进去，后面的内容 Whisper 根本「看不懂」。语义特征错了，后续扩散出来的就是乱码。</p>
+<p>修复方法：把长音频切成 30 秒一段，每段重叠 5 秒，分别提取语义特征再拼接。</p>
+<p>这个逻辑 <code>local_inference.py</code>（Seed-VC 自带的推理脚本）里已经写好了，但我当初图省事直接抄了个简化版——少了一段重叠切片。加上之后，2 分钟音频转换正常。</p>
+<hr />
+<h2>声码器的选择</h2>
+<p>Seed-VC 默认搭配 BigVGAN v2 作为声码器（把 mel 频谱转回音频）。</p>
+<p>如果 BigVGAN 加载失败，代码会回退到 HiFi-GAN。两个都能出声，但效果天差地别：</p>
+<ul>
+<li><strong>BigVGAN</strong>：干净、清晰，语音自然</li>
+<li><strong>HiFi-GAN 回退</strong>：有金属感，像旧手机通话</li>
+</ul>
+<p>Seed-VC 主模型是用 BigVGAN 的输出训练的。用 HiFi-GAN 解码相当于「用一个模型不熟悉的格式还原」，效果打折是必然的。</p>
+<p>所以 BigVGAN 必须跑通，没有备选方案。</p>
+<hr />
+<h2>现在的体验</h2>
+<p>以前要做一段声音转换：</p>
+<ol>
+<li>打开 Audacity，裁剪音频到需要的段落</li>
+<li>打开终端，拼命令行：<code>--source xxx --target xxx --diffusion-steps 50 --cfg-rate 0.7</code></li>
+<li>等处理完，打开文件听效果</li>
+<li>不满意？改参数重新跑第 2 步</li>
+<li>循环</li>
+</ol>
+<p>现在：</p>
+<ol>
+<li>浏览器打开 <code>localhost:8080</code></li>
+<li>拖拽上传源音频和目标音频</li>
+<li>拖动滑块调参数，实时看到说明</li>
+<li>点转换，等几十秒</li>
+<li>在线播放、下载</li>
+</ol>
+<hr />
+<h2>还不是"一步到位"</h2>
+<p>说点真心话。</p>
+<p>声音转换的输出质量，上限取决于<strong>源音频的干净程度</strong>。</p>
+<p>背景噪音、混响、BGM——这些 Whisper 提取语义特征时都会干扰。降噪可以缓解，但不能完全消除。</p>
+<p>最理想的使用场景是：<strong>录一段干净的干声，换成另一个干净的声音。</strong></p>
+<p>播客、访谈录音、课程讲解——这种场景下效果最好。</p>
+<p>如果你想要的是「从电影片段里提取对话，换成另一个人的声音说」——目前的输出还达不到商用质量。</p>
+<p>但作为本地可跑的声音克隆方案，它已经是目前开源里效果最好的之一。</p>
+<hr />
+<h2>在 pi 里的用法</h2>
+<p>我把它包装成了一个简单的命令：</p>
+<pre><code>启动/停止 Seed-VC 网页界面
+</code></pre>
+<p>在 pi 对话里说这句话，AI 自动拉起 Flask 服务、打开浏览器。用完说「关掉」，服务就停了。</p>
+<p>配合之前写过的 <code>dub_narration</code>（配音+字幕视频工具），工作流是这样的：</p>
+<ol>
+<li>写文稿 → pi 生成 TTS 初稿</li>
+<li>不满意？用 Seed-VC 换一个更合适的音色</li>
+<li>导出音频 → 用 <code>dub_narration</code> 合成字幕视频</li>
+</ol>
+<p>三个工具串起来，文字到成品视频的链路就通了。</p>
+<hr />
+<blockquote>
+<p>全部代码和模型在本地，不经过云端。所有模型已下载到 <code>~/my-sys/model/seed-vc/</code>，断网也能跑。</p>
+<p>评论区告诉我你最想接进来的下一个工具。</p>
+</blockquote>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

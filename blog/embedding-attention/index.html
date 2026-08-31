@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>「忘记密码」和「登录信息忘了」，大模型为什么知道是一回事？ - Agent's Photolog</title>
+  <meta name="description" content="两句话没有一个词相同，意思却一样——大模型靠的是词嵌入和注意力。用四张图讲清：意义怎么变成向量，注意力怎么打分。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/embedding-attention/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="「忘记密码」和「登录信息忘了」，大模型为什么知道是一回事？">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/embedding-attention/">
+  <meta property="og:description" content="两句话没有一个词相同，意思却一样——大模型靠的是词嵌入和注意力。用四张图讲清：意义怎么变成向量，注意力怎么打分。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">「忘记密码」和「登录信息忘了」，大模型为什么知道是一回事？</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-08-31">发布于 2026 年 8 月 31 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">两句话没有一个词相同，意思却一样——大模型靠的是词嵌入和注意力。用四张图讲清：意义怎么变成向量，注意力怎么打分。</p>
+
+        <div class="prose">
+<p>先看两句话：</p>
+<blockquote>
+<p>A：「我的密码忘了，怎么重置？」
+B：「登录信息找不到了。」</p>
+</blockquote>
+<p>任何人一眼就知道这俩说的是<strong>同一件事</strong>。</p>
+<p>但句子里没有一个词是相同的——没有"密码"对"密码"，没有"登录"对"登录"。</p>
+<p>再看另外两句：</p>
+<blockquote>
+<p>C：「今天买的苹果很甜。」
+D：「新出的苹果贵了好几百。」</p>
+</blockquote>
+<p>这回电脑觉得有戏了——两句话都有"苹果"。可我们都知道，一个在说水果，一个在说手机，<strong>风马牛不相及</strong>。</p>
+<p><strong>两道题，只认字面意思的电脑全做反了。</strong></p>
+<p>这不是模型不够大的问题，而是它的出发点就是错的：<strong>只比对字面，永远得不到意思。</strong> 这篇就沿着大模型真正的工作方式走一遍——先讲它怎么"认识"词（词嵌入），再讲它怎么"读懂"上下文（注意力机制 Q/K/V），中间还有两个我自己理解错过的点，一并记下来。</p>
+<hr />
+<h2>一句话总结</h2>
+<p><strong>大模型把每个词变成一张"意义地图"上的坐标，意思越近、坐标越近；而"理解上下文"，就是每个词在这张地图上按重要性把别人的信息抄一份给自己。</strong></p>
+<p>前半句叫<strong>词嵌入（Embedding）</strong>，后半句叫<strong>注意力机制（Attention）</strong>。记住这一句，下面全是它的展开。</p>
+<hr />
+<h2>第 1 站：词嵌入——给每个词一个坐标</h2>
+<p>电脑擅长比数字，不擅长比意思。那解法就很自然了：<strong>把意思翻译成数字。</strong></p>
+<p>翻译出来的那串数字，就叫<strong>词嵌入</strong>。比如：</p>
+<pre><code>「重置密码」 → [0.21, -0.48, 0.83, ...]
+「忘记登录」 → [0.19, -0.44, 0.79, ...]
+</code></pre>
+<p>注意看这两串数字——<strong>几乎一样</strong>。因为这两句话意思几乎一样。</p>
+<blockquote>
+<p><strong>词嵌入 = 意思的坐标。意思越近，数字越近。</strong></p>
+</blockquote>
+<p>这串数字有个学名叫<strong>向量（vector）</strong>，以后看到"向量检索""向量数据库"，指的都是它。</p>
+<p><figure><img alt="词嵌入全景图" src="../../assets/images/posts/embedding-attention/01.avif"  loading="lazy" /><figcaption>词嵌入全景图</figcaption></figure></p>
+<h3>两个数字就能看懂它</h3>
+<p>真实的嵌入有几千个数字，没法画出来。但砍到两个，就能在纸上画了。</p>
+<p>给水果打两个分——<strong>甜度</strong>和<strong>大小</strong>：</p>
+<pre><code>苹果     [7, 5]
+香蕉     [8, 5]
+柠檬     [1, 3]
+西瓜     [6, 10]
+</code></pre>
+<p>画到坐标纸上，奇妙的事情发生了：没人告诉电脑苹果和香蕉像，但<strong>它们自动落在了一起</strong>，柠檬孤零零地在角落。</p>
+<p>于是电脑能回答一个真问题了：「哪个水果最像苹果？」——它不懂水果，只需要找<strong>离 [7,5] 最近的点</strong>。答案是香蕉。</p>
+<p><figure><img alt="水果意义地图" src="../../assets/images/posts/embedding-attention/02.avif"  loading="lazy" /><figcaption>水果意义地图</figcaption></figure></p>
+<blockquote>
+<p><strong>意思变成了位置，而位置可以测量。</strong> 这就是词嵌入的全部魔法。</p>
+</blockquote>
+<h3>那到底怎么量"像不像"？</h3>
+<p>最常见的方法叫<strong>余弦相似度</strong>：把每条向量想成一支从原点射出的箭头，忽略箭头长短，只量两支箭的<strong>夹角</strong>。</p>
+<ul>
+<li>夹角很小 → 分数接近 <strong>1</strong>：很像</li>
+<li>垂直 → 接近 <strong>0</strong>：无关</li>
+<li>方向相反 → 接近 <strong>-1</strong>：相反</li>
+</ul>
+<p>为什么不看长度只看方向？因为长短常常只反映"文字多少"——两行和两页讲同一个话题，应该算相似。搜索的原理也就这一步：把你的问题变成箭头，去库里找夹角最小的。</p>
+<hr />
+<h2>第 2 站：这些数字是谁定的？</h2>
+<p>没有人手工填。它们是一个<strong>训练出来的 Embedding 模型</strong>算出来的。</p>
+<p>模型读了几亿句话，靠一条规律工作：</p>
+<blockquote>
+<p><strong>总出现在相似句子里的词，意思就相似。</strong></p>
+</blockquote>
+<p>"茶"和"咖啡"总是被"喝"、被"倒"、装在"杯"里、出现在"早上"——模型在几亿句话里看到它们反复出现在相同的位置，就把它们的坐标放得很近。没有任何人告诉它"这俩都是饮料"。</p>
+<p>语言学家 Firth 在 1957 年就说过这句话：<strong>"观其伴而知其义"（You shall know a word by the company it keeps）。</strong></p>
+<p>而当词有了坐标，坐标还能做算术。最著名的演示：</p>
+<pre><code>king - man + woman ≈ queen
+</code></pre>
+<p>减去"男性"的方向，加上"女性"的方向，落点正好在"女王"附近。同样地：</p>
+<pre><code>Paris - France + Italy ≈ Rome
+</code></pre>
+<p>没人编程过"性别"和"首都"这些概念——<strong>它们自己从人类的文字里长了出来。</strong></p>
+<hr />
+<h2>插叙：我一开始理解错的两个点</h2>
+<p>这两个坑我亲手踩过，记下来省得你再踩。</p>
+<p><strong>▎坑一：词嵌入不是"相关性矩阵"，是"坐标表"</strong></p>
+<p>我曾以为 embedding 存的是词和词之间的相关度——像一张 n×n 的大表格，"猫-狗 0.9、猫-车 0.2"。</p>
+<p>不对。<strong>词嵌入里每一行只存这个词自己的坐标</strong>，任何两格之间都不存关系。"猫和狗像不像"不是查出来的，是<strong>事后拿两条坐标算出来的</strong>。</p>
+<p>这个区别是本质性的：表格是死的、有限的；坐标是活的——一个从没见过的新句子来了，模型直接算出它的坐标，就能和库里所有东西比较。<strong>地图不存距离，地图存位置；距离是你拿尺子量出来的。</strong></p>
+<p><strong>▎坑二：分界的不是"语言"，是"模型"</strong></p>
+<p>我也以为"每种语言训练一套自己的词嵌入"。早年（word2vec 那个时代）确实如此，但现在主流模型是<strong>多语言共享一个空间</strong>的——"cat"、"猫"、"chat" 落在彼此附近，所以你可以用中文直接搜英文文档。</p>
+<p>真正互相隔绝的边界是<strong>模型</strong>：每个模型训练出自己的一个空间，A 模型的坐标和 B 模型的坐标是两种语言，混着比只会得到"看起来正常、实际毫无意义"的数字。所以换了 embedding 模型，库里所有向量必须全部重建。</p>
+<hr />
+<h2>第 3 站：Q、K、V——注意力怎么用这张地图</h2>
+<p>先停一秒，看看地图建好之后我们手里有什么：<strong>每个词都有一串坐标了。</strong></p>
+<p>但只有坐标还不够。拿「苹果」来说——它在地图上的位置只有一个，可它在「今天买的苹果很甜」里是水果，在「新出的苹果贵了好几百」里是手机。<strong>同一个坐标，进了不同句子，身份完全不同。</strong></p>
+<p>问题变成了：<strong>一串孤立的坐标，怎么知道自己在当前句子里该跟谁发生关系？</strong></p>
+<p>这就是注意力机制要干的事。而它给出的答案极其聪明：不是为每个词再学一套新坐标，而是<strong>让每个词把已有坐标"复制三份"，各自朝一个方向偏一下</strong>——偏的方向由三个训练出来的矩阵（W_Q、W_K、W_V）决定：</p>
+<pre><code>词的坐标 x   →   Q = x × W_Q   （我在找什么）
+             →   K = x × W_K   （我是什么）
+             →   V = x × W_V   （我真正携带的信息）
+</code></pre>
+<p>为什么恰好是这三个？可以这么想：一个词在句子里同时扮演三个角色，而<strong>一个坐标扮演不了三个角色</strong>——</p>
+<blockquote>
+<p><strong>Q（Query，查询）</strong>：我此刻在找什么样的词？——像搜索框里输入的关键词
+<strong>K（Key，键）</strong>：我可以被怎样找到？——像网页的标签、商品的标牌
+<strong>V（Value，值）</strong>：一旦你选中我，我真正交给你的是什么？——像网页正文、商品本身</p>
+</blockquote>
+<p>拿「我 爱 AI」这个三词句子走完整流程。每一步都可以口算。</p>
+<h3>第一步：打分（Q × Kᵀ）——"我"在句子里找谁？</h3>
+<p>拿 "我" 的 Q，逐一去和每个词（包括它自己）的 K 做点积。点积这个动作翻译成人话就是：<strong>两条坐标有多合拍，得一个分。</strong></p>
+<pre><code>我 → 我     得 1 分
+我 → 爱    得 5 分  ★ 最高
+我 → AI    得 3 分
+</code></pre>
+<p>"我" 的注意力锁定了<strong>动词"爱"</strong>——在"我 爱 AI"这个句子里，对代词"我"而言，最有信息量的就是动词。注意这件事不是谁规定的：Q 和 K 是模型自己学出来的，<strong>它学会了"代词该关注动词"这种语法直觉</strong>，而且是纯粹从海量句子里自己悟的。</p>
+<p><figure><img alt="注意力打分" src="../../assets/images/posts/embedding-attention/03.avif"  loading="lazy" /><figcaption>注意力打分</figcaption></figure></p>
+<h3>第二步：缩放（÷ √dₖ）——为什么分数要先压一压？</h3>
+<p>所有分数除以 √dₖ（键向量的维度开根号，例子中 √3 ≈ 1.73）：5 分变 2.9，3 分变 1.7，1 分变 0.6。</p>
+<p>多此一举吗？不是。看下一步的 softmax——它对大数字极其敏感：<strong>分数一大，softmax 就会把最高的推到接近 100%、其他压到接近 0%</strong>，梯度随之消失，模型就学不动了。维度越高点积越容易大，所以提前除以 √dₖ 把分数拉回"softmax 舒服"的区间。</p>
+<p>关键在于：<strong>缩放只压数值，不改排序。</strong>"爱最相关"这个结论原封不动，只是尺度变得温和。</p>
+<h3>第三步：softmax——分数变"注意力预算"</h3>
+<p>softmax 把每行的分数变成一组加起来恰好 100% 的比例：</p>
+<pre><code>我 的注意力预算： 7% 留给自己，70.7% 分给「爱」，22.3% 分给 AI
+</code></pre>
+<p>另外两个词也各自做一遍同样的计算（各自拿自己的 Q 去打分），得到各自的预算。于是句子里<strong>每一对词之间都有了一个比例</strong>——这整张比例表，就是注意力权重矩阵，它就是模型眼中的"句内关系网"。</p>
+<h3>第四步：加权求和（× V）——按预算抄内容</h3>
+<p>这一步是收账的时刻。按预算，把每个词的 V（真正的内容）抄一份、加权、加总：</p>
+<pre><code>我 的新表示 = 0.07 × V(我) + 0.707 × V(爱) + 0.223 × V(AI)
+</code></pre>
+<p>盯着这个结果看清楚它意味着什么：<strong>"我" 的新表示里，七成是「爱」的内容。</strong> 经过这一步，"我"不再只是一个孤立的代词坐标——它成了一个<strong>混入了动词语义的新向量</strong>。句子里每个词都这么走一遍之后，每个词的新表示都带着它最关心的上下文。</p>
+<p>回到开头的"苹果"：在「今天买的苹果很甜」里，"苹果"的 Q 会和"甜"的 K 打出高分，"苹果"的新向量里混进大量"甜"的内容——<strong>歧义就是这样被上下文消解掉的</strong>。同一个词在不同句子里得到不同的新向量，这就是"同一个字、不同意思"在数学上的实现。</p>
+<p>整套流程压成一行公式：</p>
+<pre><code>Attention(Q, K, V) = softmax(QKᵀ / √dₖ) × V
+</code></pre>
+<p>现在再看这行公式，每一块都能对上号了：QKᵀ 是打分，÷√dₖ 是压分，softmax 是分预算，×V 是按预算抄内容。</p>
+<p><figure><img alt="注意力全流程总结" src="../../assets/images/posts/embedding-attention/04.avif"  loading="lazy" /><figcaption>注意力全流程总结</figcaption></figure></p>
+<p>（例子里为了能口算，维度只有 3；真实模型是 512、1024 起步，而且这套计算会并行跑几十上百遍——所谓多头注意力，相当于让多组"眼睛"各自关注不同类型的关系，有的盯语法、有的盯语义，最后拼起来。）</p>
+<hr />
+<h2>把两站接起来</h2>
+<p>现在可以看懂这条完整的链了：</p>
+<pre><code>文字 → Embedding 模型 → 词向量（意义地图上的坐标）
+                          ↓
+              每个词的坐标复制三份，偏成 Q、K、V
+                          ↓
+              Q 找 K 打分 → softmax 分预算 → 按预算抄 V
+                          ↓
+              每个词的新表示都带着上下文 → 消解歧义
+</code></pre>
+<p>回头看开头那两道题，大模型是怎么做对的：</p>
+<ul>
+<li><strong>「密码忘了」和「登录信息找不到」</strong>：两句话的坐标在意义地图上本来就挨得很近（它们总出现在相似的上下文里）——词嵌入解决了它；</li>
+<li><strong>「苹果很甜」和「苹果很贵」</strong>：同一个"苹果"，在各自的句子里把"甜"和"贵"的内容按高比例抄了进去，新向量分道扬镳——注意力解决了它。</li>
+</ul>
+<p><strong>词嵌入负责"认识每个词"，注意力负责"理解它们在一起时的关系"。</strong> 你每天用的每一个 AI 产品，底层都在跑这两件事：</p>
+<ul>
+<li>语义搜索：把问题和文档都变成坐标，找最近的</li>
+<li>RAG：让 AI 先去地图上捞回最相关的资料，再回答</li>
+<li>推荐系统："别人也喜欢"≈ 坐标最近邻</li>
+</ul>
+<p>最后附一个自查用的三句话版本：</p>
+<blockquote>
+<p><strong>1. 意思变成坐标，意思近 = 坐标近（词嵌入）。</strong>
+<strong>2. 一个坐标扮演不了三个角色，所以复制三份偏成 Q、K、V：Q 是我在找什么，K 是我是什么，V 是我真正的内容。</strong>
+<strong>3. 注意力就是按 70.7% 这样的比例抄内容——抄完，每个词的新向量就带着上下文了。</strong></p>
+</blockquote>
+<hr />
+<p><em>参考：Outcome School（Amit Shekhar）的《What are Embeddings?》与《Math behind Attention: Q, K, and V》两篇原文；文中插图是我为这两篇做的中文图解版。</em></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我在 Mac 上部署了开源 Agent「FrontierAgent」：全程实操 + 7 个踩坑实录 - Agent's Photolog</title>
+  <meta name="description" content="不需要 GPU，不需要 Docker Desktop，一台普通 Mac 就能跑。「能装上」和「装得顺」之间隔着 7 个坑，每一个的现象、根因和解法都在这里。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/frontieragent-mac/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="我在 Mac 上部署了开源 Agent「FrontierAgent」：全程实操 + 7 个踩坑实录">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/frontieragent-mac/">
+  <meta property="og:description" content="不需要 GPU，不需要 Docker Desktop，一台普通 Mac 就能跑。「能装上」和「装得顺」之间隔着 7 个坑，每一个的现象、根因和解法都在这里。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">我在 Mac 上部署了开源 Agent「FrontierAgent」：全程实操 + 7 个踩坑实录</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-08-26">发布于 2026 年 8 月 26 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">不需要 GPU，不需要 Docker Desktop，一台普通 Mac 就能跑。「能装上」和「装得顺」之间隔着 7 个坑，每一个的现象、根因和解法都在这里。</p>
+
+        <div class="prose">
+<blockquote>
+<p>不需要 GPU，不需要 Docker Desktop，一台普通 Mac 就能跑起来。但"能装上"和"装得顺"之间，隔着 7 个坑。这篇文章把每一个坑的现象、根因和解法都记录下来，照着做可以少走两小时弯路。</p>
+</blockquote>
+<hr />
+<h2>一、FrontierAgent 是什么？</h2>
+<p><a href="https://github.com/ApodexAI/FrontierAgent">FrontierAgent</a> 是 ApodexAI 开源的<strong>终端原生 Agent 工作流客户端</strong>，核心卖点有两个：</p>
+<ul>
+<li><strong>ReAct 模式</strong>：单 Agent 有状态执行，适合改代码、读文件、生成交付物；</li>
+<li><strong>Agent Team 模式</strong>：Coordinator 拆解任务、多个子 Agent 并行调研再汇总，适合多来源交叉验证的深度调研。</li>
+</ul>
+<p>它自带 Textual 全屏 TUI、工具审批确认机制、会话恢复（<code>--resume</code>），还内置了一整套 benchmark 评测脚本（BrowseComp、HLE、SGLang 等）。对想研究 Agent 工作流工程实现的人来说，是一个很值得通读源码的项目。</p>
+<p><strong>部署门槛极低</strong>：MacBook 本体只负责跑 Agent 的 TUI 和工作流调度，模型本身走 OpenAI-compatible 的托管 API（DeepSeek、OpenAI、各类聚合网关都行），所以 Apple Silicon 没有 NVIDIA CUDA 也完全不影响。</p>
+<p>官方文档给了一条命令的最快路径：</p>
+<pre><code>git clone https://github.com/ApodexAI/FrontierAgent.git
+cd FrontierAgent
+./scripts/run-macos.sh
+</code></pre>
+<p>理论上三行结束。实际上我在 Apple Silicon + OrbStack 环境下遇到了 7 个坑。下面按时间线完整复盘。</p>
+<hr />
+<h2>二、部署前的环境清单</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>组件</th>
+<th>我的环境</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>macOS</td>
+<td>26.5.2（Apple Silicon）</td>
+<td>Intel 也支持</td>
+</tr>
+<tr>
+<td>Docker</td>
+<td><strong>OrbStack</strong>（非 Docker Desktop）</td>
+<td>docker CLI 兼容，坑 1 与它有关</td>
+</tr>
+<tr>
+<td>uv</td>
+<td>Homebrew 预装 ✅</td>
+<td>Python 3.12 和依赖全由它管</td>
+</tr>
+<tr>
+<td>Git / Node</td>
+<td>已有 ✅</td>
+<td></td>
+</tr>
+<tr>
+<td>模型端点</td>
+<td>任一 OpenAI-compatible API</td>
+<td>需要 Key、Base URL、模型名三件套</td>
+</tr>
+</tbody>
+</table></div>
+<p>一个重要前提认知：<strong>OrbStack 完全可以替代 Docker Desktop</strong>，FrontierAgent 的脚本只调用标准 <code>docker</code> 命令，不关心背后是谁提供的 daemon。</p>
+<hr />
+<h2>三、五分钟标准流程（如果一切顺利）</h2>
+<p>先把理想路径放这里，后面每一步对应的坑都标注了编号：</p>
+<pre><code># 1. 启动 OrbStack（坑 1）
+open -a OrbStack
+
+# 2. 克隆仓库
+git clone --depth 1 https://github.com/ApodexAI/FrontierAgent.git
+cd FrontierAgent
+
+# 3. 安装 Python 3.12 + 依赖（坑 2：镜像源超时）
+uv sync --python 3.12
+
+# 4. 配置模型端点（交互式输入，密钥不回显）
+cp .env.example .env &amp;&amp; chmod 600 .env &amp;&amp; vim .env
+# 必填三项：
+# OPENAI_API_KEY=你的密钥
+# OPENAI_BASE_URL=https://api.xxx.com/v1   ← 注意以 /v1 结尾
+# OPENAI_MODEL=服务端的模型 ID
+
+# 5a. 用 Docker 边界运行（需先构建镜像，见坑 3/4）
+docker build -t apodex:local .
+
+# 5b. 或直接 Native 运行（无需任何镜像）
+uv run frontier-agent --native --mode react --print <span class="tok-s">&quot;你好&quot;</span>
+</code></pre>
+<p>看起来很简单对吧？下面是真实世界。</p>
+<hr />
+<h2>四、踩坑实录</h2>
+<h3>坑 1：OrbStack 装了，但 daemon 没醒</h3>
+<p><strong>现象</strong>：<code>docker version</code> 报错——</p>
+<pre><code>failed to connect to the docker API at
+unix:///Users/tim/.orbstack/run/docker.sock ...
+connect: no such file or directory
+</code></pre>
+<p><strong>原因</strong>：OrbStack 是个 GUI 应用，<strong>开机不会自动启动 docker daemon</strong>（除非设置了开机自启）。命令行在，服务没起。</p>
+<p><strong>解法</strong>：</p>
+<pre><code>open -a OrbStack     <span class="tok-c"># 启动后等 3~5 秒</span>
+docker info          <span class="tok-c"># 能打印 Server 信息即成功</span>
+</code></pre>
+<p>💡 教训很简单但容易忘：换了 Docker Desktop → OrbStack 之后，排查问题的第一反应要从"重启 Docker 服务"变成"App 启动了没有"。</p>
+<h3>坑 2：清华镜像源超时，uv sync 半路夭折</h3>
+<p><strong>现象</strong>：<code>uv sync --python 3.12</code> 在解析完 163 个包之后，下载构建依赖 <code>editables==0.6</code> 时连重试 3 次全部超时：</p>
+<pre><code>× Failed to download editables==0.6
+├─▶ https://pypi.tuna.tsinghua.edu.cn/packages/...
+├─▶ Request failed after 3 retries
+╰─▶ operation timed out
+</code></pre>
+<p><strong>排查</strong>：检查 <code>env | grep -i uv_</code> 发现系统全局设置了：</p>
+<pre><code>UV_DEFAULT_INDEX=https://pypi.tuna.tsinghua.edu.cn/simple
+</code></pre>
+<p>这是之前为了加速装的国内镜像。当天清华源抽风，所有请求超时。而同一时刻 GitHub 克隆畅通无阻——说明国际网络没问题。</p>
+<p><strong>解法</strong>：单次覆盖环境变量，走官方 PyPI：</p>
+<pre><code>UV_DEFAULT_INDEX=https://pypi.org/simple uv sync --python 3.12
+</code></pre>
+<p>一次通过，<code>.venv</code> 共 131 MB。</p>
+<p>⚠️ <strong>附带伤害</strong>：第一次失败的 sync 已经把 <code>uv.lock</code> 里的下载 URL 全部改写成了清华源地址（<code>git diff</code> 一看 4586 行变动，全是 registry URL 替换）。用 <code>git checkout -- uv.lock</code> 还原即可，否则以后 <code>git pull</code> 会遇到无谓冲突。</p>
+<p>💡 <strong>教训</strong>：全局镜像源是"平时加速、故障时背锅"的典型配置。遇到 uv/pip 大面积超时，先用 <code>UV_DEFAULT_INDEX</code> / <code>PIP_INDEX_URL</code> 临时覆盖验证是不是源的问题，别急着怀疑项目本身。</p>
+<h3>坑 3：GHCR 官方镜像拉不动？读完源码发现根本不用拉</h3>
+<p><strong>现象</strong>：按 compose.yaml 里的默认配置预拉镜像：</p>
+<pre><code>docker pull ghcr.io/apodexai/frontieragent:latest
+# Error response from daemon: error from registry: unauthorized
+</code></pre>
+<p><strong>排查</strong>：这个报错通常意味着镜像不存在或未公开。但翻 <code>apodex/docker.py</code> 源码发现了关键逻辑：</p>
+<pre><code>_DEFAULT_IMAGE = <span class="tok-s">&quot;apodex:local&quot;</span>
+
+def run_in_container(...):
+    if not image_exists(image):
+        if image == _DEFAULT_IMAGE:
+            build_image(image)      <span class="tok-c"># ← 默认镜像：本地构建！</span>
+        elif not pull_image(image): <span class="tok-c"># ← 只有自定义 tag 才去 registry 拉</span>
+            ...
+</code></pre>
+<p><strong>结论</strong>：默认镜像 <code>apodex:local</code> 从设计上就是<strong>从本地 checkout 构建</strong>的，GHCR 那个 tag 只服务于自定义镜像名的场景。unauthorized 报错完全不影响正常使用，属于"不看源码会被吓到"的假坑。</p>
+<p>💡 <strong>教训</strong>：开源项目的 compose 文件里写的镜像名 ≠ 你必须去拉的镜像。花五分钟读一下启动代码，比对着报错瞎猜十分钟划算。</p>
+<h3>坑 4：容器内构建，30 秒超时的连环坑</h3>
+<p>真正的时间黑洞在这里。<code>docker build -t apodex:local .</code> 连续失败两次，都倒在同一步：</p>
+<pre><code>RUN uv sync --frozen --extra eval --extra sandbox --extra document-readers
+├─▶ I/O operation failed during extraction
+╰─▶ Failed to download distribution due to network timeout.
+    Try increasing UV_HTTP_TIMEOUT (current value: 30s).
+</code></pre>
+<p><strong>两层问题叠加</strong>：</p>
+<ol>
+<li>OrbStack 容器内访问 PyPI 的速度远慢于宿主机（apt 安装 LibreOffice 那一层单独跑了 <strong>21 分钟</strong>）；</li>
+<li>容器内 uv 默认 HTTP 超时只有 <strong>30 秒</strong>，大一点的包（litellm 22MB、pandas、botocore）根本下不完。</li>
+</ol>
+<p><strong>解法</strong>：临时修改 Dockerfile，给 ENV 块加一行，构建完成后还原：</p>
+<pre><code>ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PATH=/opt/venv/bin:$PATH \
+    SANDBOX_BACKEND=bwrap \
+    UV_HTTP_TIMEOUT=600        <span class="tok-c"># ← 临时加入这行</span>
+</code></pre>
+<pre><code>docker build -t apodex:local .      <span class="tok-c"># 成功，全程约 40 分钟</span>
+git checkout -- Dockerfile          <span class="tok-c"># 还原，保持仓库干净</span>
+</code></pre>
+<p>最终镜像 2.39 GB（含 LibreOffice 文档处理套件）。</p>
+<p>💡 <strong>教训</strong>：
+- BuildKit 有层缓存，失败的构建重试会从失败层继续，<strong>不要删缓存硬重来</strong>；
+- 改 Dockerfile 这类"临时脚手架"，务必用 git 还原，否则三个月后没人知道为什么镜像里多了个环境变量。</p>
+<h3>坑 5：Native 还是 Docker？我选了 Native，顺手清出 7.4 GB</h3>
+<p>两种模式的技术边界：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Native 模式</th>
+<th>Docker 模式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>隔离边界</td>
+<td>无 OS 级沙箱，Agent 命令以你的用户权限执行</td>
+<td>容器级文件/进程隔离</td>
+</tr>
+<tr>
+<td>审批机制</td>
+<td>✅ 保留（每个修改操作弹审批/diff）</td>
+<td>✅ 保留</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>可信项目日常使用</td>
+<td>跑不可信仓库/任务</td>
+</tr>
+</tbody>
+</table></div>
+<p>考虑到主要在自己的可信项目上用，且审批确认机制仍然生效，我选择了 Native 模式，然后把刚建好的镜像连同构建缓存全部清掉：</p>
+<pre><code>docker rmi apodex:local
+docker builder prune -af
+# 共释放约 7.4 GB（镜像层 4.5 GB + 构建缓存 2.9 GB）
+</code></pre>
+<p>以后需要容器边界时，一条 <code>docker build -t apodex:local .</code> 随时重建（有缓存经验值，也知道了要带 <code>UV_HTTP_TIMEOUT=600</code>）。</p>
+<p>💡 <strong>教训</strong>：Docker 边界的价值在于隔离不可信代码。如果你明确知道自己只会喂给它可信任务，Native + 审批机制是更轻的选择；反之请务必留镜像。</p>
+<h3>坑 6：.env 的两个细节陷阱</h3>
+<p><strong>陷阱 A：权限</strong>。手动 <code>cp .env.example .env</code> 出来的文件权限是 644，组用户和其他用户可读——而这个文件里躺着 API Key。官方脚本自动生成时会 <code>chmod 600</code>，手动创建就要自己补：</p>
+<pre><code>chmod 600 .env
+</code></pre>
+<p><strong>陷阱 B：Base URL 格式</strong>。<code>OPENAI_BASE_URL</code> 要以 <code>/v1</code> 结尾，但不能写到 <code>/v1/chat/completions</code>——前者是 SDK 拼接的 base，后者填了必 404。另外模型名必须和服务端暴露的 model ID 完全一致，拿不准就先 curl 一下 <code>GET /v1/models</code>。</p>
+<p>配置好后的验收方式也很直观，CLI 会给出清晰的预检报错而不是神秘崩溃：</p>
+<pre><code>error: runtime configuration preflight failed
+- API key (OPENAI_API_KEY) is missing for provider openai.
+- The active model is empty.
+</code></pre>
+<h3>坑 7：最隐蔽的一个 —— pipefail + grep -q 的 SIGPIPE 误判</h3>
+<p>这个坑出现在我为它写的一键启停脚本里，值得单独讲。</p>
+<p><strong>现象</strong>：<code>start.sh</code> 明明成功拉起了 Agent（进程活着、会话存在），脚本却输出"❌ 启动失败"。而同样的检查逻辑在另一个脚本里又工作正常。</p>
+<p><strong>根因</strong>：脚本头部有 <code>set -euo pipefail</code>，存活检查写的是：</p>
+<pre><code>if screen -list 2&gt;/dev/null | grep -q <span class="tok-s">&quot;[.]frontier-agent&quot;</span>; then
+</code></pre>
+<p>这条管道在<strong>命中匹配时</strong>反而会出问题：<code>grep -q</code> 找到第一个匹配就立即退出并关闭读端；上游的 <code>screen -list</code> 还在写输出，收到 SIGPIPE 非正常退出（exit 141）；<code>pipefail</code> 让整条管道的返回值取最右侧非零值——于是 <code>if</code> 条件被判为假，走进了"启动失败"分支。</p>
+<p><strong>解法</strong>：不用管道判断，先把输出落进变量再用 <code>case</code> 匹配：</p>
+<pre><code>session_alive() {
+  local slist
+  slist=<span class="tok-s">&quot;$(screen -list 2&gt;/dev/null || true)&quot;</span>
+  case <span class="tok-s">&quot;${slist}&quot;</span> in
+    *<span class="tok-s">&quot;.${SESSION}&quot;</span>*) return 0 ;;
+    *)               return 1 ;;
+  esac
+}
+</code></pre>
+<p>💡 <strong>教训</strong>：<code>set -o pipefail</code> + <code>grep -q</code> 是 shell 脚本的经典暗雷组合。<code>grep -q</code> 的"提前退出优化"只在管道下游，上游进程的 SIGPIPE 会被 pipefail 放大成整个条件失败。要么不用 <code>-q</code>，要么像上面一样先捕获再匹配。</p>
+<hr />
+<h2>五、一键启停脚本（拿来即用）</h2>
+<p>FrontierAgent 是 TUI 应用，"后台常驻 + 随时接入"的需求用 macOS 自带的 screen 解决（不需要装 tmux）。在仓库根目录放两个脚本：</p>
+<p><strong><code>start.sh</code></strong></p>
+<pre><code>#!/usr/bin/env bash
+set -euo pipefail
+cd <span class="tok-s">&quot;$(dirname &quot;</span>$0<span class="tok-s">&quot;)&quot;</span>
+
+SESSION=<span class="tok-s">&quot;frontier-agent&quot;</span>
+
+session_alive() {
+  local slist
+  slist=<span class="tok-s">&quot;$(screen -list 2&gt;/dev/null || true)&quot;</span>
+  case <span class="tok-s">&quot;${slist}&quot;</span> in
+    *<span class="tok-s">&quot;.${SESSION}&quot;</span>*) return 0 ;;
+    *)               return 1 ;;
+  esac
+}
+
+if session_alive; then
+  echo <span class="tok-s">&quot;ℹ️  FrontierAgent 已在运行。screen -r ${SESSION} 接入&quot;</span>
+  exit 0
+fi
+
+[ -f .env ] || { echo <span class="tok-s">&quot;❌ 缺少 .env&quot;</span>; exit 1; }
+
+missing=&quot;$(awk -F= &#x27;
+  /^(OPENAI_API_KEY|OPENAI_BASE_URL|OPENAI_MODEL)=/ {
+    v = $2; gsub(/^[ \t]+|[ \t\r]+$/, <span class="tok-s">&quot;&quot;</span>, v)
+    if (v == <span class="tok-s">&quot;&quot;</span>) printf <span class="tok-s">&quot;%s &quot;</span>, $1
+  }&#x27; .env)&quot;
+[ -n <span class="tok-s">&quot;${missing// }&quot;</span> ] &amp;&amp; { echo <span class="tok-s">&quot;❌ .env 必填项为空: ${missing}&quot;</span>; exit 1; }
+
+runtime_flag=<span class="tok-s">&quot;--native&quot;</span>
+[ <span class="tok-s">&quot;${FRONTIER_AGENT_RUNTIME:-native}&quot;</span> = <span class="tok-s">&quot;docker&quot;</span> ] &amp;&amp; runtime_flag=<span class="tok-s">&quot;--docker&quot;</span>
+
+[ <span class="tok-s">&quot;$#&quot;</span> -eq 0 ] &amp;&amp; set -- --mode react
+
+echo <span class="tok-s">&quot;🚀 启动 FrontierAgent ...&quot;</span>
+screen -dmS <span class="tok-s">&quot;${SESSION}&quot;</span> env TERM=<span class="tok-s">&quot;${TERM:-xterm-256color}&quot;</span> \
+  ./scripts/run-macos.sh <span class="tok-s">&quot;${runtime_flag}&quot;</span> <span class="tok-s">&quot;$@&quot;</span>
+
+sleep 3
+if session_alive; then
+  echo <span class="tok-s">&quot;✅ 已启动。screen -r ${SESSION} 进入界面&quot;</span>
+else
+  echo <span class="tok-s">&quot;❌ 启动失败，请前台直跑排查&quot;</span> &gt;&amp;2
+  exit 1
+fi
+</code></pre>
+<p><strong><code>stop.sh</code></strong></p>
+<pre><code>#!/usr/bin/env bash
+set -uo pipefail
+SESSION=<span class="tok-s">&quot;frontier-agent&quot;</span>
+stopped=0
+
+slist=<span class="tok-s">&quot;$(screen -list 2&gt;/dev/null || true)&quot;</span>
+case <span class="tok-s">&quot;${slist}&quot;</span> in
+  *<span class="tok-s">&quot;.${SESSION}&quot;</span>*)
+    echo <span class="tok-s">&quot;⏹  停止 ${SESSION} ...&quot;</span>
+    screen -S <span class="tok-s">&quot;${SESSION}&quot;</span> -X quit
+    stopped=1 ;;
+  *) echo <span class="tok-s">&quot;ℹ️  会话不存在&quot;</span> ;;
+esac
+
+sleep 1
+for pattern in <span class="tok-s">&quot;scripts/run-macos[.]sh&quot;</span> <span class="tok-s">&quot;frontier-agent --native&quot;</span> <span class="tok-s">&quot;frontier-agent --docker&quot;</span>; do
+  pgrep -f <span class="tok-s">&quot;${pattern}&quot;</span> &gt;/dev/null 2&gt;&amp;1 &amp;&amp; { pkill -f <span class="tok-s">&quot;${pattern}&quot;</span> || true; stopped=1; }
+done
+
+sleep 1
+leftover=<span class="tok-s">&quot;$(pgrep -fl &quot;</span>frontier-agent|scripts/run-macos[.]sh<span class="tok-s">&quot; || true)&quot;</span>
+if [ -n <span class="tok-s">&quot;$(printf &#x27;%s&#x27; &quot;</span>${leftover}<span class="tok-s">&quot; | tr -d &#x27;[:space:]&#x27;)&quot;</span> ]; then
+  echo <span class="tok-s">&quot;⚠️ 残留: ${leftover}&quot;</span>
+  exit 1
+fi
+[ <span class="tok-s">&quot;${stopped}&quot;</span> -eq 1 ] &amp;&amp; echo <span class="tok-s">&quot;✅ 已完全停止&quot;</span> || echo <span class="tok-s">&quot;ℹ️ 本来就没在运行&quot;</span>
+</code></pre>
+<p>日常用法：</p>
+<pre><code>./start.sh                    <span class="tok-c"># 后台启动，Agent 继续跑</span>
+screen -r frontier-agent      <span class="tok-c"># 接入交互界面</span>
+# Ctrl+A 再按 D：退回终端，任务不停
+./stop.sh                     <span class="tok-c"># 收工</span>
+</code></pre>
+<hr />
+<h2>六、验收：两条命令确认真的可用</h2>
+<p>装完不代表能用，我用两次真实的端到端调用做了验收。</p>
+<p><strong>测试 1：模型连通性</strong></p>
+<pre><code>uv run frontier-agent --native --mode react --print <span class="tok-s">&quot;请只回复四个字：连接正常&quot;</span>
+</code></pre>
+<p>结果：ReAct 工作流启动，第 1 个 turn 直接给出正确回答（tokens: 8126→52）✅</p>
+<p><strong>测试 2：工具调用链路</strong></p>
+<pre><code>uv run frontier-agent --native --mode react --yes --print \
+  <span class="tok-s">&quot;用 shell 工具执行 echo hello-frontieragent，然后原样告诉我输出&quot;</span>
+</code></pre>
+<p>结果：5 个 turn、4 次工具调用，正确执行命令并回读输出 <code>hello-frontieragent</code> ✅</p>
+<p>模型推理、API 认证、工作流调度、shell 工具执行四条链路全部打通，部署才算完成。</p>
+<hr />
+<h2>七、复盘：这次部署的三条通用经验</h2>
+<ol>
+<li>
+<p><strong>报错先看来源，再看文档</strong>。GHCR unauthorized 是"设计如此"、清华源超时是"本地环境变量"，都不写在项目的 README 里。读启动脚本的 20 分钟，省掉了盲试的两小时。</p>
+</li>
+<li>
+<p><strong>环境类故障用"对照实验"定位</strong>。GitHub 通、PyPI 不通 → 不是网络是镜像源；宿主机快、容器内慢 → 不是 uv 是容器网络。每一次二分都在缩小嫌疑范围。</p>
+</li>
+<li>
+<p><strong>自动化脚本要为"误报"买单</strong>。启停脚本最大的价值是可信——一个会说"启动失败"但其实启动成功的脚本，比没有脚本更糟。pipefail 那个 bug 之所以必须修，就是因为<strong>状态汇报错误的工具会摧毁使用者对整套系统的信任</strong>。</p>
+</li>
+</ol>
+<hr />
+<h2>附录：常见问题速查表</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>症状</th>
+<th>根因</th>
+<th>一行解法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docker.sock no such file</code></td>
+<td>OrbStack 未启动</td>
+<td><code>open -a OrbStack</code></td>
+</tr>
+<tr>
+<td>uv sync 大面积 timeout</td>
+<td>镜像源故障</td>
+<td><code>UV_DEFAULT_INDEX=https://pypi.org/simple</code> 前缀</td>
+</tr>
+<tr>
+<td>GHCR pull unauthorized</td>
+<td>默认镜像本该本地构建</td>
+<td>忽略，或 <code>docker build -t apodex:local .</code></td>
+</tr>
+<tr>
+<td>build 卡在 uv sync 30s 超时</td>
+<td>UV_HTTP_TIMEOUT 太小</td>
+<td>Dockerfile 加 <code>ENV UV_HTTP_TIMEOUT=600</code></td>
+</tr>
+<tr>
+<td>404 / model not found</td>
+<td>BASE_URL 少 <code>/v1</code> 或模型名不符</td>
+<td>对照服务端 <code>GET /v1/models</code></td>
+</tr>
+<tr>
+<td><code>.env</code> 相关报错</td>
+<td>缺字段或权限</td>
+<td>补齐三项 + <code>chmod 600 .env</code></td>
+</tr>
+<tr>
+<td>脚本报"启动失败"但实际在跑</td>
+<td>pipefail + grep -q SIGPIPE</td>
+<td>变量捕获 + case 匹配</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<p><em>环境参考：macOS 26.5 / Apple Silicon / OrbStack（docker 29.4）/ uv 0.12+ / FrontierAgent main 分支。文中所有命令均在实机验证通过。</em></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我把本地语音识别接进了 AI 编程助手，全程踩坑实录 - Agent's Photolog</title>
+  <meta name="description" content="把 SenseVoice 本地语音识别模型直接接进 pi 的工具系统：说一句话自动转录，结果回到对话继续加工，敏感内容不过云端。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/sensevoice-pi/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="我把本地语音识别接进了 AI 编程助手，全程踩坑实录">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/sensevoice-pi/">
+  <meta property="og:description" content="把 SenseVoice 本地语音识别模型直接接进 pi 的工具系统：说一句话自动转录，结果回到对话继续加工，敏感内容不过云端。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">我把本地语音识别接进了 AI 编程助手，全程踩坑实录</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-06-03">发布于 2026 年 6 月 3 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">把 SenseVoice 本地语音识别模型直接接进 pi 的工具系统：说一句话自动转录，结果回到对话继续加工，敏感内容不过云端。</p>
+
+        <div class="prose">
+<p>10 个视频，手动上传转录工具。</p>
+<p>等待、下载、再上传——半小时过去了，内容还没到手。</p>
+<p>更麻烦的是：敏感内容不想过云端。</p>
+<p>所以我做了一件事：<strong>把 SenseVoice 这个本地语音识别模型，直接接进 AI 编程助手 pi 的工具系统里。</strong></p>
+<p>说一句话，AI 自动调用，转录结果直接回到对话，后续接着做总结、翻译、写文章——全程不离开工作流。</p>
+<p>过程踩了不少坑，一起记下来。</p>
+<hr />
+<h2>pi 是什么？不只是"另一个 Cursor"</h2>
+<p>很多人用过 Claude Code、Cursor、Windsurf。</p>
+<p>pi 看起来是同类——但有一个根本差异：</p>
+<p><strong>它是完全开放的 AI agent 平台，不是封闭的产品。</strong></p>
+<p>具体说四件事：</p>
+<p><strong>▎支持接入任意模型</strong>
+Claude、GPT、Gemini、本地开源模型，配置文件一行切换。不被任何厂商锁定，今天用 Claude 做推理，明天换 GPT-5 跑代码，随时迁移。</p>
+<p><strong>▎支持注册自定义工具</strong>
+放一个 TypeScript 文件到 <code>~/.pi/agent/extensions/</code>，pi 启动时自动加载。AI 就能在对话中直接调用这个工具——调本地脚本、请求 API、操作文件系统、执行 shell 命令，都行。</p>
+<p><strong>▎支持非交互批处理</strong>
+<code>pi --print</code> 模式，可以直接在终端把 pi 当命令行工具用。嵌进 shell 脚本、CI 流程、定时任务——AI 能力变成可编排的管道。</p>
+<p><strong>▎完全本地运行</strong>
+没有强制云同步，没有数据上传。模型和工具全在自己机器上跑。</p>
+<p>这次要用的，就是「自定义工具」这个能力。</p>
+<hr />
+<h2>SenseVoice：最值得本地部署的语音识别模型之一</h2>
+<p>阿里达摩院开源，Small 版本几百 MB，支持中英日韩粤五种语言，识别速度极快。</p>
+<p>目标很简单：把它包装成 pi 的一个工具，让 AI 直接说"帮我转录这个视频"，工具自动跑，结果返回上下文。</p>
+<p>三步搞定。</p>
+<hr />
+<h2>Step 1｜建独立 Python 环境</h2>
+<p>SenseVoice 依赖 funasr，要求 Python 3.10+。</p>
+<p>我没有复用已有项目的虚拟环境，而是单独给 pi 建了一个干净的环境。</p>
+<p>原因很简单：<strong>项目的依赖会变，工具的依赖要稳定。</strong></p>
+<p>用 uv 创建（自带 Python 版本管理，比 venv 快一个数量级）：</p>
+<pre><code>uv venv ~/.pi/agent/sensevoice/venv --python 3.11
+uv pip install funasr torch torchaudio \
+  --python ~/.pi/agent/sensevoice/venv/bin/python
+</code></pre>
+<p>装完 81 个包，核心只有 funasr + torch，干净。</p>
+<hr />
+<h2>Step 2｜写转录脚本</h2>
+<p>新建 <code>~/.pi/agent/sensevoice/transcribe.py</code>，接收音频路径和语言参数，输出 JSON：</p>
+<pre><code>from funasr import AutoModel
+
+model = AutoModel(
+    model=<span class="tok-s">&quot;iic/SenseVoiceSmall&quot;</span>,
+    disable_update=True,
+    log_level=<span class="tok-s">&quot;ERROR&quot;</span>,
+)
+res = model.generate(input=audio_path, language=language, use_itn=True)
+text = res[0][<span class="tok-s">&quot;text&quot;</span>].split(<span class="tok-s">&quot;|&gt;&quot;</span>)[-1].strip()
+print(json.dumps({<span class="tok-s">&quot;text&quot;</span>: text, <span class="tok-s">&quot;language&quot;</span>: lang}))
+</code></pre>
+<blockquote>
+<p>SenseVoice 返回格式是 <code>&lt;语言标记&gt;|&gt;实际文字</code>，取最后一段即可。</p>
+</blockquote>
+<p><strong>💥 坑一：stdout 被 funasr 污染</strong></p>
+<p>funasr 在 import 时会往 stdout 打印版本信息，导致 <code>JSON.parse</code> 直接失败，工具崩溃。</p>
+<p>修复：import 之前把 stdout 临时重定向到 stderr：</p>
+<pre><code>_real_stdout = sys.stdout
+sys.stdout = sys.stderr  <span class="tok-c"># 把噪音导走</span>
+
+from funasr import AutoModel
+# ... 跑模型 ...
+
+sys.stdout = _real_stdout
+print(json.dumps(result))  <span class="tok-c"># 干净输出</span>
+</code></pre>
+<hr />
+<h2>Step 3｜写 pi Extension</h2>
+<p>新建 <code>~/.pi/agent/extensions/sensevoice.ts</code>，注册工具：</p>
+<pre><code>pi.registerTool({
+  name: <span class="tok-s">&quot;transcribe_audio&quot;</span>,
+  label: <span class="tok-s">&quot;Transcribe Audio&quot;</span>,
+  description: <span class="tok-s">&quot;Transcribe speech from audio/video using SenseVoice...&quot;</span>,
+  parameters: Type.Object({
+    path: Type.String({ description: <span class="tok-s">&quot;Absolute path to audio/video file&quot;</span> }),
+    language: Type.Optional(Type.String({ default: <span class="tok-s">&quot;auto&quot;</span> })),
+  }),
+  async execute(_toolCallId, params, _signal, onUpdate) {
+    onUpdate?.({ content: [{ type: <span class="tok-s">&quot;text&quot;</span>, text: <span class="tok-s">&quot;Transcribing...&quot;</span> }] });
+    const { stdout } = await execFileAsync(PYTHON, [SCRIPT, params.path, lang]);
+    const result = JSON.parse(stdout.trim());
+    return {
+      content: [{ type: <span class="tok-s">&quot;text&quot;</span>, text: `Transcription (${result.language}):\n\n${result.text}` }],
+      details: { text: result.text, language: result.language },
+    };
+  },
+});
+</code></pre>
+<p><strong>💥 坑二：onUpdate 格式错了，pi 直接 crash</strong></p>
+<p>第一版写成了 <code>onUpdate("Transcribing...")</code>，直接传字符串。</p>
+<p>运行后 pi 崩溃，报错：</p>
+<pre><code>TypeError: Cannot read properties of undefined (reading <span class="tok-s">&#x27;filter&#x27;</span>)
+</code></pre>
+<p>翻源码才发现——pi 的 <code>onUpdate</code> 不接受字符串，要传和返回值一样格式的对象：</p>
+<pre><code>// ❌ 错误写法，直接崩
+onUpdate(<span class="tok-s">&quot;Transcribing...&quot;</span>);
+
+// ✅ 正确写法
+onUpdate?.({ content: [{ type: <span class="tok-s">&quot;text&quot;</span>, text: <span class="tok-s">&quot;Transcribing...&quot;</span> }] });
+</code></pre>
+<hr />
+<h2>验证：跑起来了</h2>
+<p>用 pi CLI 非交互模式测试：</p>
+<pre><code>pi --print \
+  --provider freemodel --model gpt-5.4-mini \
+  --tools transcribe_audio --no-builtin-tools \
+  <span class="tok-s">&quot;请用 transcribe_audio 工具转录：/path/to/audio.mp4&quot;</span>
+</code></pre>
+<p>第一次调用自动下载模型（约 300MB），之后缓存本地，后续秒级响应。</p>
+<p>实测：4 分钟的音频，转录时间不到 10 秒。</p>
+<p>跑完测试，用 shell 循环批量处理 10 个视频，每个自动生成对应 Markdown 转录文档，再让 AI 接着做总结——整条链路全打通。</p>
+<hr />
+<h2>整体架构一眼看清</h2>
+<pre><code>~/.pi/agent/
+├── extensions/
+│   └── sensevoice.ts     ← pi 自动加载，注册工具
+└── sensevoice/
+    ├── venv/              ← 独立 Python 3.11 环境（uv 创建）
+    └── transcribe.py      ← SenseVoice 调用脚本
+</code></pre>
+<p>pi 启动时自动扫描 <code>extensions/</code> 目录，零配置，放进去就生效。</p>
+<hr />
+<h2>Q&amp;A：踩过的坑，一次说清</h2>
+<p><strong>Q：工具放进去了，pi 里看不到，怎么排查？</strong></p>
+<p>确认路径正确：<code>~/.pi/agent/extensions/sensevoice.ts</code>。</p>
+<p>pi 在每次打开 <code>/model</code> 菜单时重新扫描 extensions，不需要重启，触发一次刷新即可。如果还没出现，多半是 TypeScript 语法错误——pi 加载报错时会静默失败，不会提示。</p>
+<hr />
+<p><strong>Q：运行报 <code>TypeError: Cannot read properties of undefined (reading 'filter')</code>？</strong></p>
+<p><code>onUpdate</code> 调用姿势不对，传了字符串而不是对象。正确写法：</p>
+<pre><code>onUpdate?.({ content: [{ type: <span class="tok-s">&quot;text&quot;</span>, text: <span class="tok-s">&quot;处理中...&quot;</span> }] });
+</code></pre>
+<p>记得加 <code>?.</code> 可选链，避免 onUpdate 未定义时再次报错。</p>
+<hr />
+<p><strong>Q：工具返回 <code>Unexpected token 'u', "funasr vers"... is not valid JSON</code>？</strong></p>
+<p>funasr import 时往 stdout 打印了版本信息，污染了 JSON 输出。</p>
+<p>在 import funasr 之前把 stdout 重定向到 stderr（见 Step 2 代码），问题消失。</p>
+<hr />
+<p><strong>Q：系统 Python 是 3.9，funasr 要求 3.10+，怎么办？</strong></p>
+<p>用 uv，一条命令解决，不需要手动装 Python：</p>
+<pre><code>uv venv ~/.pi/agent/sensevoice/venv --python 3.11
+</code></pre>
+<p>uv 自动下载并管理指定版本，不污染系统环境。</p>
+<hr />
+<p><strong>Q：首次运行很慢，卡在哪里？</strong></p>
+<p>第一次调用时 funasr 自动从 ModelScope 下载 <code>iic/SenseVoiceSmall</code>（约 300MB）。</p>
+<p>下载后缓存本地，后续不再下载。网络访问 ModelScope 有问题的话，可以手动下载后用本地路径指定模型。</p>
+<hr />
+<p><strong>Q：只能转录音频？视频怎么处理？</strong></p>
+<p>视频直接传，不需要先提取音频。funasr 底层自动处理音轨，mp4、mov、avi 全支持。</p>
+<hr />
+<p><strong>Q：工具的返回值格式有什么要求？</strong></p>
+<p><code>execute</code> 必须返回包含 <code>content</code> 数组的对象，格式：</p>
+<pre><code>{ content: [{ type: <span class="tok-s">&quot;text&quot;</span>, text: <span class="tok-s">&quot;...&quot;</span> }], details: {} }
+</code></pre>
+<p><code>content</code> 缺失或为 undefined，pi 渲染层直接崩。<code>details</code> 是可选的结构化数据，不显示给用户，可以存转录原文方便后续处理。</p>
+<hr />
+<h2>最后说一句</h2>
+<p>接好之后的体验是：</p>
+<p><strong>在 AI 对话里说"帮我转录这 10 个视频，每个生成一份 Markdown"——然后去喝杯水。</strong></p>
+<p>回来全好了。</p>
+<p>本地跑，不过云，隐私安全，速度快。</p>
+<p>这才是 AI 工具应该有的样子。</p>
+<hr />
+<blockquote>
+<p>文中涉及的 pi 为 <code>@earendil-works/pi-coding-agent</code>，SenseVoice 为阿里达摩院开源项目。</p>
+<p>有问题欢迎留言，或直接在评论区说你想接入的下一个工具。</p>
+</blockquote>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
