@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>一台电脑同时使用两个 GitHub 账号 - Motoleisure's Blog</title>
+  <meta name="description" content="用 SSH Host 别名管理多个 GitHub 账号：专属密钥、~/.ssh/config 配置、remote URL 写法与常见坑。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure404.github.io/blog/two-github-accounts/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="一台电脑同时使用两个 GitHub 账号">
+  <meta property="og:url" content="https://motoleisure404.github.io/blog/two-github-accounts/">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Motoleisure's Blog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/motoleisure404" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link rise rise-1" href="../../">← 全部文章</a>
+
+        <h1 class="article-title rise rise-2">一台电脑同时使用两个 GitHub 账号</h1>
+
+        <div class="article-meta rise rise-3">
+          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-08-31">发布于 2026 年 8 月 31 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead rise rise-4">
+          公司号和个人号、主号和小号——很多人都会遇到“一台电脑要伺候两个 GitHub 账号”的问题。
+          这篇文章记录我用 <strong>SSH Host 别名</strong>解决它的完整过程：账号选择直接写进仓库的 remote URL，
+          平时推拉代码零切换，也不会把代码推错号。
+        </p>
+
+        <p class="label rise rise-5">本文目录</p>
+        <nav class="toc rise rise-5" aria-label="文章目录">
+          <ul>
+            <li><a href="#problem">问题在哪里</a></li>
+            <li><a href="#key">给第二个账号生成专属密钥</a></li>
+            <li><a href="#config">在 ~/.ssh/config 里起一个别名</a></li>
+            <li><a href="#upload">把公钥登记到 GitHub</a></li>
+            <li><a href="#repo">仓库按别名挂 remote</a></li>
+            <li><a href="#extras">配套的两件小事</a></li>
+          </ul>
+        </nav>
+
+        <div class="prose">
+          <h2 id="problem">问题在哪里</h2>
+          <p>HTTPS + 凭据管理器（或 <code>gh</code> CLI）的方式，同一时间只有<strong>一个</strong>生效的账号身份。
+            两个账号并存时，最容易翻车的场景是：本地改了半天代码，<code>git push</code> 却用的是另一个账号的凭据——
+            要么被拒绝，要么更糟：提交署名和仓库归属全乱。</p>
+          <p>解法思路：让<strong>每个账号有一把专属 SSH 密钥</strong>，再把“用哪把密钥”这个选择编码进 remote URL。
+            这样账号切换是<strong>声明式</strong>的，看一眼 remote 就知道归属，不存在运行时状态。</p>
+
+          <h2 id="key">给第二个账号生成专属密钥</h2>
+          <p>不要复用已有密钥。一把密钥对应一个账号，日后吊销、轮换都干净：</p>
+          <pre><code><span class="tok-f">ssh-keygen</span> <span class="tok-k">-t</span> ed25519 <span class="tok-k">-f</span> ~/.ssh/id_ed25519_motoleisure <span class="tok-k">-N</span> <span class="tok-s">""</span> <span class="tok-k">-C</span> <span class="tok-s">"motoleisure404"</span></code></pre>
+          <ul>
+            <li><code>-f</code> 指定文件名，避免覆盖默认的 <code>id_ed25519</code>；</li>
+            <li><code>-N ""</code> 表示空口令——本机开发图省事可以留空，在意安全就设一个并交给 ssh-agent 记住。</li>
+          </ul>
+
+          <h2 id="config">在 ~/.ssh/config 里起一个别名</h2>
+          <p>在 <code>~/.ssh/config</code> 追加一段 Host 配置，别名叫 <code>github-motoleisure</code>：</p>
+          <pre><code><span class="tok-c"># GitHub second account: motoleisure404</span>
+<span class="tok-k">Host</span> github-motoleisure
+    <span class="tok-k">HostName</span> github.com
+    <span class="tok-k">User</span> git
+    <span class="tok-k">IdentityFile</span> ~/.ssh/id_ed25519_motoleisure
+    <span class="tok-k">IdentitiesOnly</span> yes</code></pre>
+          <p>两处细节最关键：<code>IdentityFile</code> 把这把专属密钥钉死在这个别名上；
+            <code>IdentitiesOnly yes</code> 禁止 ssh 顺手尝试其他密钥——少了它，默认密钥可能先被递上去，导致认证到错误的账号。</p>
+
+          <h2 id="upload">把公钥登记到 GitHub</h2>
+          <p>复制公钥内容：</p>
+          <pre><code><span class="tok-f">cat</span> ~/.ssh/id_ed25519_motoleisure.pub <span class="tok-p">|</span> <span class="tok-f">pbcopy</span></code></pre>
+          <p>登录第二个账号，打开 <code>Settings → SSH and GPG keys → New SSH key</code> 粘贴保存。
+            然后验证。注意验证的是<strong>别名</strong>，不是 github.com：</p>
+          <pre><code><span class="tok-p">$</span> ssh -T git@github-motoleisure
+<span class="tok-s">Hi motoleisure404! You've successfully authenticated...</span></code></pre>
+          <p>看到 <code>Hi 用户名!</code> 就说明别名、密钥、账号三者已经对上号。如果这里显示的是主账号的用户名，说明密钥串了，回去检查 <code>IdentitiesOnly</code>。</p>
+
+          <h2 id="repo">仓库按别名挂 remote</h2>
+          <p>把 remote URL 里的 <code>github.com</code> 换成别名即可，其余部分不变：</p>
+          <pre><code><span class="tok-c"># 克隆新仓库</span>
+<span class="tok-f">git</span> <span class="tok-k">clone</span> git@github-motoleisure:motoleisure404/motoleisure404.github.io.git
+
+<span class="tok-c"># 已有仓库改.remote</span>
+<span class="tok-f">git</span> remote <span class="tok-k">set-url</span> origin git@github-motoleisure:motoleisure404/motoleisure404.github.io.git</code></pre>
+          <p>之后所有 <code>fetch / pull / push</code> 走这个别名，自动使用第二账号的密钥；
+            主账号的仓库照旧用 <code>git@github.com:…</code>，互不干扰。</p>
+
+          <h2 id="extras">配套的两件小事</h2>
+          <p><strong>提交署名按仓库区分。</strong>SSH 解决的是“推给谁”，git 还需要知道“署名是谁”。
+            全局配置保持主账号，在第二账号的仓库里局部覆盖：</p>
+          <pre><code><span class="tok-f">git</span> config user.name  <span class="tok-s">"Tim Chan"</span>
+<span class="tok-f">git</span> config user.email <span class="tok-s">"motoleisure@gmail.com"</span></code></pre>
+          <p><strong>gh CLI 多账号。</strong><code>gh</code> 支持 同时登录多个账号：
+            <code>gh auth login</code> 追加第二账号后，用 <code>gh auth switch -u motoleisure404</code> 切换。
+            这只影响 <code>gh</code> 自己的操作（建仓库、发 PR），不影响 git push 的密钥选择——两条线互不干扰。</p>
+
+          <hr>
+
+          <p>总结成一句话：<strong>一把密钥、一个别名、remote URL 里写别名</strong>。
+            配置一次性做完，之后没有任何需要“记得切换”的心智负担——这正是这套方案比来回切凭据管理器靠谱的地方。</p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">Life is short, write a blog. 这里是 Tim Chan 的个人博客，记录学习、开发与生活。</p>
+      <div class="footer-links">
+        <a href="https://github.com/motoleisure404" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+          GitHub
+        </a>
+        <a href="mailto:motoleisure@gmail.com">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+          邮件
+        </a>
+        <a href="https://x.com" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+          X
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Motoleisure's Blog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
