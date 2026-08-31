@@ -20,13 +20,13 @@
 <body>
 
   <header class="site-header">
-    <div class="container header-inner">
+    <div class="container container--wide header-inner">
       <a class="wordmark" href="./">
         <span class="wordmark-dot" aria-hidden="true"></span>
         Motoleisure's Blog
       </a>
       <nav class="header-nav" aria-label="站点导航">
-        <a class="icon-link" href="https://github.com/motoleisure404" target="_blank" rel="noopener" aria-label="GitHub">
+        <a class="icon-link" href="https://github.com/motoleisure" target="_blank" rel="noopener" aria-label="GitHub">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
         </a>
         <span class="header-divider" aria-hidden="true"></span>
@@ -36,41 +36,53 @@
   </header>
 
   <main>
-    <div class="container">
-      <section class="page-head rise rise-1">
-        <h1 class="page-title">全部文章</h1>
-        <p class="page-subtitle">AI、开发，以及一些折腾的记录。</p>
-      </section>
+    <section class="blog-band">
+      <div class="container container--wide">
 
-      <section class="post-list" aria-label="文章列表">
-
-        <a class="post-card rise rise-2" href="blog/two-github-accounts/">
-          <h2 class="post-card-title">一台电脑同时使用两个 GitHub 账号</h2>
-          <p class="post-card-excerpt">用 SSH Host 别名把账号写进 remote URL：给第二个账号配一把专属密钥，推拉代码自动走对应身份，不存在“忘了切换账号”这回事。</p>
-          <div class="post-card-meta">
-            <time datetime="2026-08-31">2026 年 8 月 31 日</time>
-            <span class="tag-chip">Git</span>
+        <div class="blog-hero-head rise rise-1">
+          <h1 class="page-title">全部文章</h1>
+          <div class="blog-search">
+            <input type="search" id="blog-search" aria-label="搜索文章" placeholder="搜索文章" autocomplete="off">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
           </div>
-        </a>
+        </div>
 
-        <a class="post-card rise rise-3" href="blog/hello-again/">
-          <h2 class="post-card-title">重构了这个博客：告别 2015，换上新装</h2>
-          <p class="post-card-excerpt">旧站是 2015 年用 Hexo 生成的，停更在 2018 年。这次连根拔起，删掉所有旧文章，手写静态页面重新出发——顺便记录一下新设计是怎么来的。</p>
-          <div class="post-card-meta">
-            <time datetime="2026-08-31">2026 年 8 月 31 日</time>
-            <span class="tag-chip">随记</span>
-          </div>
-        </a>
+        <div class="editorial-grid rise rise-2" id="post-grid">
 
-      </section>
-    </div>
+          <a class="editorial-card" href="blog/two-github-accounts/"
+             data-title="一台电脑同时使用两个 GitHub 账号"
+             data-excerpt="用 SSH Host 别名把账号写进 remote URL：给第二个账号配一把专属密钥，推拉代码自动走对应身份，不存在“忘了切换账号”这回事。">
+            <img class="cover" src="assets/images/cover-two-github-accounts.svg" alt="两把钥匙分别对应两个 GitHub 账号" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-08-31">2026 年 8 月 31 日</time>
+              <h2 class="card-title">一台电脑同时使用两个 GitHub 账号</h2>
+              <p class="card-excerpt">用 SSH Host 别名把账号写进 remote URL：给第二个账号配一把专属密钥，推拉代码自动走对应身份，不存在“忘了切换账号”这回事。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/hello-again/"
+             data-title="重构了这个博客：告别 2015，换上新装"
+             data-excerpt="旧站是 2015 年用 Hexo 生成的，停更在 2018 年。这次连根拔起，删掉所有旧文章，手写静态页面重新出发——顺便记录一下新设计是怎么来的。">
+            <img class="cover" src="assets/images/cover-hello-again.svg" alt="从 2015 到 2026 的排版演进" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-08-31">2026 年 8 月 31 日</time>
+              <h2 class="card-title">重构了这个博客：告别 2015，换上新装</h2>
+              <p class="card-excerpt">旧站是 2015 年用 Hexo 生成的，停更在 2018 年。这次连根拔起，删掉所有旧文章，手写静态页面重新出发——顺便记录一下新设计是怎么来的。</p>
+            </div>
+          </a>
+
+          <p class="no-results">没有匹配的文章，换个关键词试试。</p>
+        </div>
+
+      </div>
+    </section>
   </main>
 
   <footer class="site-footer">
     <div class="container footer-inner">
       <p class="footer-mission">Life is short, write a blog. 这里是 Tim Chan 的个人博客，记录学习、开发与生活。</p>
       <div class="footer-links">
-        <a href="https://github.com/motoleisure404" target="_blank" rel="noopener">
+        <a href="https://github.com/motoleisure" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
           GitHub
         </a>
@@ -89,6 +101,35 @@
       </div>
     </div>
   </footer>
+
+  <script>
+    (function () {
+      var input = document.getElementById("blog-search");
+      var grid = document.getElementById("post-grid");
+      if (!input || !grid) return;
+
+      input.addEventListener("input", function () {
+        var q = input.value.trim().toLowerCase();
+        var cards = grid.querySelectorAll(".editorial-card");
+        var anyVisible = false;
+
+        cards.forEach(function (card) {
+          var hay = (
+            card.getAttribute("data-title") + " " +
+            card.getAttribute("data-excerpt")
+          ).toLowerCase();
+          var show = !q || hay.indexOf(q) !== -1;
+          card.hidden = !show;
+          if (show) anyVisible = true;
+        });
+
+        grid.classList.toggle("is-filtered", !!q);
+        if (q && !anyVisible) {
+          grid.classList.add("is-filtered");
+        }
+      });
+    })();
+  </script>
 
 </body>
 </html>

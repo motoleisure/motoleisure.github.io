@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Two GitHub accounts, two SSH keys">
+  <rect width="1200" height="630" fill="#eef6fd"/>
+
+  <!-- faint blueprint crosses -->
+  <g stroke="#b2d5ff" stroke-width="2" opacity="0.55">
+    <path d="M120 90 v24 M108 102 h24"/>
+    <path d="M1080 130 v24 M1068 142 h24"/>
+    <path d="M170 520 v24 M158 532 h24"/>
+    <path d="M1020 500 v24 M1008 512 h24"/>
+    <path d="M600 60 v24 M588 72 h24"/>
+  </g>
+  <g fill="#b2d5ff" opacity="0.7">
+    <circle cx="90" cy="300" r="5"/>
+    <circle cx="1110" cy="330" r="5"/>
+    <circle cx="240" cy="120" r="4"/>
+    <circle cx="960" cy="540" r="4"/>
+  </g>
+
+  <!-- dashed link between the two cards -->
+  <line x1="430" y1="315" x2="770" y2="315" stroke="#4f46e5" stroke-width="3" stroke-dasharray="2 14" stroke-linecap="round" opacity="0.65"/>
+
+  <!-- left card: ink navy -->
+  <g>
+    <rect x="210" y="165" width="440" height="300" rx="24" fill="#00172e"/>
+    <rect x="228" y="183" width="404" height="264" rx="14" fill="none" stroke="#b2d5ff" stroke-width="2" opacity="0.5"/>
+    <!-- key glyph -->
+    <circle cx="380" cy="290" r="46" fill="none" stroke="#ffffff" stroke-width="16"/>
+    <rect x="418" y="282" width="120" height="16" rx="8" fill="#ffffff"/>
+    <rect x="500" y="302" width="14" height="34" rx="7" fill="#ffffff"/>
+    <rect x="528" y="302" width="14" height="24" rx="7" fill="#ffffff"/>
+    <!-- host alias text plate -->
+    <rect x="286" y="370" width="290" height="44" rx="10" fill="#011627"/>
+    <text x="431" y="399" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="24" fill="#addb67">github.com</text>
+  </g>
+
+  <!-- right card: indigo -->
+  <g>
+    <rect x="550" y="205" width="440" height="300" rx="24" fill="#4f46e5"/>
+    <rect x="568" y="223" width="404" height="264" rx="14" fill="none" stroke="#ffffff" stroke-width="2" opacity="0.5"/>
+    <!-- key glyph -->
+    <circle cx="720" cy="330" r="46" fill="none" stroke="#ffffff" stroke-width="16"/>
+    <rect x="758" y="322" width="120" height="16" rx="8" fill="#ffffff"/>
+    <rect x="840" y="342" width="14" height="34" rx="7" fill="#ffffff"/>
+    <rect x="868" y="342" width="14" height="24" rx="7" fill="#ffffff"/>
+    <!-- host alias text plate -->
+    <rect x="626" y="410" width="290" height="44" rx="10" fill="#312e81"/>
+    <text x="771" y="439" text-anchor="middle" font-family="ui-monospace, Menlo, monospace" font-size="24" fill="#c7d2fe">github-motoleisure</text>
+  </g>
+</svg>
