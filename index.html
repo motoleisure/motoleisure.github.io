@@ -249,8 +249,8 @@
             </div>
           </a>
 
-          <p class="no-results">没有匹配的文章，换个关键词试试。</p>
         </div>
+        <p class="no-results">没有匹配的文章，换个关键词试试。</p>
 
       </div>
     </section>
@@ -283,7 +283,29 @@
       var grid = document.getElementById("post-grid");
       if (!input || !grid) return;
 
-      input.addEventListener("input", function () {
+      function columnsForWidth() {
+        if (window.matchMedia("(min-width: 1024px)").matches) return 3;
+        if (window.matchMedia("(min-width: 768px)").matches) return 2;
+        return 1;
+      }
+
+      function paintGridBorders() {
+        var cards = Array.prototype.slice.call(grid.querySelectorAll(".editorial-card"));
+        var visible = cards.filter(function (card) { return !card.hidden; });
+        var cols = columnsForWidth();
+        var lastRowStart = Math.floor((visible.length - 1) / cols) * cols;
+
+        cards.forEach(function (card) {
+          card.classList.remove("is-row-end", "is-last-row");
+        });
+        visible.forEach(function (card, i) {
+          if ((i + 1) % cols === 0) card.classList.add("is-row-end");
+          if (i >= lastRowStart) card.classList.add("is-last-row");
+        });
+        if (visible.length) visible[visible.length - 1].classList.add("is-row-end");
+      }
+
+      function applyFilter() {
         var q = input.value.trim().toLowerCase();
         var cards = grid.querySelectorAll(".editorial-card");
         var anyVisible = false;
@@ -298,11 +320,13 @@
           if (show) anyVisible = true;
         });
 
-        grid.classList.toggle("is-filtered", !!q);
-        if (q && !anyVisible) {
-          grid.classList.add("is-filtered");
-        }
-      });
+        grid.classList.toggle("is-empty", !anyVisible);
+        paintGridBorders();
+      }
+
+      input.addEventListener("input", applyFilter);
+      window.addEventListener("resize", paintGridBorders);
+      paintGridBorders();
     })();
   </script>
 

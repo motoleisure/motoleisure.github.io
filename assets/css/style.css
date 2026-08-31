@@ -272,10 +272,16 @@ main {
 }
 
 .editorial-grid > * {
+  min-width: 0;
+  border-right: 0;
   border-bottom: 1px solid var(--hairline);
 }
 
-.editorial-grid > :last-child {
+.editorial-grid > .is-row-end {
+  border-right: 0;
+}
+
+.editorial-grid > .is-last-row {
   border-bottom: 0;
 }
 
@@ -287,25 +293,12 @@ main {
   .editorial-grid > * {
     border-right: 1px solid var(--hairline);
   }
-
-  .editorial-grid > :nth-child(2n) {
-    border-right: 0;
-  }
-
-  .editorial-grid > :last-child,
-  .editorial-grid > :nth-last-child(2):nth-child(odd) {
-    border-bottom: 0;
-  }
 }
 
-/* While filtered, cards are hidden arbitrarily — fall back to simple rules */
-.editorial-grid.is-filtered > * {
-  border-right: 0;
-  border-bottom: 1px solid var(--hairline);
-}
-
-.editorial-grid.is-filtered > :last-child {
-  border-bottom: 0;
+@media (min-width: 1024px) {
+  .editorial-grid {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
 }
 
 /* Editorial card ---------------------------------------------------------- */
@@ -404,13 +397,12 @@ main {
   text-align: center;
   color: var(--ink-muted);
   font-size: 0.95rem;
+  border: 1px solid var(--hairline);
+  border-top: 0;
+  background: var(--page);
 }
 
-.editorial-grid .no-results {
-  border-bottom: 0;
-}
-
-.editorial-grid.is-filtered:not(:has(.editorial-card:not([hidden]))) .no-results {
+.editorial-grid.is-empty + .no-results {
   display: block;
 }
 
