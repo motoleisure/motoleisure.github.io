@@ -12,12 +12,16 @@
   <meta property="og:title" content="DSH 远程控制实战：无需 VPS，用 Cloudflare Tunnel 把电脑工作台装进手机">
   <meta property="og:url" content="https://motoleisure.github.io/blog/dsh-remote-gateway/">
   <meta property="og:description" content="电脑上的 DSH 工作台只听本机，出门在外够不着。用 Cloudflare Named Tunnel 配认证网关：需要时手机扫码访问，不用时一键关闭。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/dsh-remote-gateway/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
   <link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <a class="skip-link" href="#main">跳到主要内容</a>
 
   <header class="site-header">
     <div class="container container--wide header-inner">
@@ -35,7 +39,7 @@
     </div>
   </header>
 
-  <main>
+  <main id="main">
     <div class="container container--narrow">
       <article class="article-wrap">
         <a class="back-link" href="../../">← 全部文章</a>
@@ -43,7 +47,7 @@
         <h1 class="article-title">DSH 远程控制实战：无需 VPS，用 Cloudflare Tunnel 把电脑工作台装进手机</h1>
 
         <div class="article-meta">
-          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
           <div class="who">
             <span class="name">Tim Chan</span>
             <time class="date" datetime="2026-08-24">发布于 2026 年 8 月 24 日</time>
@@ -58,7 +62,7 @@
 主角：DeepSeek Harness / DSH、<code>dsh-remote-web-gateway</code>、Cloudflare Named Tunnel、cloudflared<br />
 目标：电脑上的 DSH 平时只听本机；需要时手机扫码访问；不用时一键关闭。</p>
 </blockquote>
-<p><figure><img alt="DSH 远程控制：手机通过 Cloudflare Tunnel 安全访问电脑工作台" src="../../assets/images/posts/dsh-remote-gateway/01.avif"  loading="lazy" /><figcaption>DSH 远程控制：手机通过 Cloudflare Tunnel 安全访问电脑工作台</figcaption></figure></p>
+<figure><p><img alt="DSH 远程控制：手机通过 Cloudflare Tunnel 安全访问电脑工作台" src="../../assets/images/posts/dsh-remote-gateway/01.avif"  loading="lazy"  loading="lazy" /></p><figcaption>DSH 远程控制：手机通过 Cloudflare Tunnel 安全访问电脑工作台</figcaption></figure>
 <h2>0. 背景：使用 DSH 时，我发现了一个远程控制插件</h2>
 <p>这件事开始于我正常使用 DSH 的时候。DSH 是我电脑里的高权限工作台，能进入工作区、读写文件、执行任务、调用工具，不是普通网页应用。平时它只监听：</p>
 <pre><code>http://127.0.0.1:3080
@@ -269,7 +273,7 @@ cloudflared 收到终止信号
 4. 定期检查已配对设备；
 5. 不把二维码、配对码、Token 截图发出去。
 </code></pre>
-<p><figure><img alt="先做源码级安全审查，再决定是否安装远程控制插件" src="../../assets/images/posts/dsh-remote-gateway/02.avif"  loading="lazy" /><figcaption>先做源码级安全审查，再决定是否安装远程控制插件</figcaption></figure></p>
+<figure><p><img alt="先做源码级安全审查，再决定是否安装远程控制插件" src="../../assets/images/posts/dsh-remote-gateway/02.avif"  loading="lazy"  loading="lazy" /></p><figcaption>先做源码级安全审查，再决定是否安装远程控制插件</figcaption></figure>
 <h2>4. Quick Tunnel 是什么？它到底有没有风险？</h2>
 <p>插件默认使用 Cloudflare Quick Tunnel。命令形式大致是：</p>
 <pre><code>cloudflared tunnel --url http://127.0.0.1:61238
@@ -332,7 +336,7 @@ cloudflared 收到终止信号
 Named Tunnel：适合长期使用。
 </code></pre>
 <p>我已经有自己的域名，而且 DNS 托管在 Cloudflare，没有理由继续忍受随机地址。</p>
-<p><figure><img alt="Quick Tunnel 的临时入口和长期使用风险" src="../../assets/images/posts/dsh-remote-gateway/03.avif"  loading="lazy" /><figcaption>Quick Tunnel 的临时入口和长期使用风险</figcaption></figure></p>
+<figure><p><img alt="Quick Tunnel 的临时入口和长期使用风险" src="../../assets/images/posts/dsh-remote-gateway/03.avif"  loading="lazy"  loading="lazy" /></p><figcaption>Quick Tunnel 的临时入口和长期使用风险</figcaption></figure>
 <h2>5. 为什么选 Named Tunnel？</h2>
 <p>Named Tunnel 的结构变成：</p>
 <pre><code>dsh.example.com
@@ -438,7 +442,7 @@ Service:    http://localhost:61238
 <p>Cloudflare 通常会自动创建类似的 DNS 记录：</p>
 <pre><code>dsh.example.com  CNAME  &lt;TUNNEL_ID&gt;.cfargotunnel.com
 </code></pre>
-<p><figure><img alt="Cloudflare Named Tunnel 从固定域名进入本地认证网关" src="../../assets/images/posts/dsh-remote-gateway/04.avif"  loading="lazy" /><figcaption>Cloudflare Named Tunnel 从固定域名进入本地认证网关</figcaption></figure></p>
+<figure><p><img alt="Cloudflare Named Tunnel 从固定域名进入本地认证网关" src="../../assets/images/posts/dsh-remote-gateway/04.avif"  loading="lazy"  loading="lazy" /></p><figcaption>Cloudflare Named Tunnel 从固定域名进入本地认证网关</figcaption></figure>
 <h3>6.3 手动验证 Connector</h3>
 <p>为了排除插件因素，我先手动跑最小命令：</p>
 <pre><code>cloudflared tunnel run \
@@ -526,7 +530,7 @@ gatewayPort: number       // 固定 61238
 </tr>
 </tbody>
 </table></div>
-<p><figure><img alt="踩坑实录：配置、隧道、端口和生命周期问题逐层排查" src="../../assets/images/posts/dsh-remote-gateway/05.avif"  loading="lazy" /><figcaption>踩坑实录：配置、隧道、端口和生命周期问题逐层排查</figcaption></figure></p>
+<figure><p><img alt="踩坑实录：配置、隧道、端口和生命周期问题逐层排查" src="../../assets/images/posts/dsh-remote-gateway/05.avif"  loading="lazy"  loading="lazy" /></p><figcaption>踩坑实录：配置、隧道、端口和生命周期问题逐层排查</figcaption></figure>
 <h3>8.1 DSH 启动报 cannot resolve profile bundle</h3>
 <p>还没走到 Tunnel，项目搬家后 DSH 就先失败了：</p>
 <pre><code>dsh: cannot resolve profile bundle <span class="tok-s">&quot;dsh-plugin-session-delete&quot;</span>
@@ -1157,7 +1161,7 @@ publicOrigin 清空；
 <h3>12.6 人机输入边界要显式规范化</h3>
 <p>屏幕上的 <code>"ABCD EFGH"</code> 是给人看的；提交前应转换成机器格式 <code>"ABCDEFGH"</code>。前后端都要做同样的清洗。</p>
 <h2>13. 现在的使用体验</h2>
-<p><figure><img alt="最终工作流：电脑一键开启，手机扫码接入，用完立即关闭" src="../../assets/images/posts/dsh-remote-gateway/06.avif"  loading="lazy" /><figcaption>最终工作流：电脑一键开启，手机扫码接入，用完立即关闭</figcaption></figure></p>
+<figure><p><img alt="最终工作流：电脑一键开启，手机扫码接入，用完立即关闭" src="../../assets/images/posts/dsh-remote-gateway/06.avif"  loading="lazy"  loading="lazy" /></p><figcaption>最终工作流：电脑一键开启，手机扫码接入，用完立即关闭</figcaption></figure>
 <p>最终流程非常干净：</p>
 <pre><code>1. 电脑启动 DSH；
 2. 设置 → 远程控制；

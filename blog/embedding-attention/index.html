@@ -12,12 +12,16 @@
   <meta property="og:title" content="「忘记密码」和「登录信息忘了」，大模型为什么知道是一回事？">
   <meta property="og:url" content="https://motoleisure.github.io/blog/embedding-attention/">
   <meta property="og:description" content="两句话没有一个词相同，意思却一样——大模型靠的是词嵌入和注意力。用四张图讲清：意义怎么变成向量，注意力怎么打分。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/embedding-attention/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
   <link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <a class="skip-link" href="#main">跳到主要内容</a>
 
   <header class="site-header">
     <div class="container container--wide header-inner">
@@ -35,7 +39,7 @@
     </div>
   </header>
 
-  <main>
+  <main id="main">
     <div class="container container--narrow">
       <article class="article-wrap">
         <a class="back-link" href="../../">← 全部文章</a>
@@ -43,7 +47,7 @@
         <h1 class="article-title">「忘记密码」和「登录信息忘了」，大模型为什么知道是一回事？</h1>
 
         <div class="article-meta">
-          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
           <div class="who">
             <span class="name">Tim Chan</span>
             <time class="date" datetime="2026-08-31">发布于 2026 年 8 月 31 日</time>
@@ -84,7 +88,7 @@ D：「新出的苹果贵了好几百。」</p>
 <p><strong>词嵌入 = 意思的坐标。意思越近，数字越近。</strong></p>
 </blockquote>
 <p>这串数字有个学名叫<strong>向量（vector）</strong>，以后看到"向量检索""向量数据库"，指的都是它。</p>
-<p><figure><img alt="词嵌入全景图" src="../../assets/images/posts/embedding-attention/01.avif"  loading="lazy" /><figcaption>词嵌入全景图</figcaption></figure></p>
+<figure><p><img alt="词嵌入全景图" src="../../assets/images/posts/embedding-attention/01.avif"  loading="lazy"  loading="lazy" /></p><figcaption>词嵌入全景图</figcaption></figure>
 <h3>两个数字就能看懂它</h3>
 <p>真实的嵌入有几千个数字，没法画出来。但砍到两个，就能在纸上画了。</p>
 <p>给水果打两个分——<strong>甜度</strong>和<strong>大小</strong>：</p>
@@ -95,7 +99,7 @@ D：「新出的苹果贵了好几百。」</p>
 </code></pre>
 <p>画到坐标纸上，奇妙的事情发生了：没人告诉电脑苹果和香蕉像，但<strong>它们自动落在了一起</strong>，柠檬孤零零地在角落。</p>
 <p>于是电脑能回答一个真问题了：「哪个水果最像苹果？」——它不懂水果，只需要找<strong>离 [7,5] 最近的点</strong>。答案是香蕉。</p>
-<p><figure><img alt="水果意义地图" src="../../assets/images/posts/embedding-attention/02.avif"  loading="lazy" /><figcaption>水果意义地图</figcaption></figure></p>
+<figure><p><img alt="水果意义地图" src="../../assets/images/posts/embedding-attention/02.avif"  loading="lazy"  loading="lazy" /></p><figcaption>水果意义地图</figcaption></figure>
 <blockquote>
 <p><strong>意思变成了位置，而位置可以测量。</strong> 这就是词嵌入的全部魔法。</p>
 </blockquote>
@@ -157,7 +161,7 @@ D：「新出的苹果贵了好几百。」</p>
 我 → AI    得 3 分
 </code></pre>
 <p>"我" 的注意力锁定了<strong>动词"爱"</strong>——在"我 爱 AI"这个句子里，对代词"我"而言，最有信息量的就是动词。注意这件事不是谁规定的：Q 和 K 是模型自己学出来的，<strong>它学会了"代词该关注动词"这种语法直觉</strong>，而且是纯粹从海量句子里自己悟的。</p>
-<p><figure><img alt="注意力打分" src="../../assets/images/posts/embedding-attention/03.avif"  loading="lazy" /><figcaption>注意力打分</figcaption></figure></p>
+<figure><p><img alt="注意力打分" src="../../assets/images/posts/embedding-attention/03.avif"  loading="lazy"  loading="lazy" /></p><figcaption>注意力打分</figcaption></figure>
 <h3>第二步：缩放（÷ √dₖ）——为什么分数要先压一压？</h3>
 <p>所有分数除以 √dₖ（键向量的维度开根号，例子中 √3 ≈ 1.73）：5 分变 2.9，3 分变 1.7，1 分变 0.6。</p>
 <p>多此一举吗？不是。看下一步的 softmax——它对大数字极其敏感：<strong>分数一大，softmax 就会把最高的推到接近 100%、其他压到接近 0%</strong>，梯度随之消失，模型就学不动了。维度越高点积越容易大，所以提前除以 √dₖ 把分数拉回"softmax 舒服"的区间。</p>
@@ -177,7 +181,7 @@ D：「新出的苹果贵了好几百。」</p>
 <pre><code>Attention(Q, K, V) = softmax(QKᵀ / √dₖ) × V
 </code></pre>
 <p>现在再看这行公式，每一块都能对上号了：QKᵀ 是打分，÷√dₖ 是压分，softmax 是分预算，×V 是按预算抄内容。</p>
-<p><figure><img alt="注意力全流程总结" src="../../assets/images/posts/embedding-attention/04.avif"  loading="lazy" /><figcaption>注意力全流程总结</figcaption></figure></p>
+<figure><p><img alt="注意力全流程总结" src="../../assets/images/posts/embedding-attention/04.avif"  loading="lazy"  loading="lazy" /></p><figcaption>注意力全流程总结</figcaption></figure>
 <p>（例子里为了能口算，维度只有 3；真实模型是 512、1024 起步，而且这套计算会并行跑几十上百遍——所谓多头注意力，相当于让多组"眼睛"各自关注不同类型的关系，有的盯语法、有的盯语义，最后拼起来。）</p>
 <hr />
 <h2>把两站接起来</h2>

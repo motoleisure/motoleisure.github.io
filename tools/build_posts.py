@@ -12,7 +12,6 @@ Writes:  blog/<slug>/index.html
 import html as html_mod
 import os
 import re
-import shutil
 import subprocess
 import sys
 
@@ -133,38 +132,6 @@ def convert_images(md_text, src_dir, src_md_path, slug, used_files):
 
 def highlight_code(md_text):
     """Pre-highlight fenced code blocks into our Night Owl token spans."""
-    langs = {
-        "bash": ("f", "k"), "sh": ("f", "k"), "shell": ("f", "k"),
-        "python": ("f", "k"), "py": ("f", "k"),
-        "typescript": ("f", "k"), "ts": ("f", "k"), "js": ("f", "k"),
-        "javascript": ("f", "k"), "json": ("f", "k"), "yaml": ("f", "k"),
-        "yml": ("f", "k"), "toml": ("f", "k"), "text": (None, None),
-        "": (None, None),
-    }
-
-    def esc(s):
-        return html_mod.escape(s)
-
-    def process_code_body(body):
-        out_lines = []
-        for line in body.split("\n"):
-            # comments
-            line = re.sub(r"(#.*)$", r'<span class="tok-c">\1</span>', esc(line))
-            # strings
-            line = re.sub(r'(&quot;[^&]*?&quot;|&#x27;[^&]*?&#x27;|&#39;[^&]*?&#39;)',
-                          r'<span class="tok-s">\1</span>', line)
-            out_lines.append(line)
-        return "\n".join(out_lines)
-
-    def repl(m):
-        lang = m.group(1) or ""
-        body = m.group(2)
-        # stash: replace fenced block with placeholder, python-markdown will not touch
-        highlighted = process_code_body(body)
-        return (f'\n\n<pre data-lang="{lang}"><code>{highlighted}</code></pre>\n\n'
-                if False else
-                f'\n\n~~~CODEBLOCK~~{esc(lang)}~~{highlighted}~~CODEBLOCK~~\n\n')
-
     # temporarily swap fenced blocks out of markdown processing
     stash = []
     def stash_repl(m):
@@ -193,7 +160,7 @@ def highlight_plain(lang, body):
     return ('<pre><code>' + "\n".join(lines) + "</code></pre>")
 
 
-def make_cover(slug, title, tag, date_str):
+def make_cover(slug, title, tag):
     """Generate a deterministic 1200x630 SVG cover in site palette."""
     out = os.path.join(POSTS_IMG_DIR, slug, "cover.svg")
     if os.path.exists(out):
@@ -236,12 +203,15 @@ PAGE_TMPL = '''<!DOCTYPE html>
   <meta property="og:title" content="{title}">
   <meta property="og:url" content="https://motoleisure.github.io/blog/{slug}/">
   <meta property="og:description" content="{desc}">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/{slug}/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
   <link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
 
   <header class="site-header">
     <div class="container container--wide header-inner">
@@ -259,7 +229,7 @@ PAGE_TMPL = '''<!DOCTYPE html>
     </div>
   </header>
 
-  <main>
+  <main id="main">
     <div class="container container--narrow">
       <article class="article-wrap">
         <a class="back-link" href="../../">← 全部文章</a>
@@ -267,7 +237,7 @@ PAGE_TMPL = '''<!DOCTYPE html>
         <h1 class="article-title">{title}</h1>
 
         <div class="article-meta">
-          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
           <div class="who">
             <span class="name">Tim Chan</span>
             <time class="date" datetime="{date}">发布于 {date_cn}</time>
@@ -324,16 +294,17 @@ def build_one(src_file, slug, title, date, excerpt, tag):
     )
     html = restore_codeblocks(html, stash)
 
-    # fix: python-markdown turns our image markdown into <img>, wrap in figure
-    def to_figure(m):
-        tag = m.group(0)
-        alt_m = re.search(r'alt="([^"]*)"', tag)
-        alt = alt_m.group(1) if alt_m else ""
-        if 'loading="lazy"' not in tag:
-            tag = tag.replace('/>', ' loading="lazy" />')
-        return f'<figure>{tag}<figcaption>{alt}</figcaption></figure>'
-
-    html = re.sub(r'<img(?![^>]*class="avatar")[^>]*/>', to_figure, html)
+    # Wrap content images in a <figure>. Markdown leaves the image inside a
+    # <p>; ideally we'd move it out, but figure cannot legally nest in <p>.
+    # We push it: strip the enclosing <p> around a lone image, then wrap.
+    html = re.sub(
+        r'<p><img(?![^>]*class="avatar")[^>]*/></p>',
+        lambda m: '<figure>' + m.group(0).replace('/>', ' loading="lazy" />') + '<figcaption>' +
+        (re.search(r'alt="([^"]*)"', m.group(0)).group(1)) + '</figcaption></figure>',
+        html)
+    # images inside blockquote etc. keep their place, just get lazy loading
+    html = re.sub(r'<img(?![^>]*class="avatar")[^>]*/>',
+                  lambda m: m.group(0).replace('/>', ' loading="lazy" />'), html)
 
     # wide tables get a horizontal-scroll wrapper
     html = html.replace('<table>', '<div class="table-wrap"><table>')
@@ -350,10 +321,9 @@ def build_one(src_file, slug, title, date, excerpt, tag):
     html = re.sub(r'^\s*(<hr\s*/?>)?\s*', "", html)
 
     # lead paragraph: use excerpt
-    date_cn = f"{int(date[5:7])} 月 {int(date[8:10])} 日, {date[:4]} 年"
     date_cn = f"{date[:4]} 年 {int(date[5:7])} 月 {int(date[8:10])} 日"
 
-    cover = make_cover(slug, title, tag, date)
+    cover = make_cover(slug, title, tag)
 
     page = PAGE_TMPL.format(
         title=html_mod.escape(title), slug=slug, desc=html_mod.escape(excerpt),

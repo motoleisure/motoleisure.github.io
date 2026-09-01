@@ -9,7 +9,7 @@
   --hairline: #b2d5ff;
   --ink: #00172e;
   --ink-2: #243d58;
-  --ink-muted: #597597;
+  --ink-muted: #506a8f;
   --accent: #4338ca;
   --accent-bright: #4f46e5;
   --link: #2563eb;
@@ -27,6 +27,12 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Author styles can outrank the UA [hidden] rule: .editorial-card sets
+   display:flex, so hidden cards must win unconditionally for search. */
+[hidden] {
+  display: none !important;
 }
 
 html {
@@ -56,7 +62,7 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   display: flex;
-  min-height: 100vh;
+  min-height: 100dvh;
   flex-direction: column;
   /* wide code lines inside scrollable pre can still inflate the page
      scrollWidth on narrow screens; clip at the root */
@@ -66,6 +72,24 @@ body {
 ::selection {
   background: rgba(178, 213, 255, 0.55);
   color: var(--ink);
+}
+
+/* Skip-to-content link (visually hidden until focused) */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.6rem 1.1rem;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+}
+
+.skip-link:focus {
+  left: 0;
+  color: #fff;
 }
 
 a {
@@ -245,7 +269,8 @@ main {
 }
 
 .blog-search input:focus {
-  outline: none;
+  outline: 3px solid var(--accent-bright);
+  outline-offset: 1px;
   border-color: var(--accent-bright);
 }
 

@@ -12,12 +12,16 @@
   <meta property="og:title" content="为什么 0.1 存不进计算机？我做了个「拆开看」的工具，10 分钟搞懂 FP8">
   <meta property="og:url" content="https://motoleisure.github.io/blog/float-bits/">
   <meta property="og:description" content="0.1 + 0.2 为什么不等于 0.3？把浮点数拆成三段二进制格子，做了五个可交互的插画，从 IEEE 754 一路看到 FP8。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/float-bits/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
   <link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <a class="skip-link" href="#main">跳到主要内容</a>
 
   <header class="site-header">
     <div class="container container--wide header-inner">
@@ -35,7 +39,7 @@
     </div>
   </header>
 
-  <main>
+  <main id="main">
     <div class="container container--narrow">
       <article class="article-wrap">
         <a class="back-link" href="../../">← 全部文章</a>
@@ -43,7 +47,7 @@
         <h1 class="article-title">为什么 0.1 存不进计算机？我做了个「拆开看」的工具，10 分钟搞懂 FP8</h1>
 
         <div class="article-meta">
-          <img class="avatar" src="../../assets/images/favicon.ico" alt="Tim Chan 的头像">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
           <div class="who">
             <span class="name">Tim Chan</span>
             <time class="date" datetime="2026-08-26">发布于 2026 年 8 月 26 日</time>
@@ -53,7 +57,7 @@
         <p class="article-lead">0.1 + 0.2 为什么不等于 0.3？把浮点数拆成三段二进制格子，做了五个可交互的插画，从 IEEE 754 一路看到 FP8。</p>
 
         <div class="prose">
-<p><figure><img alt="封面插画：小象掰开巨大的「0.1」，里面是红绿蓝三色二进制格子" src="../../assets/images/posts/float-bits/01.avif"  loading="lazy" /><figcaption>封面插画：小象掰开巨大的「0.1」，里面是红绿蓝三色二进制格子</figcaption></figure></p>
+<figure><p><img alt="封面插画：小象掰开巨大的「0.1」，里面是红绿蓝三色二进制格子" src="../../assets/images/posts/float-bits/01.avif"  loading="lazy"  loading="lazy" /></p><figcaption>封面插画：小象掰开巨大的「0.1」，里面是红绿蓝三色二进制格子</figcaption></figure>
 <p>在 Python 里敲一句：</p>
 <pre><code>&gt;&gt;&gt; 0.1 + 0.2
 0.30000000000000004
@@ -167,7 +171,7 @@
 <li><strong>点击蓝色格子</strong> → 数字在小范围内微调，这是精度在起作用</li>
 </ol>
 <p>玩满一分钟，你对「符号 / 指数 / 尾数」的理解就会超过背十天书。
-<figure><img alt="插画：小象摇动绞盘，拖动巨大的小数点在三色格子轨道上滑动" src="../../assets/images/posts/float-bits/02.avif"  loading="lazy" /><figcaption>插画：小象摇动绞盘，拖动巨大的小数点在三色格子轨道上滑动</figcaption></figure></p>
+<img alt="插画：小象摇动绞盘，拖动巨大的小数点在三色格子轨道上滑动" src="../../assets/images/posts/float-bits/02.avif"  loading="lazy" /></p>
 </blockquote>
 <hr />
 <h2>第 5 站：0.1 的真相——一个惯犯</h2>
@@ -207,7 +211,7 @@
 <li>再点预设 <strong>「极小 1e-9」</strong>，选 FP16 → 直接下溢变成 0，工具会提示「太小了，子正常区也装不下」</li>
 </ol>
 <p>这就是浮点数的世界观：<strong>它不在乎每一米都准，它在乎每一个量级都够得着。</strong>
-<figure><img alt="插画：小象把 0.00001 滴进一亿的大海，水面毫无涟漪" src="../../assets/images/posts/float-bits/03.avif"  loading="lazy" /><figcaption>插画：小象把 0.00001 滴进一亿的大海，水面毫无涟漪</figcaption></figure></p>
+<img alt="插画：小象把 0.00001 滴进一亿的大海，水面毫无涟漪" src="../../assets/images/posts/float-bits/03.avif"  loading="lazy" /></p>
 </blockquote>
 <hr />
 <h2>第 7 站：FP8——大模型时代的极限压榨</h2>
@@ -248,7 +252,7 @@
 <li>分别点预设 <strong>「最大值」</strong>，对比两种格子的天花板：一个 448，一个 57344</li>
 </ol>
 <p>没有谁对谁错，又是那次熟悉的权衡：<strong>一个选择体面地撞墙，一个选择体面地爆炸。</strong>
-<figure><img alt="插画：溢出的两种死法——左边在448的墙前堆成山，右边坠入无穷深坑" src="../../assets/images/posts/float-bits/04.avif"  loading="lazy" /><figcaption>插画：溢出的两种死法——左边在448的墙前堆成山，右边坠入无穷深坑</figcaption></figure></p>
+<img alt="插画：溢出的两种死法——左边在448的墙前堆成山，右边坠入无穷深坑" src="../../assets/images/posts/float-bits/04.avif"  loading="lazy" /></p>
 </blockquote>
 <hr />
 <h2>第 8 站：UE8M0——把尾数砍光的极端操作</h2>
@@ -273,7 +277,7 @@
 <li>输入 <code>3</code> → 工具提示这不是 2 的幂，就近吸附到某个纯 2 的幂上</li>
 <li>输入 <code>1024</code> → 完美命中，因为它本来就是 2¹⁰</li>
 <li>看公式行只剩 <code>2^k</code> 一个因子——这就是「乘法即位移」的全部秘密
-<figure><img alt="插画：UE8M0 是一排纯绿色算珠，拨一位就是乘以二" src="../../assets/images/posts/float-bits/05.avif"  loading="lazy" /><figcaption>插画：UE8M0 是一排纯绿色算珠，拨一位就是乘以二</figcaption></figure></li>
+<img alt="插画：UE8M0 是一排纯绿色算珠，拨一位就是乘以二" src="../../assets/images/posts/float-bits/05.avif"  loading="lazy" /></li>
 </ol>
 </blockquote>
 <hr />
