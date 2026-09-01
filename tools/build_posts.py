@@ -205,9 +205,7 @@ PAGE_TMPL = '''<!DOCTYPE html>
   <meta property="og:description" content="{desc}">
   <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/{slug}/cover.svg">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,100..900&display=swap">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
   <link rel="stylesheet" href="../../assets/css/style.css">
 </head>
 <body>
