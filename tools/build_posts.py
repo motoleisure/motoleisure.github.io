@@ -351,5 +351,67 @@ def main():
         print(" ", c[1])
 
 
+# All posts for the homepage grid: 16 generated from ARTICLES + 2 hand-written.
+# cover is the SVG path (posts/<slug>/cover.svg, except the two hand-written
+# ones which live at assets/images/cover-*.svg).
+HANDWRITTEN = [
+    {"slug": "two-github-accounts",
+     "title": "一台电脑同时使用两个 GitHub 账号", "date": "2026-08-31",
+     "excerpt": "用 SSH Host 别名把账号写进 remote URL：给第二个账号配一把专属密钥，推拉代码自动走对应身份，不存在“忘了切换账号”这回事。",
+     "cover": "assets/images/cover-two-github-accounts.svg"},
+    {"slug": "hello-again",
+     "title": "重构了这个博客：告别 2015，换上新装", "date": "2026-08-31",
+     "excerpt": "旧站是 2015 年用 Hexo 生成的，停更在 2018 年。这次连根拔起，删掉所有旧文章，手写静态页面重新出发——顺便记录一下新设计是怎么来的。",
+     "cover": "assets/images/cover-hello-again.svg"},
+]
+
+
+def all_posts():
+    """ARTICLES converted to dicts + hand-written posts, in display order."""
+    posts = [{"slug": slug, "title": title, "date": date, "excerpt": excerpt,
+              "cover": f"assets/images/posts/{slug}/cover.svg"}
+             for _src, slug, title, date, excerpt, _tag in ARTICLES]
+    posts.extend(HANDWRITTEN)
+    posts.sort(key=lambda p: p["date"], reverse=True)
+    return posts
+
+
+def render_homepage():
+    """Rebuild the homepage card grid in index.html from all_posts()."""
+    idx = os.path.join(SITE_DIR, "index.html")
+    doc = open(idx, encoding="utf-8").read()
+
+    cards = []
+    for i, p in enumerate(all_posts()):
+        esc_t = p["title"].replace("&", "&amp;").replace("<", "&lt;")
+        esc_e = p["excerpt"].replace("&", "&amp;").replace("<", "&lt;")
+        # LCP: the first (newest) cover above the fold should load eagerly
+        img_attrs = 'loading="lazy"'
+        if i == 0:
+            img_attrs = 'loading="eager" fetchpriority="high"'
+        cards.append(f'''          <a class="editorial-card" href="blog/{p['slug']}/">
+            <img class="cover" src="{p['cover']}" alt="" {img_attrs}>
+            <div class="card-body">
+              <time datetime="{p['date']}">{p['date'][:4]} 年 {int(p['date'][5:7])} 月 {int(p['date'][8:10])} 日</time>
+              <h2 class="card-title">{esc_t}</h2>
+              <p class="card-excerpt">{esc_e}</p>
+            </div>
+          </a>''')
+
+    grid_open = '<div class="editorial-grid rise rise-2" id="post-grid">'
+    grid_end = '</div>\n        <p class="no-results">没有匹配的文章，换个关键词试试。</p>'
+
+    start = doc.find(grid_open)
+    end = doc.find(grid_end)
+    if start == -1 or end == -1 or end < start:
+        raise SystemExit(f"Could not locate grid in {idx}")
+
+    new_grid = grid_open + '\n\n' + '\n\n'.join(cards) + '\n\n        ' + grid_end
+    doc = doc[:start] + new_grid + doc[end + len(grid_end):]
+    open(idx, "w", encoding="utf-8").write(doc)
+    print(f"  render_homepage(): {len(cards)} cards written to index.html")
+
+
 if __name__ == "__main__":
     main()
+    render_homepage()
