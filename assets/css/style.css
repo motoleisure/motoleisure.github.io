@@ -258,6 +258,75 @@ main {
   font-size: clamp(1.9rem, 5vw, 3rem);
 }
 
+.pelican-intro {
+  margin: 1.2rem auto 0;
+  max-width: 40rem;
+  color: var(--ink-muted);
+  font-size: 1.02rem;
+  line-height: 1.7;
+}
+
+.pelican-prompt {
+  max-width: 42rem;
+  margin: 1.5rem auto 0;
+  padding: 1rem 1.25rem 0.85rem;
+  background: var(--page);
+  border: 1px solid var(--hairline);
+  border-radius: 0.75rem;
+  text-align: center;
+}
+.pelican-prompt .prompt-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ink-muted);
+  margin-bottom: 0.5rem;
+}
+.pelican-prompt .prompt-text {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  color: var(--ink);
+  line-height: 1.5;
+  padding: 0.5rem 0.9rem;
+  background: var(--page-tint);
+  border-radius: 0.5rem;
+  word-break: break-word;
+  flex: 1;
+}
+.pelican-prompt .prompt-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+.pelican-prompt .prompt-copy {
+  appearance: none;
+  border: 1px solid var(--hairline);
+  background: var(--page);
+  color: var(--ink-muted);
+  cursor: pointer;
+  padding: 0 0.6rem;
+  border-radius: 0.5rem;
+  transition: background .15s, color .15s;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+}
+.pelican-prompt .prompt-copy:hover {
+  background: var(--page-tint);
+  color: var(--accent);
+}
+.pelican-prompt .prompt-copy:active {
+  transform: scale(0.95);
+}
+.pelican-prompt .prompt-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-muted);
+  line-height: 1.5;
+}
+
 .blog-search {
   position: relative;
   max-width: 32rem;

@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="鹈鹕骑车 GLM-5.2">
+  <defs>
+    <linearGradient id="coverSky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFC2A8"/><stop offset=".5" stop-color="#FFE3C8"/><stop offset="1" stop-color="#FFF1DC"/>
+    </linearGradient>
+    <linearGradient id="coverSea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9AD8EC"/><stop offset="1" stop-color="#5BB8D6"/>
+    </linearGradient>
+    <radialGradient id="coverSunG" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#FFE6A0" stop-opacity="1"/><stop offset="1" stop-color="#FFE6A0" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 背景 -->
+  <rect width="1200" height="630" fill="url(#coverSky)"/>
+
+  <!-- 太阳 -->
+  <circle cx="950" cy="120" r="100" fill="url(#coverSunG)"/>
+  <circle cx="950" cy="120" r="38" fill="#FFD27A"/>
+  <g stroke="#FFB85C" stroke-width="4" stroke-linecap="round">
+    <line x1="950" y1="60" x2="950" y2="48"/><line x1="1024" y1="120" x2="1038" y2="120"/>
+    <line x1="950" y1="180" x2="950" y2="192"/><line x1="876" y1="120" x2="862" y2="120"/>
+  </g>
+
+  <!-- 云 -->
+  <g fill="#fff" opacity=".88">
+    <ellipse cx="180" cy="100" rx="42" ry="18"/><ellipse cx="210" cy="86" rx="28" ry="14"/>
+    <ellipse cx="520" cy="70" rx="34" ry="14"/><ellipse cx="546" cy="60" rx="22" ry="12"/>
+  </g>
+
+  <!-- 海 -->
+  <rect x="0" y="350" width="1200" height="70" fill="url(#coverSea)"/>
+  <g stroke="#fff" stroke-width="2" opacity=".5">
+    <path d="M0 368 q30 -4 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0"/>
+    <path d="M0 390 q30 -4 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0"/>
+  </g>
+
+  <!-- 远山 -->
+  <path d="M0 430 C90 380 200 380 300 430 C380 400 460 400 560 430 C640 400 720 400 820 430 C900 400 980 400 1080 430 L1200 430 L1200 450 L0 450 Z" fill="#C99BD0" opacity=".55"/>
+
+  <!-- 草地 -->
+  <rect x="0" y="430" width="1200" height="55" fill="#8FC76A"/>
+  <!-- 路面 -->
+  <rect x="0" y="485" width="1200" height="55" fill="#4A4A5C"/>
+  <rect x="0" y="485" width="1200" height="4" fill="#5a5a70"/>
+  <line x1="0" y1="513" x2="1200" y2="513" stroke="#FFD23F" stroke-width="5" stroke-dasharray="40 30" stroke-linecap="round"/>
+  <rect x="0" y="538" width="1200" height="32" fill="#6FA84E"/>
+
+  <!-- 骑手+车（静态） -->
+  <g id="rider">
+    <path d="M504 342 q-22 -2 -34 6 q14 6 30 6 z" fill="#E8553A"/>
+    <path d="M504 352 q-26 4 -40 14 q16 2 34 -2 z" fill="#C13E25"/>
+
+    <!-- 后轮 -->
+    <circle cx="400" cy="490" r="60" fill="#2a2a36"/>
+    <circle cx="400" cy="490" r="52" fill="none" stroke="#cfd6df" stroke-width="3"/>
+    <g stroke="#b9c2cc" stroke-width="2.5" fill="none">
+      <line x1="406" y1="490" x2="445" y2="490"/><line x1="404" y1="495" x2="431" y2="521"/><line x1="400" y1="496" x2="400" y2="535"/><line x1="396" y1="495" x2="369" y2="521"/><line x1="394" y1="490" x2="355" y2="490"/><line x1="396" y1="485" x2="369" y2="459"/><line x1="400" y1="484" x2="400" y2="445"/><line x1="404" y1="485" x2="431" y2="459"/>
+      <line x1="400" y1="480" x2="400" y2="500" stroke="#39434f" stroke-width="2"/>
+      <circle cx="400" cy="490" r="9" fill="#5a6270" stroke="#2a2a36" stroke-width="2"/>
+    </g>
+
+    <!-- 远曲柄+踏板 -->
+    <g>
+      <line x1="530" y1="490" x2="530" y2="464" stroke="#2a2a36" stroke-width="6" stroke-linecap="round"/>
+      <rect x="517" y="460.5" width="26" height="7" rx="3" fill="#1a1a24"/>
+    </g>
+
+    <!-- 远腿 -->
+    <g>
+      <line x1="520" y1="400" x2="520" y2="458" stroke="#E0A86E" stroke-width="15" stroke-linecap="round"/>
+      <line x1="520" y1="458" x2="520" y2="522" stroke="#E0A86E" stroke-width="12" stroke-linecap="round"/>
+      <path d="M511 514 Q542 507 552 522 Q542 536 520 534 Q508 530 511 514 Z" fill="#C9914E"/>
+    </g>
+
+    <!-- 链条 -->
+    <g stroke="#2a2a36" stroke-width="4" fill="none">
+      <line x1="400" y1="481" x2="530" y2="481"/><line x1="400" y1="499" x2="530" y2="499"/>
+    </g>
+
+    <!-- 车架 -->
+    <g stroke="#E8553A" stroke-width="9" stroke-linecap="round" fill="none">
+      <line x1="530" y1="490" x2="400" y2="490"/>
+      <line x1="508" y1="420" x2="400" y2="490"/>
+      <line x1="530" y1="490" x2="508" y2="420"/>
+      <line x1="530" y1="490" x2="634" y2="450"/>
+      <line x1="508" y1="420" x2="634" y2="450"/>
+      <line x1="634" y1="450" x2="660" y2="490"/>
+    </g>
+    <line x1="634" y1="450" x2="648" y2="432" stroke="#2a2a36" stroke-width="6" stroke-linecap="round"/>
+    <path d="M648 432 q10 -8 2 -16" stroke="#2a2a36" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <circle cx="648" cy="416" r="5" fill="#8A5A3B"/>
+
+    <!-- 车座 -->
+    <line x1="508" y1="424" x2="508" y2="414" stroke="#2a2a36" stroke-width="6"/>
+    <path d="M486 406 Q508 400 540 412 Q532 424 510 426 Q488 426 482 418 Q480 410 486 406 Z" fill="#7C4A2D" stroke="#5F371F" stroke-width="2"/>
+
+    <!-- 前轮 -->
+    <circle cx="660" cy="490" r="60" fill="#2a2a36"/>
+    <circle cx="660" cy="490" r="52" fill="none" stroke="#cfd6df" stroke-width="3"/>
+    <g stroke="#b9c2cc" stroke-width="2.5" fill="none">
+      <line x1="666" y1="490" x2="705" y2="490"/><line x1="664" y1="495" x2="691" y2="521"/><line x1="660" y1="496" x2="660" y2="535"/><line x1="656" y1="495" x2="629" y2="521"/><line x1="654" y1="490" x2="615" y2="490"/><line x1="656" y1="485" x2="629" y2="459"/><line x1="660" y1="484" x2="660" y2="445"/><line x1="664" y1="485" x2="691" y2="459"/>
+      <line x1="660" y1="480" x2="660" y2="500" stroke="#39434f" stroke-width="2"/>
+      <circle cx="660" cy="490" r="9" fill="#5a6270" stroke="#2a2a36" stroke-width="2"/>
+    </g>
+
+    <!-- 鹈鹕身体 -->
+    <g>
+      <path d="M478 332 L436 306 L476 318 Z" fill="#E0A86E"/>
+      <path d="M483 328 L452 308 L478 315 Z" fill="#fff" stroke="#e0c9a0" stroke-width="1.5"/>
+      <ellipse cx="530" cy="358" rx="72" ry="54" transform="rotate(-12 530 358)" fill="#FFF7E6" stroke="#e8d8b0" stroke-width="3"/>
+      <ellipse cx="528" cy="382" rx="52" ry="18" transform="rotate(-10 528 382)" fill="#F6E8C8"/>
+      <path d="M552 338 Q574 352 566 380 Q548 404 510 400 Q532 386 540 366 Q546 348 552 338 Z" fill="#F0C9A0" stroke="#d9b888" stroke-width="2"/>
+      <path d="M548 358 Q532 376 514 390 M556 368 Q544 386 526 396" stroke="#d9b888" stroke-width="2" fill="none"/>
+
+      <g>
+        <path d="M568 320 C572 288 586 258 610 242" stroke="#e8d8b0" stroke-width="24" stroke-linecap="round" fill="none"/>
+        <path d="M568 320 C572 288 586 258 610 242" stroke="#FFF7E6" stroke-width="19" stroke-linecap="round" fill="none"/>
+        <circle cx="616" cy="234" r="22" fill="#FFF7E6" stroke="#e8d8b0" stroke-width="3"/>
+        <circle cx="626" cy="228" r="6" fill="#fff"/>
+        <circle cx="628" cy="229" r="3.2" fill="#2B2B3A"/>
+        <path d="M598 244 Q620 250 640 246 Q638 260 616 260 Q598 258 598 244 Z" fill="#E8553A"/>
+        <g>
+          <path d="M636 234 L756 244 Q764 250 756 256 L636 246 Z" fill="#F6A02C"/>
+          <path d="M636 246 C640 288 666 306 696 298 C726 288 752 272 756 256 L636 246 Z" fill="#E07A12"/>
+          <path d="M638 248 Q686 258 750 252" stroke="#c46a10" stroke-width="1.5" fill="none"/>
+          <path d="M680 272 L700 256 L696 272 L712 266 L696 276 L706 288 L688 276 Z" fill="#6FB5C9" stroke="#4E94A6" stroke-width="1.5"/>
+        </g>
+      </g>
+
+      <g>
+        <path d="M570 332 Q610 340 640 360 Q648 380 648 416 L640 418 Q628 392 610 376 Q586 360 566 346 Z" fill="#FFF7E6" stroke="#e8d8b0" stroke-width="2.5"/>
+        <path d="M586 354 q12 8 26 12 M604 370 q12 6 24 10" stroke="#d9b888" stroke-width="2" fill="none"/>
+        <circle cx="648" cy="418" r="6" fill="#FFF7E6" stroke="#e8d8b0" stroke-width="2"/>
+      </g>
+    </g>
+
+    <!-- 近曲柄+牙盘+踏板 -->
+    <g>
+      <circle cx="530" cy="490" r="16" fill="none" stroke="#2a2a36" stroke-width="4"/>
+      <circle cx="539" cy="490" r="2.8" fill="#2a2a36"/><circle cx="525" cy="498" r="2.8" fill="#2a2a36"/><circle cx="525" cy="482" r="2.8" fill="#2a2a36"/>
+      <line x1="530" y1="490" x2="530" y2="464" stroke="#2a2a36" stroke-width="6" stroke-linecap="round"/>
+      <rect x="517" y="460.5" width="26" height="7" rx="3" fill="#1a1a24"/>
+    </g>
+
+    <!-- 近腿 -->
+    <g>
+      <line x1="520" y1="400" x2="520" y2="458" stroke="#F0C9A0" stroke-width="15" stroke-linecap="round"/>
+      <line x1="520" y1="458" x2="520" y2="522" stroke="#F0C9A0" stroke-width="12" stroke-linecap="round"/>
+      <path d="M510 513 Q543 506 553 522 Q542 537 520 535 Q507 531 510 513 Z" fill="#F6A02C"/>
+    </g>
+  </g>
+
+  <!-- 标签 -->
+  <rect x="440" y="80" width="320" height="52" rx="26" fill="#00172e"/>
+  <text x="600" y="115" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="600" fill="#ffffff" letter-spacing="4">GLM-5.2</text>
+</svg>

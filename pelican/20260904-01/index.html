@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>鹈鹕骑车 · GLM-5.2 - 鹈鹕测试 | Agent's Photolog</title>
+  <meta name="description" content="GLM-5.2 生成的鹈鹕骑自行车动画测试：纯 SVG + CSS 关键帧，无外部依赖，自带 Web Audio 配乐。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/pelican/20260904-01/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="鹈鹕骑车 · GLM-5.2">
+  <meta property="og:url" content="https://motoleisure.github.io/pelican/20260904-01/">
+  <meta property="og:description" content="GLM-5.2 生成的鹈鹕骑自行车动画测试：纯 SVG + CSS 关键帧，无外部依赖，自带 Web Audio 配乐。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/pelican/20260904-01.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../" aria-current="page">鹈鹕测试</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="pelican-head">
+      <a class="back-link" href="../">← 全部测试</a>
+      <h1 class="page-title">鹈鹕骑车 · GLM-5.2</h1>
+      <p class="pelican-sub">纯 SVG + CSS 关键帧动画，无外部依赖，自带 Web Audio 合成配乐。同一个提示词，看不同模型能画出什么。</p>
+    </div>
+
+    <div class="pelican-stage">
+      <div class="pelican-wrap">
+        <div class="pelican-frame">
+          <svg viewBox="0 0 960 580" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="夕阳海边，戴围巾的鹈鹕骑橙色自行车">
+            <defs>
+              <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#FFC2A8"/><stop offset=".5" stop-color="#FFE3C8"/><stop offset="1" stop-color="#FFF1DC"/>
+              </linearGradient>
+              <linearGradient id="seaG" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="#9AD8EC"/><stop offset="1" stop-color="#5BB8D6"/>
+              </linearGradient>
+              <radialGradient id="sunG" cx=".5" cy=".5" r=".5">
+                <stop offset="0" stop-color="#FFE6A0" stop-opacity="1"/><stop offset="1" stop-color="#FFE6A0" stop-opacity="0"/>
+              </radialGradient>
+              <g id="hillTile">
+                <path d="M0 410 C70 360 160 360 240 410 C300 380 360 380 480 410 L480 430 L0 430 Z" fill="#C99BD0" opacity=".55"/>
+              </g>
+              <g id="grassTile">
+                <path d="M0 480 q20 -8 40 0 q20 -8 40 0 q20 -8 40 0 q20 -8 40 0 q20 -8 40 0 q20 -8 40 0" fill="none" stroke="#6FA84E" stroke-width="3"/>
+                <g fill="#6FA84E">
+                  <path d="M30 482 l3 -12 l3 12 z"/><path d="M120 482 l3 -12 l3 12 z"/><path d="M210 482 l3 -12 l3 12 z"/>
+                </g>
+                <g fill="#FFB347"><circle cx="70" cy="475" r="3"/><circle cx="160" cy="475" r="3"/></g>
+              </g>
+            </defs>
+
+            <rect width="960" height="580" fill="url(#sky)"/>
+
+            <g class="pel-sun">
+              <circle cx="760" cy="110" r="140" fill="url(#sunG)"/>
+              <circle cx="760" cy="110" r="52" fill="#FFD27A"/>
+              <g stroke="#FFB85C" stroke-width="5" stroke-linecap="round">
+                <line x1="760" y1="30" x2="760" y2="14"/><line x1="858" y1="110" x2="876" y2="110"/>
+                <line x1="760" y1="190" x2="760" y2="206"/><line x1="662" y1="110" x2="644" y2="110"/>
+                <line x1="824" y1="46" x2="836" y2="34"/><line x1="824" y1="174" x2="836" y2="186"/>
+                <line x1="696" y1="46" x2="684" y2="34"/><line x1="696" y1="174" x2="684" y2="186"/>
+              </g>
+            </g>
+
+            <g class="pel-clouds" fill="#fff" opacity=".92">
+              <g><ellipse cx="120" cy="90" rx="40" ry="18"/><ellipse cx="150" cy="78" rx="28" ry="15"/><ellipse cx="92" cy="84" rx="24" ry="13"/></g>
+              <g transform="translate(360,40)"><ellipse cx="120" cy="90" rx="34" ry="15"/><ellipse cx="146" cy="80" rx="24" ry="13"/></g>
+              <g transform="translate(680,20) scale(.8)"><ellipse cx="120" cy="90" rx="40" ry="18"/><ellipse cx="150" cy="78" rx="28" ry="15"/></g>
+              <g transform="translate(1100,30)"><ellipse cx="120" cy="90" rx="40" ry="18"/><ellipse cx="150" cy="78" rx="28" ry="15"/><ellipse cx="92" cy="84" rx="24" ry="13"/></g>
+              <g transform="translate(1500,60) scale(.9)"><ellipse cx="120" cy="90" rx="40" ry="18"/><ellipse cx="150" cy="78" rx="28" ry="15"/></g>
+            </g>
+
+            <rect x="0" y="330" width="960" height="80" fill="url(#seaG)"/>
+            <g stroke="#fff" stroke-width="2" opacity=".5">
+              <path d="M0 348 q30 -4 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0"/>
+              <path d="M0 372 q30 -4 60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0 t60 0"/>
+            </g>
+
+            <g class="pel-hills">
+              <use href="#hillTile" x="-480"/><use href="#hillTile" x="0"/><use href="#hillTile" x="480"/><use href="#hillTile" x="960"/><use href="#hillTile" x="1440"/>
+            </g>
+
+            <rect x="0" y="430" width="960" height="60" fill="#8FC76A"/>
+            <g class="pel-ground">
+              <use href="#grassTile" x="-240"/><use href="#grassTile" x="0"/><use href="#grassTile" x="240"/><use href="#grassTile" x="480"/><use href="#grassTile" x="720"/><use href="#grassTile" x="960"/><use href="#grassTile" x="1200"/>
+            </g>
+
+            <rect x="0" y="490" width="960" height="60" fill="#4A4A5C"/>
+            <rect x="0" y="490" width="960" height="4" fill="#5a5a70"/>
+            <line class="pel-dash" x1="-60" y1="520" x2="1020" y2="520" stroke="#FFD23F" stroke-width="5" stroke-linecap="round"/>
+            <rect x="0" y="548" width="960" height="32" fill="#6FA84E"/>
+
+            <g stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".8">
+              <line class="pel-wind" x1="120" y1="300" x2="200" y2="300"/>
+              <line class="pel-wind pel-w2" x1="140" y1="345" x2="215" y2="345"/>
+              <line class="pel-wind pel-w3" x1="110" y1="385" x2="190" y2="385"/>
+            </g>
+
+            <g id="pelican-rider">
+              <path d="M404 322 q-22 -2 -34 6 q14 6 30 6 z" fill="#E8553A"/>
+              <path d="M404 332 q-26 4 -40 14 q16 2 34 -2 z" fill="#C13E25"/>
+
+              <circle cx="300" cy="470" r="60" fill="#2a2a36"/>
+              <circle cx="300" cy="470" r="52" fill="none" stroke="#cfd6df" stroke-width="3"/>
+              <g class="pel-wheel" stroke="#b9c2cc" stroke-width="2.5" fill="none">
+                <line x1="306" y1="470" x2="345" y2="470"/><line x1="304" y1="475" x2="331" y2="501"/><line x1="300" y1="476" x2="300" y2="515"/><line x1="296" y1="475" x2="269" y2="501"/><line x1="294" y1="470" x2="255" y2="470"/><line x1="296" y1="465" x2="269" y2="439"/><line x1="300" y1="464" x2="300" y2="425"/><line x1="304" y1="465" x2="331" y2="439"/>
+                <line x1="300" y1="460" x2="300" y2="480" stroke="#39434f" stroke-width="2"/>
+                <circle cx="300" cy="470" r="9" fill="#5a6270" stroke="#2a2a36" stroke-width="2"/>
+              </g>
+
+              <g class="pel-crank pel-far">
+                <line x1="430" y1="470" x2="430" y2="444" stroke="#2a2a36" stroke-width="6" stroke-linecap="round"/>
+                <rect class="pel-pedal" x="417" y="440.5" width="26" height="7" rx="3" fill="#1a1a24"/>
+              </g>
+
+              <g class="pel-thighF"><line x1="420" y1="380" x2="420" y2="438" stroke="#E0A86E" stroke-width="15" stroke-linecap="round"/>
+                <g class="pel-shinF"><line x1="420" y1="438" x2="420" y2="502" stroke="#E0A86E" stroke-width="12" stroke-linecap="round"/>
+                  <g class="pel-footF"><path d="M411 494 Q442 487 452 502 Q442 516 420 514 Q408 510 411 494 Z" fill="#C9914E"/></g>
+                </g>
+              </g>
+
+              <g stroke="#2a2a36" stroke-width="4" fill="none">
+                <line x1="300" y1="461" x2="430" y2="461"/><line x1="300" y1="479" x2="430" y2="479"/>
+              </g>
+
+              <g stroke="#E8553A" stroke-width="9" stroke-linecap="round" fill="none">
+                <line x1="430" y1="470" x2="300" y2="470"/>
+                <line x1="408" y1="400" x2="300" y2="470"/>
+                <line x1="430" y1="470" x2="408" y2="400"/>
+                <line x1="430" y1="470" x2="534" y2="430"/>
+                <line x1="408" y1="400" x2="534" y2="430"/>
+                <line x1="534" y1="430" x2="560" y2="470"/>
+              </g>
+              <line x1="534" y1="430" x2="548" y2="412" stroke="#2a2a36" stroke-width="6" stroke-linecap="round"/>
+              <path d="M548 412 q10 -8 2 -16" stroke="#2a2a36" stroke-width="6" fill="none" stroke-linecap="round"/>
+              <circle cx="548" cy="396" r="5" fill="#8A5A3B"/>
+
+              <line x1="408" y1="404" x2="408" y2="394" stroke="#2a2a36" stroke-width="6"/>
+              <path d="M386 386 Q408 380 440 392 Q432 404 410 406 Q388 406 382 398 Q380 390 386 386 Z" fill="#7C4A2D" stroke="#5F371F" stroke-width="2"/>
+
+              <circle cx="560" cy="470" r="60" fill="#2a2a36"/>
+              <circle cx="560" cy="470" r="52" fill="none" stroke="#cfd6df" stroke-width="3"/>
+              <g class="pel-wheel pel-f" stroke="#b9c2cc" stroke-width="2.5" fill="none">
+                <line x1="566" y1="470" x2="605" y2="470"/><line x1="564" y1="475" x2="591" y2="501"/><line x1="560" y1="476" x2="560" y2="515"/><line x1="556" y1="475" x2="529" y2="501"/><line x1="554" y1="470" x2="515" y2="470"/><line x1="556" y1="465" x2="529" y2="439"/><line x1="560" y1="464" x2="560" y2="425"/><line x1="564" y1="465" x2="591" y2="439"/>
+                <line x1="560" y1="460" x2="560" y2="480" stroke="#39434f" stroke-width="2"/>
+                <circle cx="560" cy="470" r="9" fill="#5a6270" stroke="#2a2a36" stroke-width="2"/>
+              </g>
+
+              <g class="pel-bob">
+                <path d="M378 312 L336 286 L376 298 Z" fill="#E0A86E"/>
+                <path d="M383 308 L352 288 L378 295 Z" fill="#fff" stroke="#e0c9a0" stroke-width="1.5"/>
+                <ellipse cx="430" cy="338" rx="72" ry="54" transform="rotate(-12 430 338)" fill="#FFF7E6" stroke="#e8d8b0" stroke-width="3"/>
+                <ellipse cx="428" cy="362" rx="52" ry="18" transform="rotate(-10 428 362)" fill="#F6E8C8"/>
+                <path d="M452 318 Q474 332 466 360 Q448 384 410 380 Q432 366 440 346 Q446 328 452 318 Z" fill="#F0C9A0" stroke="#d9b888" stroke-width="2"/>
+                <path d="M448 338 Q432 356 414 370 M456 348 Q444 366 426 376" stroke="#d9b888" stroke-width="2" fill="none"/>
+
+                <g class="pel-nod">
+                  <path d="M468 300 C472 268 486 238 510 222" stroke="#e8d8b0" stroke-width="24" stroke-linecap="round" fill="none"/>
+                  <path d="M468 300 C472 268 486 238 510 222" stroke="#FFF7E6" stroke-width="19" stroke-linecap="round" fill="none"/>
+                  <circle cx="516" cy="214" r="22" fill="#FFF7E6" stroke="#e8d8b0" stroke-width="3"/>
+                  <circle cx="526" cy="208" r="6" fill="#fff"/>
+                  <circle cx="528" cy="209" r="3.2" fill="#2B2B3A"/>
+                  <path d="M498 224 Q520 230 540 226 Q538 240 516 240 Q498 238 498 224 Z" fill="#E8553A"/>
+                  <g class="pel-pouch">
+                    <path d="M536 214 L656 224 Q664 230 656 236 L536 226 Z" fill="#F6A02C"/>
+                    <path d="M536 226 C540 268 566 286 596 278 C626 268 652 252 656 236 L536 226 Z" fill="#E07A12"/>
+                    <path d="M538 228 Q586 238 650 232" stroke="#c46a10" stroke-width="1.5" fill="none"/>
+                    <g class="pel-fishTail">
+                      <path d="M580 252 L600 236 L596 252 L612 246 L596 256 L606 268 L588 256 Z" fill="#6FB5C9" stroke="#4E94A6" stroke-width="1.5"/>
+                    </g>
+                  </g>
+                </g>
+
+                <g class="pel-arm">
+                  <path d="M470 312 Q510 320 540 340 Q548 360 548 396 L540 398 Q528 372 510 356 Q486 340 466 326 Z" fill="#FFF7E6" stroke="#e8d8b0" stroke-width="2.5"/>
+                  <path d="M486 334 q12 8 26 12 M504 350 q12 6 24 10" stroke="#d9b888" stroke-width="2" fill="none"/>
+                  <circle cx="548" cy="398" r="6" fill="#FFF7E6" stroke="#e8d8b0" stroke-width="2"/>
+                </g>
+              </g>
+
+              <g class="pel-crank">
+                <circle cx="430" cy="470" r="16" fill="none" stroke="#2a2a36" stroke-width="4"/>
+                <circle cx="439" cy="470" r="2.8" fill="#2a2a36"/><circle cx="425" cy="478" r="2.8" fill="#2a2a36"/><circle cx="425" cy="462" r="2.8" fill="#2a2a36"/>
+                <line x1="430" y1="470" x2="430" y2="444" stroke="#2a2a36" stroke-width="6" stroke-linecap="round"/>
+                <rect class="pel-pedal" x="417" y="440.5" width="26" height="7" rx="3" fill="#1a1a24"/>
+              </g>
+
+              <g class="pel-thighN"><line x1="420" y1="380" x2="420" y2="438" stroke="#F0C9A0" stroke-width="15" stroke-linecap="round"/>
+                <g class="pel-shinN"><line x1="420" y1="438" x2="420" y2="502" stroke="#F0C9A0" stroke-width="12" stroke-linecap="round"/>
+                  <g class="pel-footN"><path d="M410 493 Q443 486 453 502 Q442 517 420 515 Q407 511 410 493 Z" fill="#F6A02C"/></g>
+                </g>
+              </g>
+            </g>
+          </svg>
+        </div>
+
+        <div class="pelican-bar">
+          <button class="pel-btn" id="music" type="button">🎵 播放配乐</button>
+          <button class="pel-btn pel-btn--mute" id="mute" type="button" hidden>🔇 静音</button>
+          <button class="pel-btn pel-btn--gif" id="exportGif" type="button">📷 导出 GIF</button>
+        </div>
+        <p class="pelican-hint">点击「播放配乐」开启背景音乐 · 点击「导出 GIF」生成动画循环 GIF</p>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+  <style id="pel-anim-style">
+    /* ===== 鹈鹕测试页面样式 ===== */
+    .pelican-head {
+      max-width: 46rem;
+      margin: 3rem auto 2rem;
+      padding: 0 1.5rem;
+      text-align: center;
+    }
+    .pelican-head .back-link {
+      display: inline-flex;
+      margin-bottom: 1.5rem;
+    }
+    .pelican-head .page-title {
+      margin: 0 0 0.6rem;
+      font-size: clamp(1.9rem, 5vw, 3rem);
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+    .pelican-sub {
+      color: var(--ink-muted);
+      font-size: 1.02rem;
+      line-height: 1.7;
+      margin: 0;
+    }
+
+    .pelican-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 1.5rem 4rem;
+    }
+    .pelican-wrap {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+    .pelican-frame {
+      position: relative;
+      width: 100%;
+      border-radius: 26px;
+      overflow: hidden;
+      box-shadow: 0 30px 70px rgba(70,40,30,.28), 0 6px 18px rgba(70,40,30,.18);
+      background: linear-gradient(160deg, #FFB7A0, #FFE0C2);
+    }
+    .pelican-frame svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .pelican-bar {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .pel-btn {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 9px 18px;
+      border-radius: 999px;
+      color: #fff;
+      background: #E8553A;
+      box-shadow: 0 4px 12px rgba(232,85,58,.4);
+      transition: transform .12s, filter .12s;
+      letter-spacing: .04em;
+    }
+    .pel-btn:hover { transform: translateY(-1px); }
+    .pel-btn:active { transform: translateY(1px); }
+    .pel-btn--mute {
+      background: #6b7280;
+      box-shadow: 0 4px 12px rgba(0,0,0,.2);
+    }
+    .pel-btn--gif {
+      background: #047857;
+      box-shadow: 0 4px 12px rgba(4,120,87,.4);
+    }
+    .pel-btn--gif:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .pelican-hint {
+      font-size: 12px;
+      color: #7a4a3a;
+      text-align: center;
+      letter-spacing: .05em;
+      margin: 0;
+    }
+
+    /* ===== 动画（从 pelican-bike-v2.html 迁移，类名加 pel- 前缀避免冲突） ===== */
+    .pel-wheel { transform-box: view-box; transform-origin: 300px 470px; animation: pelSpin 1.1s linear infinite; }
+    .pel-wheel.pel-f { transform-origin: 560px 470px; }
+    @keyframes pelSpin { to { transform: rotate(360deg); } }
+
+    .pel-crank { transform-box: view-box; transform-origin: 430px 470px; animation: pelSpin 1.1s linear infinite; }
+    .pel-crank.pel-far { animation-delay: -.55s; }
+    .pel-pedal { transform-box: view-box; transform-origin: 430px 444px; animation: pelSpinB 1.1s linear infinite; }
+    .pel-crank.pel-far .pel-pedal { animation-delay: -.55s; }
+    @keyframes pelSpinB { to { transform: rotate(-360deg); } }
+
+    .pel-thighN { transform-box: view-box; transform-origin: 420px 380px; animation: pelThighK 1.1s linear infinite; }
+    .pel-shinN { transform-box: view-box; transform-origin: 420px 438px; animation: pelShinK 1.1s linear infinite; }
+    .pel-footN { transform-box: view-box; transform-origin: 420px 502px; animation: pelFootK 1.1s linear infinite; }
+    .pel-thighF { transform-box: view-box; transform-origin: 420px 380px; animation: pelThighK 1.1s linear infinite; animation-delay: -.55s; }
+    .pel-shinF { transform-box: view-box; transform-origin: 420px 438px; animation: pelShinK 1.1s linear infinite; animation-delay: -.55s; }
+    .pel-footF { transform-box: view-box; transform-origin: 420px 502px; animation: pelFootK 1.1s linear infinite; animation-delay: -.55s; }
+
+    .pel-bob { transform-box: view-box; animation: pelBob 1.1s ease-in-out infinite; }
+    @keyframes pelBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(3px); } }
+    .pel-nod { transform-box: view-box; transform-origin: 470px 300px; animation: pelNod 1.1s ease-in-out infinite; animation-delay: -.3s; }
+    @keyframes pelNod { 0%,100% { transform: rotate(0); } 50% { transform: rotate(3deg); } }
+    .pel-arm { transform-box: view-box; transform-origin: 470px 314px; animation: pelArmW .55s ease-in-out infinite; }
+    @keyframes pelArmW { 0%,100% { transform: rotate(0); } 50% { transform: rotate(-3deg); } }
+
+    .pel-pouch { transform-box: view-box; transform-origin: 510px 250px; animation: pelPouchW 1.1s ease-in-out infinite; }
+    @keyframes pelPouchW { 0%,100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
+    .pel-fishTail { transform-box: fill-box; transform-origin: left center; animation: pelFish .4s ease-in-out infinite alternate; }
+    @keyframes pelFish { from { transform: rotate(-15deg); } to { transform: rotate(15deg); } }
+
+    .pel-wind { opacity: 0; animation: pelWind .8s linear infinite; }
+    .pel-w2 { animation-delay: .27s; }
+    .pel-w3 { animation-delay: .53s; }
+    @keyframes pelWind { 0% { opacity: 0; transform: translateX(20px); } 30% { opacity: .7; } 100% { opacity: 0; transform: translateX(-30px); } }
+
+    .pel-clouds { transform-box: view-box; animation: pelCloudDrift 22s linear infinite; }
+    @keyframes pelCloudDrift { to { transform: translateX(-960px); } }
+    .pel-hills { transform-box: view-box; animation: pelHillsDrift 7s linear infinite; }
+    @keyframes pelHillsDrift { to { transform: translateX(-480px); } }
+    .pel-ground { transform-box: view-box; animation: pelGroundDrift 1.1s linear infinite; }
+    @keyframes pelGroundDrift { to { transform: translateX(-240px); } }
+    .pel-dash { stroke-dasharray: 40 30; animation: pelDash 0.39s linear infinite; }
+    @keyframes pelDash { to { stroke-dashoffset: 140; } }
+
+    .pel-sun { transform-box: view-box; transform-origin: 760px 110px; animation: pelSunPulse 3s ease-in-out infinite; }
+    @keyframes pelSunPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+    /* 腿 IK 24 步/周 烘焙关键帧 */
+    @keyframes pelThighK {
+      0%{transform:rotate(-82.0deg)}4.17%{transform:rotate(-86.4deg)}8.33%{transform:rotate(-88.0deg)}12.5%{transform:rotate(-87.0deg)}16.67%{transform:rotate(-83.6deg)}20.83%{transform:rotate(-78.2deg)}25%{transform:rotate(-71.6deg)}29.17%{transform:rotate(-64.4deg)}33.33%{transform:rotate(-57.0deg)}37.5%{transform:rotate(-50.0deg)}41.67%{transform:rotate(-43.8deg)}45.83%{transform:rotate(-39.0deg)}50%{transform:rotate(-35.6deg)}54.17%{transform:rotate(-33.6deg)}58.33%{transform:rotate(-33.0deg)}62.5%{transform:rotate(-33.8deg)}66.67%{transform:rotate(-35.8deg)}70.83%{transform:rotate(-39.0deg)}75%{transform:rotate(-43.2deg)}79.17%{transform:rotate(-48.4deg)}83.33%{transform:rotate(-54.8deg)}87.5%{transform:rotate(-62.0deg)}91.67%{transform:rotate(-70.0deg)}95.83%{transform:rotate(-77.0deg)}100%{transform:rotate(-82.0deg)}
+    }
+    @keyframes pelShinK {
+      0%{transform:rotate(120.0deg)}4.17%{transform:rotate(116.0deg)}8.33%{transform:rotate(109.6deg)}12.5%{transform:rotate(102.0deg)}16.67%{transform:rotate(94.0deg)}20.83%{transform:rotate(85.6deg)}25%{transform:rotate(77.4deg)}29.17%{transform:rotate(70.0deg)}33.33%{transform:rotate(63.8deg)}37.5%{transform:rotate(59.2deg)}41.67%{transform:rotate(56.4deg)}45.83%{transform:rotate(55.6deg)}50%{transform:rotate(57.0deg)}54.17%{transform:rotate(60.6deg)}58.33%{transform:rotate(66.0deg)}62.5%{transform:rotate(73.0deg)}66.67%{transform:rotate(80.6deg)}70.83%{transform:rotate(88.8deg)}75%{transform:rotate(96.8deg)}79.17%{transform:rotate(104.0deg)}83.33%{transform:rotate(110.0deg)}87.5%{transform:rotate(114.6deg)}91.67%{transform:rotate(117.6deg)}95.83%{transform:rotate(119.2deg)}100%{transform:rotate(120.0deg)}
+    }
+    @keyframes pelFootK {
+      0%{transform:rotate(-26.0deg)}4.17%{transform:rotate(-19.0deg)}8.33%{transform:rotate(-12.6deg)}12.5%{transform:rotate(-7.6deg)}16.67%{transform:rotate(-3.8deg)}20.83%{transform:rotate(-1.2deg)}25%{transform:rotate(0.4deg)}29.17%{transform:rotate(1.2deg)}33.33%{transform:rotate(1.0deg)}37.5%{transform:rotate(-0.6deg)}41.67%{transform:rotate(-3.4deg)}45.83%{transform:rotate(-7.2deg)}50%{transform:rotate(-11.6deg)}54.17%{transform:rotate(-16.4deg)}58.33%{transform:rotate(-21.6deg)}62.5%{transform:rotate(-26.8deg)}66.67%{transform:rotate(-31.6deg)}70.83%{transform:rotate(-35.6deg)}75%{transform:rotate(-38.4deg)}79.17%{transform:rotate(-39.4deg)}83.33%{transform:rotate(-37.8deg)}87.5%{transform:rotate(-33.4deg)}91.67%{transform:rotate(-27.6deg)}95.83%{transform:rotate(-21.6deg)}100%{transform:rotate(-26.0deg)}
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .pelican-frame svg * { animation-play-state: paused !important; }
+    }
+  </style>
+
+  <script>
+  (function () {
+    var musicBtn = document.getElementById('music');
+    var muteBtn = document.getElementById('mute');
+    var ctx, master, loopTimer, playing = false;
+
+    var N = {
+      C4: 261.63, D4: 293.66, E4: 329.63, F4: 349.23, G4: 392.00, A4: 440.00, B4: 493.88,
+      C5: 523.25, D5: 587.33, E5: 659.25, F5: 698.46, G5: 783.99, A5: 880.00,
+      G3: 196.00, A3: 220.00, C4b: 277.18, B3: 246.94
+    };
+
+    var melody = [
+      ['E5', 1], ['D5', 1], ['C5', 2], ['G4', 1], ['A4', 1],
+      ['C5', 1], ['D5', 1], ['E5', 2], ['D5', 1], ['C5', 1],
+      ['B4', 2], ['A4', 1], ['G4', 1], ['E4', 2], ['G4', 1], ['A4', 1]
+    ];
+    var bass = [
+      ['A3', 4], ['A3', 4], ['G3', 4], ['G3', 4],
+      ['A3', 4], ['A3', 4], ['E4', 4], ['A3', 4]
+    ];
+
+    function note(c, dest, freq, dur, t, vol, type) {
+      var o = c.createOscillator();
+      var g = c.createGain();
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(dest);
+      o.start(t); o.stop(t + dur + 0.05);
+    }
+
+    var stepIdx = 0;
+    function playStep() {
+      if (!playing) return;
+      var t = ctx.currentTime + 0.02;
+      var step = stepIdx;
+      var m = melody[step % melody.length];
+      if (m && m[0] !== '_') note(ctx, master, N[m[0]], m[1] * 0.2, t, 0.16, 'triangle');
+      if (step % 2 === 0) {
+        var b = bass[(step / 2) % bass.length];
+        if (b) note(ctx, master, N[b[0]], b[1] * 0.2, t, 0.22, 'sine');
+      }
+      if (step % 4 === 0) {
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.frequency.setValueAtTime(150, t);
+        o.frequency.exponentialRampToValueAtTime(45, t + 0.1);
+        g.gain.setValueAtTime(0.28, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+        o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.2);
+      }
+      if (step % 4 === 2) {
+        var o2 = ctx.createOscillator(), g2 = ctx.createGain();
+        o2.type = 'square'; o2.frequency.value = 3200;
+        g2.gain.setValueAtTime(0.08, t); g2.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+        o2.connect(g2); g2.connect(master); o2.start(t); o2.stop(t + 0.06);
+      }
+      stepIdx++;
+    }
+
+    function start() {
+      if (playing) return;
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (ctx.state === 'suspended') ctx.resume();
+      master = ctx.createGain(); master.gain.value = 0.5; master.connect(ctx.destination);
+      playing = true; stepIdx = 0;
+      loopTimer = setInterval(playStep, 200);
+      musicBtn.hidden = true; muteBtn.hidden = false;
+    }
+    function stop() {
+      playing = false;
+      if (loopTimer) { clearInterval(loopTimer); loopTimer = null; }
+      if (master) {
+        master.gain.setValueAtTime(master.gain.value, ctx.currentTime);
+        master.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.2);
+      }
+      musicBtn.hidden = false; muteBtn.hidden = true;
+    }
+    musicBtn.addEventListener('click', start);
+    muteBtn.addEventListener('click', stop);
+  })();
+
+  /* ===== GIF 导出 ===== */
+  (function () {
+    var btn = document.getElementById('exportGif');
+    var svg = document.querySelector('.pelican-frame svg');
+    if (!btn || !svg) return;
+
+    var animQuery = '.pel-wheel,.pel-crank,.pel-pedal,.pel-thighN,.pel-shinN,.pel-footN,.pel-thighF,.pel-shinF,.pel-footF,.pel-bob,.pel-nod,.pel-arm,.pel-pouch,.pel-fishTail,.pel-wind,.pel-clouds,.pel-hills,.pel-ground,.pel-dash,.pel-sun';
+
+    // 加载 gifshot
+    function loadGifshot() {
+      return new Promise(function (resolve, reject) {
+        if (window.gifshot) { resolve(); return; }
+        var s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/gifshot@0.4.5/dist/gifshot.min.js';
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    btn.addEventListener('click', function () {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = '⏳ 准备…';
+
+      var duration = 1.1;
+      var fps = 24;
+      var total = Math.ceil(duration * fps);
+      var W = 720, H = 435;
+      var frames = [];
+      var idx = 0;
+      var canvas = document.createElement('canvas');
+      canvas.width = W;
+      canvas.height = H;
+      var ctx = canvas.getContext('2d');
+
+      var animEls = Array.prototype.slice.call(svg.querySelectorAll(animQuery));
+      var saved = animEls.map(function (el) {
+        return {
+          delay: el.style.animationDelay || '',
+          state: el.style.animationPlayState || ''
+        };
+      });
+
+      loadGifshot().then(function () {
+        function next() {
+          if (idx >= total) {
+            animEls.forEach(function (el, i) {
+              el.style.animationDelay = saved[i].delay;
+              el.style.animationPlayState = saved[i].state;
+            });
+            btn.textContent = '⏳ 合成 GIF…';
+            gifshot.createGIF({
+              images: frames,
+              gifWidth: W,
+              gifHeight: H,
+              interval: 0.042,
+              numFrames: total,
+              sampleInterval: 10
+            }, function (obj) {
+              if (!obj.error) {
+                var a = document.createElement('a');
+                a.href = obj.image;
+                a.download = 'pelican-glm5.2.gif';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                btn.disabled = false;
+                btn.textContent = '📷 导出 GIF';
+              } else {
+                console.error('gifshot error:', obj.error);
+                btn.textContent = '❌ 失败，刷新重试';
+                btn.disabled = false;
+                setTimeout(function () { btn.textContent = '📷 导出 GIF'; }, 3000);
+              }
+            });
+            return;
+          }
+
+          // animation-delay 定位到第 idx 帧
+          var t = (idx / total) * duration;
+          animEls.forEach(function (el) {
+            var orig = parseFloat(getComputedStyle(el).animationDelay) || 0;
+            el.style.animationDelay = '-' + (Math.abs(orig) + t) + 's';
+            el.style.animationPlayState = 'paused';
+          });
+
+          // 两步 RAF 等渲染完成
+          requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+              btn.textContent = '⏳ 帧 ' + (idx + 1) + '/' + total;
+              // 直接绘制 SVG 元素到 canvas（Chrome/Firefox 支持）
+              ctx.clearRect(0, 0, W, H);
+              ctx.drawImage(svg, 0, 0, W, H);
+              frames.push(canvas.toDataURL('image/png'));
+              idx++;
+              next();
+            });
+          });
+        }
+        next();
+      }).catch(function () {
+        btn.textContent = '❌ 加载失败，刷新重试';
+        btn.disabled = false;
+        setTimeout(function () { btn.textContent = '📷 导出 GIF'; }, 3000);
+      });
+    });
+  })();
+  </script>
+</body>
+</html>

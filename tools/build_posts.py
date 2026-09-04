@@ -223,6 +223,8 @@ PAGE_TMPL = '''<!DOCTYPE html>
         </a>
         <span class="header-divider" aria-hidden="true"></span>
         <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
       </nav>
     </div>
   </header>
