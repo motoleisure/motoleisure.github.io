@@ -234,12 +234,101 @@
   </footer>
 
   <style id="pel-anim-style">
+    /* ===== 鹈鹕测试页面布局样式 ===== */
+    .pelican-head {
+      max-width: 46rem;
+      margin: 3rem auto 2rem;
+      padding: 0 1.5rem;
+      text-align: center;
+    }
+    .pelican-head .back-link {
+      display: inline-flex;
+      margin-bottom: 1.5rem;
+    }
+    .pelican-head .page-title {
+      margin: 0 0 0.6rem;
+      font-size: clamp(1.9rem, 5vw, 3rem);
+      font-weight: 600;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+    .pelican-sub {
+      color: var(--ink-muted);
+      font-size: 1.02rem;
+      line-height: 1.7;
+      margin: 0;
+    }
+    .pelican-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 1.5rem 4rem;
+    }
+    .pelican-wrap {
+      width: 100%;
+      max-width: 1040px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+    .pelican-frame {
+      position: relative;
+      width: 100%;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 26px 70px -24px rgba(0,0,0,.4), 0 0 0 1px rgba(255,255,255,.1) inset;
+      background: #bfe3f2;
+    }
+    .pelican-frame svg.scene {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .pelican-bar {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .pel-btn {
+      appearance: none;
+      border: 0;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      padding: 9px 18px;
+      border-radius: 999px;
+      color: #fff;
+      background: #E8553A;
+      box-shadow: 0 4px 12px rgba(232,85,58,.4);
+      transition: transform .12s, filter .12s;
+      letter-spacing: .04em;
+    }
+    .pel-btn:hover { transform: translateY(-1px); }
+    .pel-btn:active { transform: translateY(1px); }
+    .pel-btn--gif {
+      background: #047857;
+      box-shadow: 0 4px 12px rgba(4,120,87,.4);
+    }
+    .pel-btn--gif:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .pelican-hint {
+      font-size: 12px;
+      color: #7a4a3a;
+      text-align: center;
+      letter-spacing: .05em;
+      margin: 0;
+    }
+
+    /* ===== 动画 ===== */
     :root{
       --crank: 1.2s;
       --wheel: 0.6s;
       --bob:   0.6s;
     }
-    .pelican-stage .pelican-wrap .pelican-frame svg.scene { display: block; width: 100%; height: auto; }
     .sx { will-change: transform; }
     @keyframes sx900 { to { transform: translateX(-900px); } }
     @keyframes sx600 { to { transform: translateX(-600px); } }
