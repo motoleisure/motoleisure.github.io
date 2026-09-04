@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="鹈鹕骑车 Opus-5">
+  <defs>
+    <linearGradient id="o5Sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4fb8e8"/><stop offset=".55" stop-color="#9adcf2"/><stop offset="1" stop-color="#d9f2f7"/>
+    </linearGradient>
+    <linearGradient id="o5Sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2f9fc4"/><stop offset="1" stop-color="#57c3d6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#o5Sky)"/>
+  <circle cx="1000" cy="90" r="40" fill="#fff6cf" opacity=".5"/>
+  <circle cx="1000" cy="90" r="28" fill="#fffbe8"/>
+  <g fill="#fff" opacity=".85">
+    <ellipse cx="180" cy="100" rx="40" ry="18"/><ellipse cx="210" cy="86" rx="28" ry="14"/>
+    <ellipse cx="500" cy="70" rx="34" ry="14"/><ellipse cx="530" cy="60" rx="22" ry="12"/>
+  </g>
+  <rect x="0" y="380" width="1200" height="40" fill="url(#o5Sea)"/>
+  <rect x="0" y="420" width="1200" height="12" fill="#cbb98c"/>
+  <rect x="0" y="432" width="1200" height="70" fill="#6f7686"/>
+  <rect x="0" y="500" width="1200" height="6" fill="#cbb98c"/>
+  <g fill="#3f8f56">
+    <ellipse cx="140" cy="440" rx="22" ry="15"/><ellipse cx="125" cy="444" rx="14" ry="10"/><ellipse cx="156" cy="445" rx="13" ry="9"/>
+  </g>
+  <g fill="#e7d3a6">
+    <path d="M0 420 C 100 408 200 404 300 408 C 400 412 500 400 600 404 C 700 408 800 396 900 400 C 1000 404 1100 412 1200 420 L1200 432 L0 432 Z"/>
+  </g>
+  <!-- 简化鹈鹕骑车 -->
+  <g transform="translate(380,30)">
+    <circle cx="200" cy="366" r="50" fill="none" stroke="#26292f" stroke-width="7"/>
+    <circle cx="200" cy="366" r="50" fill="none" stroke="#3d434d" stroke-width="7" stroke-dasharray="5 8"/>
+    <circle cx="390" cy="366" r="50" fill="none" stroke="#26292f" stroke-width="7"/>
+    <g stroke="#a2352c" stroke-width="8" fill="none" stroke-linecap="round">
+      <path d="M280 378 L200 366 M280 378 L250 288 M200 366 L250 288 M280 378 L360 320"/>
+      <path d="M350 260 C 320 280 280 290 250 288"/>
+      <path d="M360 320 Q 370 346 390 366"/>
+    </g>
+    <ellipse cx="250" cy="280" rx="18" ry="7" fill="#8d6a44"/>
+    <ellipse cx="310" cy="300" rx="55" ry="42" fill="url(#o5Sky)"/>
+    <circle cx="380" cy="226" r="20" fill="#fff" stroke="#dcdcdc" stroke-width="3"/>
+    <circle cx="386" cy="222" r="4" fill="#2c3e50"/>
+    <path d="M 396 228 L 460 242 Q 450 262 402 246 Z" fill="#ffc24d" stroke="#e07c18" stroke-width="2"/>
+    <ellipse cx="370" cy="214" rx="22" ry="10" fill="#4ad0c0"/>
+  </g>
+  <rect x="440" y="80" width="320" height="52" rx="26" fill="#00172e"/>
+  <text x="600" y="115" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="600" fill="#ffffff" letter-spacing="4">Opus-5</text>
+</svg>
