@@ -153,5 +153,5 @@
 
   <!-- 标签 -->
   <rect x="440" y="80" width="320" height="52" rx="26" fill="#00172e"/>
-  <text x="600" y="115" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="600" fill="#ffffff" letter-spacing="4">GLM-5.2</text>
+  <text x="600" y="115" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="20" font-weight="600" fill="#ffffff" letter-spacing="1.5">openrouter/glm-5.2(free)</text>
 </svg>

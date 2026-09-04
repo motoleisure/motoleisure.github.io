@@ -1,32 +1,90 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="鹈鹕骑车 Kimi K3">
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="鹈鹕骑车 nvidia/kimi-k3 封面">
   <defs>
     <linearGradient id="k3Sky" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#aee1f9"/><stop offset=".6" stop-color="#d9f2ff"/>
       <stop offset=".605" stop-color="#fdf6d8"/><stop offset="1" stop-color="#f7ecb8"/>
     </linearGradient>
-  </defs>
-  <rect width="1200" height="630" fill="url(#k3Sky)"/>
-  <circle cx="1000" cy="100" r="42" fill="#FFD54F" stroke="#FFB300" stroke-width="5"/>
-  <g fill="#fff" opacity=".9">
-    <ellipse cx="180" cy="110" rx="55" ry="22"/><ellipse cx="220" cy="95" rx="40" ry="18"/>
-  </g>
-  <rect x="0" y="430" width="1200" height="100" fill="#8ec98a"/>
-  <rect x="0" y="430" width="1200" height="10" fill="#7ab874"/>
-  <!-- 简化鹈鹕骑车 -->
-  <g transform="translate(420,50)">
-    <circle cx="200" cy="310" r="48" fill="none" stroke="#2c3e50" stroke-width="7"/>
-    <circle cx="480" cy="350" r="48" fill="none" stroke="#2c3e50" stroke-width="7"/>
-    <g stroke="#34495e" stroke-width="6" fill="none" stroke-linecap="round">
-      <line x1="200" y1="310" x2="280" y2="350"/><line x1="280" y1="350" x2="340" y2="250"/>
-      <line x1="340" y1="250" x2="400" y2="270"/><line x1="400" y1="270" x2="480" y2="350"/>
-      <line x1="280" y1="350" x2="480" y2="350"/>
+    <g id="k3Wheel">
+      <circle r="55" fill="none" stroke="#2c3e50" stroke-width="8"/>
+      <g stroke="#95a5a6" stroke-width="3">
+        <line x1="0" y1="-45" x2="0" y2="45"/><line x1="-45" y1="0" x2="45" y2="0"/>
+        <line x1="-32" y1="-32" x2="32" y2="32"/><line x1="32" y1="-32" x2="-32" y2="32"/>
+      </g>
+      <circle r="8" fill="#e74c3c"/>
     </g>
-    <ellipse cx="340" cy="244" rx="20" ry="7" fill="#2c3e50"/>
-    <ellipse cx="320" cy="260" rx="50" ry="38" fill="#fff" stroke="#dcdcdc" stroke-width="3"/>
-    <circle cx="400" cy="190" r="20" fill="#fff" stroke="#dcdcdc" stroke-width="3"/>
-    <circle cx="406" cy="186" r="4" fill="#2c3e50"/>
-    <path d="M 416 192 L 480 206 Q 470 224 422 210 Z" fill="#f9a825" stroke="#e69500" stroke-width="2"/>
+  </defs>
+
+  <!-- sky -->
+  <rect width="1200" height="630" fill="url(#k3Sky)"/>
+  <!-- sun -->
+  <circle cx="1000" cy="80" r="42" fill="#FFD54F" stroke="#FFB300" stroke-width="5"/>
+  <!-- clouds -->
+  <g fill="#fff" opacity="0.9">
+    <ellipse cx="180" cy="90" rx="55" ry="22"/><ellipse cx="220" cy="75" rx="40" ry="18"/>
+    <ellipse cx="520" cy="60" rx="45" ry="18"/><ellipse cx="560" cy="50" rx="34" ry="14"/>
   </g>
+  <!-- ground -->
+  <rect x="0" y="420" width="1200" height="100" fill="#8ec98a"/>
+  <rect x="0" y="420" width="1200" height="10" fill="#7ab874"/>
+
+  <!-- 鹈鹕骑车 (static snapshot, centered) -->
+  <g transform="translate(80,0)">
+    <!-- rear wheel -->
+    <g transform="translate(350,380)"><use href="#k3Wheel"/></g>
+    <!-- front wheel -->
+    <g transform="translate(640,430)"><use href="#k3Wheel"/></g>
+    <!-- frame -->
+    <g stroke="#34495e" stroke-width="7" fill="none" stroke-linecap="round">
+      <line x1="350" y1="380" x2="450" y2="430"/><line x1="450" y1="430" x2="520" y2="310"/>
+      <line x1="520" y1="310" x2="600" y2="330"/><line x1="600" y1="330" x2="640" y2="430"/>
+      <line x1="450" y1="430" x2="640" y2="430"/>
+    </g>
+    <!-- handlebar -->
+    <path d="M 600 330 Q 625 295 645 305" stroke="#34495e" stroke-width="7" fill="none" stroke-linecap="round"/>
+    <circle cx="648" cy="306" r="6" fill="#e74c3c"/>
+    <!-- saddle -->
+    <ellipse cx="522" cy="304" rx="24" ry="8" fill="#2c3e50"/>
+    <!-- crank -->
+    <line x1="450" y1="430" x2="480" y2="395" stroke="#2c3e50" stroke-width="6" stroke-linecap="round"/>
+    <line x1="450" y1="430" x2="420" y2="465" stroke="#2c3e50" stroke-width="6" stroke-linecap="round"/>
+    <rect x="470" y="388" width="24" height="8" rx="3" fill="#f39c12"/>
+    <rect x="406" y="462" width="24" height="8" rx="3" fill="#f39c12"/>
+    <circle cx="450" cy="430" r="10" fill="#2c3e50"/>
+
+    <!-- pelican -->
+    <!-- tail -->
+    <path d="M 415 330 L 375 300 L 390 335 L 372 330 L 398 350 Z" fill="#f5f5f5" stroke="#ddd" stroke-width="2"/>
+    <!-- body -->
+    <ellipse cx="465" cy="315" rx="62" ry="45" fill="#ffffff" stroke="#dcdcdc" stroke-width="3"/>
+    <!-- wing -->
+    <path d="M 455 300 Q 380 285 365 335 Q 400 350 460 330 Z" fill="#e8e8e8" stroke="#cccccc" stroke-width="3"/>
+    <path d="M 425 315 Q 395 318 385 335" stroke="#c8c8c8" stroke-width="3" fill="none"/>
+    <!-- neck -->
+    <path d="M 512 295 Q 545 255 555 235" stroke="#ffffff" stroke-width="26" stroke-linecap="round" fill="none"/>
+    <path d="M 512 295 Q 545 255 555 235" stroke="#dcdcdc" stroke-width="26" stroke-linecap="round" fill="none" opacity="0.25"/>
+    <!-- head -->
+    <circle cx="562" cy="228" r="24" fill="#ffffff" stroke="#dcdcdc" stroke-width="3"/>
+    <circle cx="570" cy="222" r="5" fill="#2c3e50"/>
+    <circle cx="571.5" cy="220.5" r="1.8" fill="#ffffff"/>
+    <!-- beak -->
+    <path d="M 582 230 L 672 246 Q 660 272 590 252 Z" fill="#f9a825" stroke="#e69500" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M 582 230 L 672 246" stroke="#e69500" stroke-width="3"/>
+    <circle cx="600" cy="238" r="1.6" fill="#e69500"/>
+    <!-- legs -->
+    <line x1="478" y1="345" x2="452" y2="398" stroke="#f9a825" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="450" cy="404" r="7" fill="#f9a825"/>
+    <line x1="492" y1="348" x2="508" y2="402" stroke="#f9a825" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="510" cy="408" r="7" fill="#f9a825"/>
+  </g>
+
+  <!-- grass tufts -->
+  <g fill="#6aa866">
+    <ellipse cx="120" cy="470" rx="18" ry="24"/>
+    <ellipse cx="1080" cy="485" rx="22" ry="28"/>
+    <ellipse cx="700" cy="500" rx="16" ry="20"/>
+  </g>
+
+  <!-- model label -->
   <rect x="440" y="80" width="320" height="52" rx="26" fill="#00172e"/>
-  <text x="600" y="115" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="600" fill="#ffffff" letter-spacing="4">Kimi K3</text>
+  <text x="600" y="115" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="22" font-weight="600" fill="#ffffff" letter-spacing="2">nvidia/kimi-k3</text>
 </svg>
