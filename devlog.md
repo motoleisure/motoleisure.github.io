@@ -126,3 +126,65 @@ git push origin main:master
   没画完的部分）。需要适配的只是站点外壳：header/footer/布局样式/GIF 按钮。
 - `tonghua/` 与 `apple-support/` 是 App 合规页面，**不要动**。
 - 远程分支是 `master`，本地是 `main`，推送用 `git push origin main:master`。
+
+## 2026-09-11 · 书籍模块上线（密码解锁在线阅读）
+
+### 背景
+
+私人书架：把两本 AI 主题书籍做成站点内在线阅读器，密码保护。
+
+### 书目
+
+| slug | 书名 | 作者 | 章节 | payload |
+|---|---|---|---|---|
+| `designing-ai-systems` | 设计 AI 系统 | Suhas Suresha | 15 | 1.3MB |
+| `illustrated-ai-agents` | AI 智能体图解 | Maarten Grootendorst | 70 | 5.5MB |
+
+### 加密方案（核心）
+
+- 构建：`tools/build_books.py` 把 EPUB 章节转成 JSON payload，用
+  **PBKDF2-SHA256（15 万次迭代）+ AES-GCM** 加密成 `assets/books/<slug>.bin`
+  （格式：`salt[16] | iv[12] | tag[16] | ciphertext`）
+- 页面：`books/<slug>/` 阅读器用 WebCrypto 同参数派生密钥解密，密码错误
+  直接 GCM 校验失败，无绕过路径；仓库里没有密码只有密文
+- 密码在构建脚本 `PASSWORD` 常量中（不入库——脚本本身已入库，密码在同一
+  文件里；如需轮换：改 `PASSWORD` 重新跑构建即可）
+- 解锁状态存 sessionStorage（关标签页后重输）
+
+### 图片处理
+
+EPUB 内 400+ 张插图全部按站规转 AVIF（`assets/images/books/`，共 4MB，
+源图约 60MB），阅读器渲染时以 data URI 内联进 payload。
+
+### 目录结构
+
+```
+books/
+  index.html                        # 书架（两张封面卡 + 锁标签）
+  designing-ai-systems/index.html   # 阅读器（noindex）
+  illustrated-ai-agents/index.html
+assets/books/*.bin                  # 加密 payload
+assets/images/books/                # 章节插图 AVIF + 封面 SVG
+tools/build_books.py                # 构建脚本（换书/换密码改这里重跑）
+```
+
+### 阅读器功能
+
+- 左侧 sticky 章节目录（移动端折叠为单列）、上一章/下一章、进度提示
+- 章节样式复用站点排版（Night Owl 代码块、表格横向滚动、引用卡片）
+
+### 换密码 / 换书流程
+
+```bash
+# 改 tools/build_books.py 里的 PASSWORD 或 BOOKS 列表，然后：
+python3 tools/build_books.py
+git add -A && git commit -m "Rebuild books payload" && git push origin main:master
+```
+
+### 已知事项
+
+- 阅读器页 `<meta name="robots" content="noindex">`，sitemap 只收书架页
+- sessionStorage 解锁是按域存储：解锁一本后，另一本仍需输入密码（各书
+  payload 独立加密；如需"解锁一次全站通"，把两本 payload 用同一把派生
+  密钥并在 sessionStorage 放密码即可，暂不做）
+- `books/` 页面不进博客搜索与首页网格（独立模块，与 blog 并列）

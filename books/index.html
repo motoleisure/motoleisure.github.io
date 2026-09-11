@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>书架 - Agent's Photolog</title>
+  <meta name="description" content="私人书架：AI 系统设计与智能体图解，密码解锁后在线阅读。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/books/">
+  <link rel="icon" href="../assets/images/favicon.ico">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="书架 - Agent's Photolog">
+  <meta property="og:url" content="https://motoleisure.github.io/books/">
+  <meta property="og:description" content="私人书架：AI 系统设计与智能体图解，密码解锁后在线阅读。">
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <style>
+    .books-band { background: var(--page-tint); padding: 4rem 0 5rem; }
+    .shelf {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-top: 3rem;
+    }
+    @media (max-width: 767px) { .shelf { grid-template-columns: 1fr; } }
+    .book-card {
+      display: flex;
+      flex-direction: column;
+      border: 1px solid var(--hairline);
+      border-radius: 1rem;
+      background: var(--page);
+      overflow: hidden;
+      transition: transform .2s ease, box-shadow .2s ease;
+    }
+    .book-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 12px 32px -18px rgba(0,23,46,.4);
+    }
+    .book-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
+    .book-card .book-info { padding: 1.3rem 1.4rem 1.4rem; }
+    .book-card h2 { margin: 0; font-size: 1.2rem; font-weight: 600; color: var(--ink); }
+    .book-card .author { margin: .35rem 0 0; color: var(--ink-muted); font-size: .88rem; }
+    .book-card .blurb { margin: .6rem 0 0; color: var(--ink-2); font-size: .93rem; line-height: 1.7; }
+    .lock-tag {
+      display: inline-block; margin-top: .8rem; padding: .15rem .7rem;
+      border: 1px solid var(--hairline); border-radius: 9999px;
+      background: var(--page-tint); color: var(--ink-2);
+      font-size: .76rem; font-weight: 500;
+    }
+    /* lock screen */
+    .lock-screen {
+      position: fixed; inset: 0; z-index: 90;
+      background: rgba(0,23,46,.55);
+      -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 1.5rem;
+    }
+    .lock-card {
+      background: var(--page); border: 1px solid var(--hairline);
+      border-radius: 1rem; padding: 2.2rem 2rem; max-width: 22rem; width: 100%;
+      text-align: center; box-shadow: 0 24px 60px -24px rgba(0,23,46,.5);
+    }
+    .lock-card .lock-icon { font-size: 2rem; margin-bottom: .6rem; }
+    .lock-card h2 { margin: 0 0 .4rem; font-size: 1.15rem; color: var(--ink); }
+    .lock-card p { margin: 0 0 1.2rem; color: var(--ink-muted); font-size: .9rem; }
+    .lock-card input {
+      width: 100%; padding: .7rem .9rem; border: 1px solid var(--hairline);
+      border-radius: .55rem; font-size: 1rem; color: var(--ink);
+      text-align: center; letter-spacing: .2em;
+    }
+    .lock-card input:focus { outline: 2px solid var(--accent-bright); outline-offset: 1px; border-color: var(--accent-bright); }
+    .lock-card button {
+      width: 100%; margin-top: .9rem; padding: .7rem;
+      border: 0; border-radius: .55rem; background: var(--ink); color: #fff;
+      font-size: .95rem; font-weight: 500; cursor: pointer;
+      transition: background .18s ease;
+    }
+    .lock-card button:hover { background: var(--accent); }
+    .lock-err { display: none; margin-top: .8rem; color: #b91c1c; font-size: .85rem; }
+    .lock-err.show { display: block; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="./" aria-current="page">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="books-band">
+      <div class="container container--wide">
+        <div class="rise rise-1">
+          <h1 class="page-title">书架</h1>
+          <p class="page-subtitle">私人书架 · 输入密码解锁在线阅读</p>
+        </div>
+
+        <div class="shelf rise rise-2">
+          <a class="book-card" href="designing-ai-systems/">
+            <img src="../assets/images/books/cover-designing-ai-systems.svg" alt="《设计 AI 系统》封面" loading="lazy">
+            <div class="book-info">
+              <h2>设计 AI 系统</h2>
+              <p class="author">Suhas Suresha</p>
+              <p class="blurb">从平台、SDK、模型服务到记忆与上下文管理，一本面向工程师的 AI 系统设计实战指南。</p>
+              <span class="lock-tag">🔒 密码解锁</span>
+            </div>
+          </a>
+
+          <a class="book-card" href="illustrated-ai-agents/">
+            <img src="../assets/images/books/cover-illustrated-ai-agents.svg" alt="《AI 智能体图解》封面" loading="lazy">
+            <div class="book-info">
+              <h2>AI 智能体图解</h2>
+              <p class="author">Maarten Grootendorst</p>
+              <p class="blurb">图解 AI 智能体的内部构造：大语言模型、记忆、工具、规划与多智能体协作。</p>
+              <span class="lock-tag">🔒 密码解锁</span>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
