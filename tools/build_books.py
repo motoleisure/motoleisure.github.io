@@ -24,6 +24,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 import zipfile
 
 from Crypto.Cipher import AES
@@ -48,6 +49,7 @@ BOOKS = [
         "epub": "/Users/tim/my-sys/Designing-AI-Systems_temp/book.epub",
         "cover": "assets/images/books/cover-designing-ai-systems.svg",
         "max_img_w": 900,
+        "strategy": "dais-map",  # scrambled MEAP export; explicit file map below
     },
     {
         "slug": "illustrated-ai-agents",
@@ -58,6 +60,8 @@ BOOKS = [
         "epub": "/Users/tim/my-sys/An-Illustrated-Guide-to-AI-Agents_temp/book.epub",
         "cover": "assets/images/books/cover-illustrated-ai-agents.svg",
         "max_img_w": 900,
+        "strategy": "chapters",  # nav is corrupt; split files in spine order,
+        # chapter boundaries = <h2><strong>第N章 …</strong></h2> (第四章 variant too)
     },
 ]
 
@@ -179,6 +183,116 @@ def inline_images(body, z, root, book_slug, max_w, img_map):
     return re.sub(r'<img([^>]*?)src="([^"]+)"([^>]*)>', repl, body)
 
 
+# ------------------------------------------------------------------ ordering
+# 两本 MEAP 导出的 EPUB 各有不同的结构缺陷，分别用显式策略重建阅读序：
+#
+# Designing AI Systems：物理文件顺序彻底乱（ch003 是第5章、ch008 是第1章…），
+# 且混杂 2KB 的目录概要文件；正文还跨文件延续（第5章 = ch012 尾 + ch013-015）。
+# 真实结构已人工核对，用显式映射（含 ch008/ch012/ch016 文件内切割点）最可靠。
+#
+# An Illustrated Guide to AI Agents：nav 损坏，但 spine 顺序的 split 文件是
+# 正序；章边界 = <h2><strong>第N章 …</strong></h2>（兼容"第四章"），其余
+# 文件并入当前章，开头无章标的归前言。
+
+DAIS_PREFIX = "EPUB/text/"
+
+
+def _h2_pos(html, pat):
+    m = re.search(pat, html)
+    return m.start() if m else None
+
+
+def chapters_dais(z):
+    """Explicit file->chapter mapping for the scrambled MEAP export."""
+    def rd(name):
+        return z.read(DAIS_PREFIX + name).decode("utf-8")
+
+    ch001 = rd("ch001.xhtml")
+    ch002 = rd("ch002.xhtml")
+    ch006 = rd("ch006.xhtml")
+    ch008 = rd("ch008.xhtml")
+    ch010 = rd("ch010.xhtml")
+    ch011 = rd("ch011.xhtml")
+    ch012 = rd("ch012.xhtml")
+    ch013 = rd("ch013.xhtml")
+    ch014 = rd("ch014.xhtml")
+    ch015 = rd("ch015.xhtml")
+    ch016 = rd("ch016.xhtml")
+
+    b = lambda body: extract_body(body)
+
+    # ch002: keep only 欢迎 + 本书内容 (stop before chapter-1 outline)
+    m = re.search(r'<h2[^>]*>\s*1 为什么你的', ch002)
+    front2 = ch002[:m.start()] if m else ch002
+
+    # ch008 internal split
+    p1 = _h2_pos(ch008, r"<h2[^>]*>\s*本章内容")
+    p2 = _h2_pos(ch008, r"<h2[^>]*>\s*2 基于平台构建")
+
+    # ch012 internal split
+    p5 = _h2_pos(ch012, r"<h2[^>]*>\s*第5章 数据服务")
+
+    # ch016 internal split
+    q6 = _h2_pos(ch016, r"<h2[^>]*>\s*6\.1\s")
+    q7 = _h2_pos(ch016, r"<h2[^>]*>\s*7\.1\s")
+    q9 = _h2_pos(ch016, r"<h2[^>]*>\s*9 构建 AI 助手")
+
+    return [
+        {"title": "前言",
+         "body": re.sub(r"ch\d+\.xhtml", "", b(ch001) + b(front2))},
+        {"title": "第1章 为什么你的 AI 项目需要一个平台",
+         "body": b(ch008[p1:p2])},
+        {"title": "第2章 基于平台构建：SDK 与 API 设计",
+         "body": b(ch008[p2:])},
+        {"title": "第3章 模型服务：你平台通向 AI 模型的网关",
+         "body": b(ch010)},
+        {"title": "第4章 会话服务：教会你的 AI 记住对话",
+         "body": b(ch011) + b(ch012[:p5])},
+        {"title": "第5章 数据服务：教会 AI 你的组织知道什么",
+         "body": b(ch012[p5:]) + b(ch013) + b(ch014) + b(ch015)},
+        {"title": "第6章 工具与护栏：让 AI 行为安全且受控",
+         "body": b(ch016[q6:q7])},
+        {"title": "第7章 可观测性与实验：看见并改进 AI 的所作所为",
+         "body": b(ch016[q7:q9])},
+        {"title": "第8章 工作流服务：编排与部署 AI 应用（MEAP 撰写中，暂为概要）",
+         "body": b(ch006)},
+        {"title": "第9章 构建 AI 助手：让平台发挥作用",
+         "body": b(ch016[q9:])},
+    ]
+
+
+CH_RE = re.compile(
+    r"<h2[^>]*>\s*<strong[^>]*>\s*(第\s*[一二三四五六七八九十\d]+\s*章[^<]*)</strong\s*>",
+    re.I,
+)
+CN_NUM = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6,
+          "七": 7, "八": 8, "九": 9, "十": 10}
+
+
+def chapters_by_heading(spine_chapters):
+    """Split spine-ordered files at <h2><strong>第N章…</strong></h2> marks.
+    Files without a chapter mark append to the previous chapter; leading
+    files go to 前言."""
+    out = []
+    pending_front = []
+    for ch in spine_chapters:
+        html = extract_body(ch["html"])
+        marks = [(m.start(), re.sub(r"\s+", " ", m.group(1)).strip())
+                 for m in CH_RE.finditer(html)]
+        if not marks:
+            if out:
+                out[-1]["body"] += html
+            else:
+                pending_front.append(html)
+            continue
+        for idx, (pos, t) in enumerate(marks):
+            end = marks[idx + 1][0] if idx + 1 < len(marks) else len(html)
+            out.append({"title": t, "body": html[pos:end]})
+    if pending_front:
+        out.insert(0, {"title": "前言", "body": "".join(pending_front)})
+    return out
+
+
 # -------------------------------------------------------------------- crypto
 
 def encrypt_payload(obj):
@@ -197,16 +311,23 @@ def encrypt_payload(obj):
 
 def build_book(book):
     slug = book["slug"]
-    print(f"→ {slug}")
+    print(f"→ {slug} (strategy={book['strategy']})")
     z, root, chapters_raw, meta_title = parse_epub(book["epub"])
     img_map = {}
+
+    if book["strategy"] == "dais-map":
+        raw = chapters_dais(z)
+    else:
+        raw = chapters_by_heading(chapters_raw)
+
     chapters = []
-    for ch in chapters_raw:
-        title = extract_title(ch["html"]) or f"第 {len(chapters)+1} 章"
-        body = extract_body(ch["html"])
+    for ch in raw:
+        title = re.sub(r"\{#[^}]*\}", "", ch["title"]).strip()
+        title = re.sub(r"\s+", " ", title)
+        body = ch["body"]
         body = inline_images(body, z, root, slug, book["max_img_w"], img_map)
         if len(body) < 400 and "<img" not in body:
-            continue  # skip blank fragments
+            continue
         chapters.append({"id": f"ch{len(chapters)+1:03d}", "title": title[:80],
                          "html": body})
 

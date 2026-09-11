@@ -188,3 +188,20 @@ git add -A && git commit -m "Rebuild books payload" && git push origin main:mast
   payload 独立加密；如需"解锁一次全站通"，把两本 payload 用同一把派生
   密钥并在 sessionStorage 放密码即可，暂不做）
 - `books/` 页面不进博客搜索与首页网格（独立模块，与 blog 并列）
+
+### 2026-09-11 修正：章节顺序错误
+
+初版直接按 EPUB spine 顺序切章，两本书都错了（用户指出）：
+
+- **设计 AI 系统**：MEAP 导出的 spine 物理顺序就是乱的（ch003 是第5章、
+  ch008 是第1章），还混有 2KB 的目录概要文件，第5章正文甚至跨 4 个文件。
+  → 改为显式文件→章映射（`chapters_dais()`），ch008/ch012/ch016 三个
+  大文件按 h2 锚点内部切割，概要文件跳过。第8章 MEAP 尚未写完，如实
+  保留概要并标注"MEAP 撰写中"。
+- **AI 智能体图解**：nav 损坏但 spine 的 split 文件是正序，初版按文件
+  切成 76 段碎粒（h1/h2 混切）。→ 改为按 `<h2><strong>第N章…` 边界
+  聚合（`chapters_by_heading()`），兼容"第四章"写法，前言归并。
+
+现在两本分别为 10 章（前言+1-9）和 11 章（前言+1-10），目录序与纸质
+版一致。教训：**MEAP/早期版本的 EPUB 不能信任 spine 顺序，先人工核对
+章节结构再写切分逻辑。**
