@@ -205,3 +205,31 @@ git add -A && git commit -m "Rebuild books payload" && git push origin main:mast
 现在两本分别为 10 章（前言+1-9）和 11 章（前言+1-10），目录序与纸质
 版一致。教训：**MEAP/早期版本的 EPUB 不能信任 spine 顺序，先人工核对
 章节结构再写切分逻辑。**
+
+### 2026-09-11 内容展示优化（图片 / 代码块 / 图表）
+
+用户指出"代码被压成一段段 [方括号文本]"。排查结论：
+
+1. **两种清单形态**。MEAP 导出里一半清单是正常 `<pre class="sourceCode">`
+   （pandoc 高亮 + 行号锚点），另一半被压扁成连续的 `<p>[行文本]</p>` 段落
+   （无任何 code 标记）。后者是导出工具的产物，`[ ]` 是行片段标记。
+   → `rebuild_flat_listings()`：把"连续 ≥2 段纯 bracket 段落"或"单段但
+   含 ≥3 个 bracket 片段且无散文残留"重建成 `figure.code-listing`；
+   片段拼接时去掉续行符 `➥`，支持一层嵌套方括号（`policies=["a"]`）。
+   散文里的行内 `[code]`（后面带中文正文）不受影响。
+
+2. **清单标题**。`代码清单 N.N` / `清单 N.N` 的加粗段落折叠为代码卡顶部的
+   `.listing-cap`（深色标题栏）。压扁清单重建后同样补折叠。
+
+3. **图解书图注**。calibre 排版的图注是 `[<em>图 1-1. …</em>]` —— 带方括号
+   包裹且 p 标签已有 class。原 `img_repl2` 只认裸 `图 N`，且 `.replace("<p>…")`
+   对带 class 的 p 失效。→ `cap_txt` 允许前导 `[`，`_with_caption_class()`
+   合并 class，`_caption_text()` 去掉包裹括号。315 张图全部转为
+   `figure.book-figure` + `p.img-caption`。
+
+4. **阅读器 CSS**：`.code-listing` 深色卡（Night Owl 色）、pandoc token
+   配色（kw/st/co/op/fl/va…）、`.book-figure` 居中带 hairline 边、
+   `.img-caption` 居中弱化、表格与 `colgroup` 清理。
+
+产物：设计 AI 系统 220 个代码清单卡、图解书 315 个图注；两 payload 重建
+（1003KB / 5370KB）。散文段落零误伤（全书校验 leftover=0）。

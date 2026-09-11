@@ -293,6 +293,210 @@ def chapters_by_heading(spine_chapters):
     return out
 
 
+# --------------------------------------------------------- content polishing
+
+def polish(body):
+    """Clean up MEAP/pandoc artifacts and upgrade presentation structures.
+
+    - strip pandoc line-number anchors (<a href="#cbN-M">) inside code
+    - wrap <pre> blocks in <figure class="code-listing"> and pull the
+      preceding "代码清单 N.N ..." / "Listing N.N ..." paragraph in as
+      <figcaption>
+    - mark figure-ish paragraphs that follow an image as <p class="img-caption">
+    - drop page-separator divs (print-edition page break markers)
+    - neutralise internal #cb anchors in links
+    """
+    # pandoc line anchors: <a href="#cb1-1" aria-hidden="true" ...></a>
+    body = re.sub(r'<a href="#cb[^"]*"[^>]*>\s*</a>', "", body)
+
+    # page separators (print page breaks)
+    body = re.sub(r'<div class="page-separator[^"]*">.*?</div>', "", body, flags=re.S)
+
+    # internal dead anchors -> plain spans (keep text)
+    body = re.sub(r'<a href="#([^"]*)">(.*?)</a>',
+                  lambda m: m.group(2) if m.group(1).startswith("cb") else m.group(0),
+                  body)
+
+    # code listing captions: a paragraph immediately before <pre> that starts
+    # with 代码清单/Listing/清单 + number becomes the listing's figcaption
+    cap_re = re.compile(
+        r'<p>([^<]*(?:代码清单|Listing|清单)\s*[\d.]+[^<]*)</p>\s*(<pre[^>]*>)',
+        re.S)
+
+    def cap_repl(m):
+        cap = m.group(1).strip()
+        return (f'<div class="listing-cap">{cap}</div>{m.group(2)}')
+
+    body = cap_re.sub(cap_repl, body)
+
+    # wrap pre + optional caption in a figure card
+    body = re.sub(
+        r'(<div class="listing-cap">.*?</div>)?(<pre[^>]*>.*?</pre>)',
+        lambda m: f'<figure class="code-listing">{m.group(1) or ""}{m.group(2)}</figure>',
+        body, flags=re.S)
+
+    # image captions: paragraph right after <img ...> that starts with
+    # 图 N.N / Figure N.N becomes a caption paragraph
+    cap_txt = re.compile(r"^[\[\s]*(?:<[^>]+>)*\s*(图|Figure)\s*\d")
+
+    def _with_caption_class(ptag):
+        """Insert img-caption class, merging with any existing class attr."""
+        m = re.match(r'<p([^>]*)class="([^"]*)"([^>]*)>', ptag)
+        if m:
+            return f'<p{m.group(1)}class="img-caption {m.group(2)}"{m.group(3)}>'
+        return ptag.replace("<p", '<p class="img-caption"', 1)
+
+    def _caption_text(inner):
+        """Caption inner HTML with the print-artifact [ ] brackets removed."""
+        inner = re.sub(r"^\s*\[", "", inner)
+        inner = re.sub(r"\]\s*$", "", inner)
+        return inner
+
+    def img_repl(m):
+        img, ptag, inner = m.group(1), m.group(2), m.group(3)
+        txt = re.sub(r"<[^>]+>", "", inner).strip()
+        if cap_txt.match(txt):
+            cap_tag = _with_caption_class(ptag)
+            return f"{img}{cap_tag}{inner}</p>"
+        return m.group(0)
+    def img_repl2(m):
+        pre_close, attrs, post_open, ptag, inner = (
+            m.group(1) or "", m.group(2), m.group(3) or "",
+            m.group(4), m.group(5))
+        txt = re.sub(r"<[^>]+>", "", inner).strip()
+        img = f"<img{attrs}>"
+        if cap_txt.match(txt):
+            cap_tag = _with_caption_class(ptag)
+            return (f'<figure class="book-figure">{img}</figure>'
+                    f'{cap_tag}{_caption_text(inner)}</p>')
+        return f"{pre_close}{img}{post_open}{ptag}{inner}</p>"
+
+    body = re.sub(
+        r'(</p>\s*)?<img([^>]*)>(\s*</p>)?\s*(<p[^>]*>)(.*?)(</p>)',
+        img_repl2, body, flags=re.S)
+
+    # Some MEAP exports have listings flattened into "[line]" paragraphs
+    # (no <pre>/<code> at all). Rebuild them: a run of consecutive paragraphs
+    # whose content is bracketed code segments becomes one code block.
+    body = rebuild_flat_listings(body)
+
+    # flattened listings may keep their caption as a bold paragraph right
+    # above the rebuilt figure — fold it in as the listing caption
+    body = re.sub(
+        r'<p><strong>((?:代码)?清单\s*[\d.]+[^<]*)</strong></p>\s*'
+        r'<figure class="code-listing">',
+        lambda m: f'<figure class="code-listing"><div class="listing-cap">{m.group(1).strip()}</div>',
+        body)
+
+    # drop empty paragraphs left behind
+    body = re.sub(r"<p>\s*</p>", "", body)
+    return body
+
+
+# bracketed inline-code segment used by flattened listings, e.g.
+# "[platform.models.chat( #B]" — also allows one level of nested
+# brackets ([policies=["a", "b"]]) and inline markup like <em>…</em>
+FLAT_SEG = r"\[(?:[^\[\]<>]|<[^>]+>|\[(?:[^\[\]<>]|<[^>]+>)*\])*\]"
+
+
+def _seg_text(seg_html):
+    """Inner text of one [..] segment; None for pure inline-code (short,
+    no annotation markers) segments that belong in normal prose."""
+    inner = seg_html[1:-1]
+    # annotation comments like #A / ➥ wrap markers indicate listing lines
+    if re.search(r"#[A-Z]\b|➥", inner):
+        return inner
+    return inner
+
+
+def _decode_flat(inner):
+    """Turn one segment's inner text into code line text: drop the wrap
+    marker ➥ (it is a print line-continuation glyph), unescape entities."""
+    inner = inner.replace("➥", "").strip()
+    inner = (inner.replace("&quot;", '"').replace("&#39;", "'")
+             .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">"))
+    return inner
+
+
+def rebuild_flat_listings(body):
+    """Merge runs of '[...]' paragraphs into <figure class="code-listing">.
+
+    A run qualifies when it is at least 2 paragraphs of pure bracketed
+    segments. Multi-segment paragraphs are segments joined without space
+    if the segment ends mid-expression, else joined with a newline — we
+    approximate the original line breaks by treating each paragraph as one
+    or more lines split at segment boundaries that end with punctuation
+    hints (commas/brackets) versus continuation brackets.
+    """
+    para_re = re.compile(
+        r"<p>(\s*(?:" + FLAT_SEG + r")\s*)+</p>", re.S)
+    parts = []
+    pos = 0
+    for m in para_re.finditer(body):
+        gap = body[pos:m.start()]
+        if gap:
+            parts.append(("gap", gap))
+        parts.append(("para", m.group(0)))
+        pos = m.end()
+    tail = body[pos:]
+    if tail:
+        parts.append(("gap", tail))
+
+    # group consecutive "para" parts
+    out = []
+    i = 0
+    while i < len(parts):
+        kind, val = parts[i]
+        if kind != "para":
+            out.append(val)
+            i += 1
+            continue
+        run = []
+        while i < len(parts):
+            kind, val = parts[i]
+            if kind == "para":
+                run.append(val)
+                i += 1
+            elif kind == "gap" and val.strip() == "":
+                i += 1  # whitespace between adjacent <p> tags
+            else:
+                break
+        if len(run) < 2:
+            # A lone paragraph of bracket segments: only treat as code when
+            # it is purely segments (>=3, no prose around them) — e.g. a
+            # one-paragraph listing. Otherwise it is inline code in prose.
+            inner = re.sub(r"^<p>|</p>$", "", run[0], flags=re.S)
+            segs = re.findall(FLAT_SEG, inner)
+            rest = re.sub(FLAT_SEG, "", inner).strip()
+            if len(segs) >= 3 and not rest:
+                out.append(render_flat_listing(run))
+            else:
+                out.extend(run)
+            continue
+        out.append(render_flat_listing(run))
+    return "".join(out)
+
+
+def render_flat_listing(paras):
+    """Convert a list of '<p>[seg][seg]...</p>' into a code-listing figure."""
+    lines = []
+    for p in paras:
+        inner = re.sub(r"^<p>|</p>$", "", p, flags=re.S)
+        segs = re.findall(FLAT_SEG, inner)
+        # leftover text outside segments (rare) is appended to last segment
+        rest = re.sub(FLAT_SEG, "", inner).strip()
+        line = " ".join(_decode_flat(s[1:-1]) for s in segs if s[1:-1].strip())
+        if rest:
+            line += (" " if line else "") + rest
+        if line:
+            lines.append(line)
+    code_html = "\n".join(lines)
+    esc = (code_html.replace("&", "&amp;").replace("<", "&lt;")
+           .replace(">", "&gt;"))
+    return (f'<figure class="code-listing">'
+            f'<pre><code>{esc}</code></pre></figure>')
+
+
 # -------------------------------------------------------------------- crypto
 
 def encrypt_payload(obj):
@@ -326,6 +530,7 @@ def build_book(book):
         title = re.sub(r"\s+", " ", title)
         body = ch["body"]
         body = inline_images(body, z, root, slug, book["max_img_w"], img_map)
+        body = polish(body)
         if len(body) < 400 and "<img" not in body:
             continue
         chapters.append({"id": f"ch{len(chapters)+1:03d}", "title": title[:80],
