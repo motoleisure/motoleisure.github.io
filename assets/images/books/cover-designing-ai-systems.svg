@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1200" viewBox="0 0 900 1200" role="img" aria-label="设计 AI 系统">
+  <rect width="900" height="1200" fill="#eef6fd"/>
+  <rect x="60" y="60" width="780" height="1080" rx="24" fill="#ffffff" stroke="#b2d5ff" stroke-width="3"/>
+  <rect x="60" y="60" width="28" height="1080" rx="12" fill="#4f46e5"/>
+  <g stroke="#b2d5ff" stroke-width="2" opacity=".5">
+    <path d="M760 130 v20 M750 140 h20"/>
+    <path d="M780 1060 v20 M770 1070 h20"/>
+  </g>
+  <text x="150" y="240" font-family="Inter, system-ui, sans-serif" font-size="26" font-weight="600" letter-spacing="6" fill="#4f46e5">DESIGNING AI</text>
+  <text x="150" y="282" font-family="Inter, system-ui, sans-serif" font-size="26" font-weight="600" letter-spacing="6" fill="#4f46e5">SYSTEMS</text>
+  <rect x="150" y="330" width="90" height="8" rx="4" fill="#00172e"/>
+    <text x="150" y="560" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" font-size="96" font-weight="600" letter-spacing="10" fill="#00172e">设计 AI</text>
+  <text x="150" y="710" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" font-size="96" font-weight="600" letter-spacing="10" fill="#00172e"> 系统</text>
+  <text x="150" y="1010" font-family="Inter, system-ui, sans-serif" font-size="30" font-weight="500" fill="#243d58">Suhas Suresha</text>
+  <rect x="150" y="1050" width="200" height="44" rx="22" fill="#00172e"/>
+  <text x="250" y="1080" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="20" fill="#ffffff">🔒 私人书架</text>
+</svg>
