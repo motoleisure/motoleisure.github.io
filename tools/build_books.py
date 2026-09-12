@@ -390,7 +390,7 @@ def polish(body):
         r'(<figure class="code-listing">.*?</figure>|<pre[^>]*>.*?</pre>)',
         body, flags=re.S)
     for _i in range(0, len(parts), 2):
-        parts[_i] = rebuild_flat_listings(parts[_i])
+        parts[_i] = rebuild_flat_listings(rebuild_plain_listings(parts[_i]))
     body = "".join(parts)
 
     body = typography_pass(body)
@@ -488,6 +488,60 @@ def decode_pre_lines(body):
         return m.group(1) + inner + m.group(3)
 
     return re.sub(r"(<pre[^>]*>)(.*?)(</pre>)", pre_repl, body, flags=re.S)
+
+
+PLAIN_CODEISH = re.compile(r"[(){}:=]|\b(?:def|class|return|import|if|for|while)\b|@")
+
+
+def rebuild_plain_listings(body):
+    """Fourth listing form: plain paragraphs of code lines with no bracket
+    tokens at all (no CJK + code punctuation). Runs of 3+ such paragraphs
+    become a code-listing figure; shorter runs stay prose."""
+    para_re = re.compile(r"<p[^>]*>(.*?)</p>", re.S)
+    parts, pos = [], 0
+    for m in para_re.finditer(body):
+        gap = body[pos:m.start()]
+        if gap:
+            parts.append(("gap", gap))
+        txt = re.sub(r"<[^>]+>", "", m.group(1)).strip()
+        is_cite = (re.search(r"\b(?:19|20)\d{2}\b", txt)
+                   or re.match(r"\d+\s+[A-Z]", txt))
+        kind = ("code" if txt and len(txt) > 4 and not CJK_RE.search(txt)
+                and not is_cite and PLAIN_CODEISH.search(txt) else "other")
+        parts.append((kind, m.group(0)))
+        pos = m.end()
+    tail = body[pos:]
+    if tail:
+        parts.append(("gap", tail))
+
+    out, i, n = [], 0, len(parts)
+    while i < n:
+        kind, val = parts[i]
+        if kind != "code":
+            out.append(val)
+            i += 1
+            continue
+        run = []
+        while i < n:
+            kind, val = parts[i]
+            if kind == "code":
+                run.append(val)
+                i += 1
+            elif kind == "gap" and val.strip() == "" and \
+                    i + 1 < n and parts[i + 1][0] == "code":
+                i += 1
+            else:
+                break
+        if len(run) >= 3:
+            lines = [re.sub(r"<[^>]+>", "", re.sub(r"^<p[^>]*>|</p>$", "", p, flags=re.S))
+                     .replace("➥", "").strip() for p in run]
+            lines = [ln for ln in lines if ln]
+            esc = ("\n".join(lines).replace("&", "&amp;")
+                   .replace("<", "&lt;").replace(">", "&gt;"))
+            out.append(f'<figure class="code-listing"><pre><code>{esc}</code></pre></figure>')
+        else:
+            out.extend(run)
+    return "".join(out)
 
 
 def repair_split_table(body):
@@ -632,15 +686,30 @@ def rebuild_flat_listings(body):
             out.append(val)
             i += 1
             continue
-        if len(run) == 1 and CJK_RE.search(
-                _join_pieces([p for _, ps in run for p in ps])):
-            # bracket-wrapped CJK prose: export artifact of callout/note
-            # text — unwrap the brackets into a callout paragraph
-            inner = re.sub(r"^<p[^>]*>|</p>$", "", blocks[0], flags=re.S)
-            inner = re.sub(FLAT_SEG,
-                           lambda m: _decode_flat(m.group(0)[1:-1]), inner)
-            inner = re.sub(r"<[^>]+>", "", inner)
-            out.append(f'<p class="callout">{_entity(inner.strip())}</p>')
+        decoded = [_join_pieces([p for _, ps in run for p in ps])]
+        if not re.search(r"[A-Za-z0-9]", decoded[0]):
+            # no ASCII at all: print artifacts like figure-title lists —
+            # unwrap the brackets into callout paragraphs
+            for b in blocks:
+                inner = re.sub(r"^<p[^>]*>|</p>$", "", b, flags=re.S)
+                inner = re.sub(FLAT_SEG,
+                               lambda m: _decode_flat(m.group(0)[1:-1]), inner)
+                inner = re.sub(r"<[^>]+>", "", inner)
+                if inner.strip():
+                    out.append(f'<p class="callout">{_entity(inner.strip())}</p>')
+            continue
+        citesig = (re.match(r"\s*\d+\s+[A-Z]", decoded[0])
+                   or (re.search(r"\b(?:19|20)\d{2}\b", decoded[0])
+                       and not re.search(r"[=;{}@#\[]", decoded[0])))
+        if citesig:
+            # bibliography entries wrapped in brackets — plain paragraphs
+            for b in blocks:
+                inner = re.sub(r"^<p[^>]*>|</p>$", "", b, flags=re.S)
+                inner = re.sub(FLAT_SEG,
+                               lambda m: _decode_flat(m.group(0)[1:-1]), inner)
+                inner = re.sub(r"<[^>]+>", "", inner)
+                if inner.strip():
+                    out.append(f"<p>{_entity(inner.strip())}</p>")
             continue
         out.append(render_flat_listing(run))
     return "".join(out)
@@ -754,10 +823,32 @@ def typography_pass(body):
         for j in range(1, len(subparts), 2):
             subparts[j] = (subparts[j].replace("\\[", "[")
                            .replace("\\]", "]"))
+            inner = subparts[j][6:-7].replace("➥", "")
+            inner = re.sub(r"\*\*(?=[\u4e00-\u9fff])", "", inner)
+            inner = re.sub(r"(?<=[\u4e00-\u9fff。：])\*\*", "", inner)
+            subparts[j] = f"<code>{inner}</code>"
+            if not inner.strip():
+                subparts[j] = ""
         t = "".join(subparts)
         # standalone \\ / \\ mentions are literal token syntax -> badges
         t = t.replace("\\[", '<code>\\[</code>').replace(
             "\\]", '<code>\\]</code>')
+        # lone wrap markers that ended up as code badges
+        t = t.replace("<code>➥</code>", "")
+        # special tokens the export double-escaped: \\&lt;\\|think\\|\\&gt;
+        def _token_badge(m):
+            raw = re.sub(r"<[^>]+>", "", m.group(0))
+            tok = (raw.replace("\\&lt;", "<").replace("\\&gt;", ">")
+                   .replace("\\|", "|").replace("\\", "")
+                   .replace("\u2060", "").replace(" ", ""))
+            return f"<code>{_entity(tok)}</code>"
+        t = re.sub(r'\\&lt;.*?\\&gt;', _token_badge, t, flags=re.S)
+        # escaped identifiers in prose: \\init\\ -> __init__,
+        # (\\executeaction) -> _executeaction, \\n -> newline escape
+        t = re.sub(r"\\(\w{2,})\\", lambda m: f"<code>__{_entity(m.group(1))}__</code>", t)
+        t = re.sub(r"\\n(?=[）)：，、\s]|$)", "<code>\\n</code>", t)
+        t = re.sub(r"([（(])\\(\w{3,})(?=[）)])",
+                   lambda m: m.group(1) + f"<code>_{_entity(m.group(2))}</code>", t)
         # bold-paragraph subheads -> real headings (X.Y -> h2, X.Y.Z -> h3)
         t = re.sub(r"<p><strong>(\d+(?:\.\d+)+)\s+([^<]+)</strong></p>",
                    lambda m: _heading_for(m.group(1), m.group(2)), t)
@@ -773,6 +864,12 @@ def typography_pass(body):
             inner = (m.group(2).replace("“", '"').replace("”", '"')
                      .replace("‘", "'").replace("’", "'"))
             inner = re.sub(r"\\([#{}\[\]|>&()])", r"\1", inner)
+            inner = inner.replace("➥", "")
+            # markdown bold left around CJK words inside code comments
+            inner = re.sub(r'<span class="op">\*\*</span>(?=[\u4e00-\u9fff])', "", inner)
+            inner = re.sub(r'(?<=[\u4e00-\u9fff。：])<span class="op">\*\*</span>', "", inner)
+            inner = re.sub(r'<span class="(?:er|st)">\s*(?:#+\s*)?\*\*(.*?)\*\*\s*</span>',
+                           r'<span class="st">\1</span>', inner)
             return f"<pre{m.group(1)}>{inner}</pre>"
         parts[i] = re.sub(r"<pre([^>]*)>(.*?)</pre>", straighten,
                           parts[i], flags=re.S)
