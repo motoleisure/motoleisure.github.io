@@ -390,7 +390,8 @@ def polish(body):
         r'(<figure class="code-listing">.*?</figure>|<pre[^>]*>.*?</pre>)',
         body, flags=re.S)
     for _i in range(0, len(parts), 2):
-        parts[_i] = rebuild_flat_listings(rebuild_plain_listings(parts[_i]))
+        parts[_i] = rebuild_flat_listings(
+            rebuild_plain_listings(rebuild_fenced_listings(parts[_i])))
     body = "".join(parts)
 
     body = typography_pass(body)
@@ -485,9 +486,58 @@ def decode_pre_lines(body):
 
         inner = re.sub(r'<span id="cb[^"]*">\s*\[(.*)\]\s*</span>',
                        span_repl, inner)
+        # markdown fence markers that leaked in as code lines (sometimes
+        # wrapped in a highlight span)
+        inner = re.sub(r'<span id="cb[^"]*">\s*(?:<span[^>]*>)?\s*`{1,3}[a-z]*'
+                       r'\s*(?:</span>)?\s*</span>\s*', "", inner)
         return m.group(1) + inner + m.group(3)
 
     return re.sub(r"(<pre[^>]*>)(.*?)(</pre>)", pre_repl, body, flags=re.S)
+
+
+FENCE_P = re.compile(r'<p[^>]*>\s*[\u201c\u201d"]{1,2}`{1,3}\s*[a-z]*\s*</p>')
+
+
+def rebuild_fenced_listings(body):
+    """Fifth listing form: markdown-fenced code (```python … ```) where
+    every line is its own <p>. The fence uses curly quotes and the export
+    ate underscores into empty <em> pairs (def <em></em>init<em></em>)."""
+    line_re = re.compile(r"<p[^>]*>(.*?)</p>", re.S)
+    out = []
+    pos = 0
+    while True:
+        m = FENCE_P.search(body, pos)
+        if not m:
+            out.append(body[pos:])
+            break
+        out.append(body[pos:m.start()])
+        lines = []
+        close = None
+        count = 0
+        for pm in line_re.finditer(body, m.end()):
+            if FENCE_P.fullmatch(pm.group(0)):
+                if count > 0:
+                    close = pm
+                    break
+                continue
+            lines.append(pm.group(1))
+            count += 1
+            if count >= 80:
+                break
+        if close is None or not lines:
+            out.append(m.group(0))
+            pos = m.end()
+            continue
+        code_lines = []
+        for p in lines:
+            txt = re.sub(r"<em[^>]*></em>", "__", p)
+            txt = re.sub(r"<[^>]+>", "", txt)
+            txt = txt.replace("\u2060", "")
+            code_lines.append(txt.rstrip())
+        esc = "\n".join(code_lines)
+        out.append(f'<figure class="code-listing"><pre><code>{esc}</code></pre></figure>')
+        pos = close.end()
+    return "".join(out)
 
 
 PLAIN_CODEISH = re.compile(r"[(){}:=]|\b(?:def|class|return|import|if|for|while)\b|@")
