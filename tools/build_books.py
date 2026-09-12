@@ -320,6 +320,9 @@ def polish(body):
     # flatten bracket-wrapped code lines inside <pre> blocks
     body = decode_pre_lines(body)
 
+    # re-attach table rows the export dumped as a pipe-text line-block
+    body = repair_split_table(body)
+
     # code listing captions: a paragraph immediately before <pre> that starts
     # with 代码清单/Listing/清单 + number becomes the listing's figcaption
     cap_re = re.compile(
@@ -485,6 +488,37 @@ def decode_pre_lines(body):
         return m.group(1) + inner + m.group(3)
 
     return re.sub(r"(<pre[^>]*>)(.*?)(</pre>)", pre_repl, body, flags=re.S)
+
+
+def repair_split_table(body):
+    """MEAP export truncated one table (dais 表 1.1): rows after the first
+    few were dumped as a <div class="line-block"> of pipe-separated text
+    right after </table>. Parse the rows back and append them to the
+    preceding table's tbody."""
+    def repl(m):
+        table, block = m.group(1), m.group(2)
+        ncols = table.count("<th>") or 3
+        rows = []
+        for line in re.split(r"<br\s*/?>|\n", block):
+            line = re.sub(r"<[^>]+>", "", line).strip()
+            if not line or "|" not in line:
+                continue
+            cells = [c.strip() for c in line.split("|")]
+            while cells and not cells[-1]:
+                cells.pop()
+            if cells:
+                rows.append(cells)
+        if not rows:
+            return m.group(0)
+        trs = "".join(
+            "<tr>" + "".join(
+                f"<td>{_entity(c)}</td>" for c in (r + [""] * (ncols - len(r)))[:ncols]
+            ) + "</tr>" for r in rows)
+        return table.replace("</tbody>", trs + "</tbody>")
+
+    return re.sub(
+        r'(<table.*?</table>)\s*<div class="line-block">(.*?)</div>',
+        repl, body, flags=re.S)
 
 
 def _block_pieces(block):
