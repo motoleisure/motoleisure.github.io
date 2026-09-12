@@ -317,6 +317,9 @@ def polish(body):
                   lambda m: m.group(2) if m.group(1).startswith("cb") else m.group(0),
                   body)
 
+    # flatten bracket-wrapped code lines inside <pre> blocks
+    body = decode_pre_lines(body)
+
     # code listing captions: a paragraph immediately before <pre> that starts
     # with 代码清单/Listing/清单 + number becomes the listing's figcaption
     cap_re = re.compile(
@@ -378,7 +381,14 @@ def polish(body):
     # Some MEAP exports have listings flattened into "[line]" paragraphs
     # (no <pre>/<code> at all). Rebuild them: a run of consecutive paragraphs
     # whose content is bracketed code segments becomes one code block.
-    body = rebuild_flat_listings(body)
+    # Pre/figure regions are exempt — their bracket lines were already
+    # decoded in place by decode_pre_lines().
+    parts = re.split(
+        r'(<figure class="code-listing">.*?</figure>|<pre[^>]*>.*?</pre>)',
+        body, flags=re.S)
+    for _i in range(0, len(parts), 2):
+        parts[_i] = rebuild_flat_listings(parts[_i])
+    body = "".join(parts)
 
     body = typography_pass(body)
 
@@ -454,6 +464,27 @@ def _decode_inner(inner):
         pos = m.end()
     out.append(_plain(inner[pos:]))
     return "".join(out) + trailing
+
+
+def decode_pre_lines(body):
+    """Inside <pre> blocks, MEAP exports wrap flattened lines as
+    '<span id="cbN">[code]</span>'. Decode them in place (keeping the
+    surrounding pre intact) so rebuild_flat_listings never sees them."""
+    def pre_repl(m):
+        inner = m.group(2)
+
+        def span_repl(s):
+            decoded = _decode_flat(s.group(1))
+            if not decoded.strip():
+                return ""
+            return (decoded.replace("&", "&amp;")
+                    .replace("<", "&lt;").replace(">", "&gt;"))
+
+        inner = re.sub(r'<span id="cb[^"]*">\s*\[(.*)\]\s*</span>',
+                       span_repl, inner)
+        return m.group(1) + inner + m.group(3)
+
+    return re.sub(r"(<pre[^>]*>)(.*?)(</pre>)", pre_repl, body, flags=re.S)
 
 
 def _block_pieces(block):
@@ -614,6 +645,8 @@ def typography_pass(body):
     subheads, curly quotes inside code, stray running-header h2."""
     # pandoc anchor attribute leaks (some sit inside code figures)
     body = re.sub(r"\s*\{#[^}]*\}", "", body)
+    # dangling "[\\" fragment before a rebuilt figure
+    body = re.sub(r"\[\\(?=<figure)", "", body)
 
     # calibre export mangled a few oreil.ly short links (escaped tags
     # inside the attribute); rebuild the cluster as a plain link
@@ -659,14 +692,38 @@ def typography_pass(body):
                    lambda m: m.group(0) if "[" in m.group(2) else
                    re.sub(r"([\u4e00-\u9fff。，、])\s*\] ", r"\1 ", m.group(0)),
                    t, flags=re.S)
-        # bracketed identifiers in prose -> inline code (CJK stays prose)
-        t = re.sub(
-            r"\[([^\[\]<>]{1,120})\]",
-            lambda m: (m.group(0) if CJK_RE.search(m.group(1))
-                       else f"<code>{_entity(m.group(1))}</code>"),
-            t)
-        # leftover empty brackets from TOC/export artifacts
-        t = re.sub(r"\[\](\s*)", r"\1", t)
+        # escaped brackets from token-flattened code leaking into prose:
+        # paired \\..\\ with non-CJK content are real code brackets
+        def _pair_unescape(m):
+            inner = m.group(1)
+            return "[" + inner + "]" if not CJK_RE.search(inner) else m.group(0)
+        t = re.sub(r"\\\[([^\\\[\]<>]{0,80})\\\]", _pair_unescape, t)
+        # ANSI escapes and brackets adjacent to inline tags
+        t = re.sub(r"\\\[(?=\d)", "[", t)
+        t = re.sub(r"\\\[(?=<)", "[", t)
+        t = re.sub(r"\[\\(?=<)", "[", t)
+        t = re.sub(r"(?<=>)\\\]", "]", t)
+        # ANSI-colored string constants -> code badge
+        t = re.sub(r'"\\033[^"<]{1,12}"',
+                   lambda m: f"<code>{_entity(m.group(0))}</code>", t)
+
+        # inline code: split out existing code spans so they are not
+        # re-processed, then unescape brackets inside them
+        subparts = re.split(r"(<code>.*?</code>)", t, flags=re.S)
+        for j in range(0, len(subparts), 2):
+            subparts[j] = re.sub(
+                r"\[([^\[\]<>]{1,120})\]",
+                lambda m: (m.group(0) if CJK_RE.search(m.group(1))
+                           else f"<code>{_entity(m.group(1))}</code>"),
+                subparts[j])
+            subparts[j] = re.sub(r"\[\](\s*)", r"\1", subparts[j])
+        for j in range(1, len(subparts), 2):
+            subparts[j] = (subparts[j].replace("\\[", "[")
+                           .replace("\\]", "]"))
+        t = "".join(subparts)
+        # standalone \\ / \\ mentions are literal token syntax -> badges
+        t = t.replace("\\[", '<code>\\[</code>').replace(
+            "\\]", '<code>\\]</code>')
         # bold-paragraph subheads -> real headings (X.Y -> h2, X.Y.Z -> h3)
         t = re.sub(r"<p><strong>(\d+(?:\.\d+)+)\s+([^<]+)</strong></p>",
                    lambda m: _heading_for(m.group(1), m.group(2)), t)
@@ -681,6 +738,7 @@ def typography_pass(body):
         def straighten(m):
             inner = (m.group(2).replace("“", '"').replace("”", '"')
                      .replace("‘", "'").replace("’", "'"))
+            inner = re.sub(r"\\([#{}\[\]|>&()])", r"\1", inner)
             return f"<pre{m.group(1)}>{inner}</pre>"
         parts[i] = re.sub(r"<pre([^>]*)>(.*?)</pre>", straighten,
                           parts[i], flags=re.S)

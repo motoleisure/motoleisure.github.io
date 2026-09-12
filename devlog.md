@@ -263,3 +263,30 @@ h4、`text-autospace`（中西文间距）。
 
 最终审计：dais 270 代码卡/1136 行内 code/117 h2；illu 344 代码卡/
 194 h3/64 引用/99 callout；anchor 泄漏与 bracket 残留均为 0。
+
+### 2026-09-12 修正：`\[` / `\]` 转义残留（194 处）
+
+用户发现正文和代码里仍有 `[\`、`\]` 垃圾文本。排查出四类根因：
+
+1. **pre 内转义**（dais 161 处）：MEAP 导出在 `<pre>` 里也用了 `\[Span\]`
+   `\[\]` 这类转义——且发现一个 353KB 的巨型 pre，其中混着大量
+   `<span id="cbN">[...]</span>` 包裹的压扁行。
+2. **压扁行在 pre 内**：此前 rebuild 会在 pre 里生成嵌套 figure（HTML
+   非法）。新增 `decode_pre_lines()`：pre 内的括号包裹行**原地解码**
+   （去 span 壳、还原转义、实体转义后写回），同时 rebuild 拆分 body、
+   **豁免 pre/figure 区域**，不再越界处理。
+3. **位置性转义**：`\033\[35m`（ANSI，`\[` 前是数字）、`\[<span…`
+   （标签前）、`…</span>\]`（标签后）→ 按上下文还原为真实括号；
+   ANSI 字符串常量提升为 `<code>` 徽章。
+4. **合法的 token 提及**：图解书第6章讲解 Toolformer 的 `\[` `\]` 标记
+   token——这是**内容本身**，不能删，转为 `<code>\[</code>` 徽章显示。
+
+另修复：`_block_pieces` 的 rest 计算剔除 `[\\  ]` 换行续接噪音
+（此前导致 `Scorer = Callable[[str, dict], bool | float]` 整行漏出）；
+`<code>` 内的 `\[`/`\]` 还原；行内 code 处理拆分出既有 code span
+防止嵌套污染。
+
+最终审计：两本书 `\[`/`\]` 残留 **0**（保留 10 处合法 token 徽章）。
+`list[Span] = []`、`Callable[[str, dict], bool | float]` 等类型注解
+全部还原。教训：**导出器的转义规则要按"前字符 + 后字符"上下文区分
+语义**——同一个 `\[`， preceded-by-数字 是转义、preceded-by-空格 是内容。
