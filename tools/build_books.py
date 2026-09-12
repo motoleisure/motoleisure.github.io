@@ -380,6 +380,8 @@ def polish(body):
     # whose content is bracketed code segments becomes one code block.
     body = rebuild_flat_listings(body)
 
+    body = typography_pass(body)
+
     # flattened listings may keep their caption as a bold paragraph right
     # above the rebuilt figure — fold it in as the listing caption
     body = re.sub(
@@ -398,103 +400,291 @@ def polish(body):
 # brackets ([policies=["a", "b"]]) and inline markup like <em>…</em>
 FLAT_SEG = r"\[(?:[^\[\]<>]|<[^>]+>|\[(?:[^\[\]<>]|<[^>]+>)*\])*\]"
 
+STRONG_CODE = re.compile(r'<strong class="calibre3">([^<]*)</strong>')
+CJK_RE = re.compile(r"[\u4e00-\u9fff]")
+ANN_END = re.compile(r"#[A-Z]\s*$")
+BLOCK_RE = re.compile(
+    r"<p[^>]*>.*?</p>"
+    r'|(?:<strong class="calibre3">[^<]*</strong>\s*)+'
+    r"|" + FLAT_SEG, re.S)
 
-def _seg_text(seg_html):
-    """Inner text of one [..] segment; None for pure inline-code (short,
-    no annotation markers) segments that belong in normal prose."""
-    inner = seg_html[1:-1]
-    # annotation comments like #A / ➥ wrap markers indicate listing lines
-    if re.search(r"#[A-Z]\b|➥", inner):
-        return inner
-    return inner
+
+def _entity(text):
+    return (text.replace("&amp;", "&").replace("&lt;", "<")
+            .replace("&gt;", ">").replace("&quot;", '"').replace("&#39;", "'"))
 
 
 def _decode_flat(inner):
-    """Turn one segment's inner text into code line text: drop the wrap
-    marker ➥ (it is a print line-continuation glyph), unescape entities."""
+    """Decode one [..] segment: drop print wrap marker ➥, then decode
+    nested bracket tokens recursively (the export wraps every code token
+    in its own [...] pair), resolve backslash escapes, strip styling."""
     inner = inner.replace("➥", "").strip()
-    inner = (inner.replace("&quot;", '"').replace("&#39;", "'")
-             .replace("&amp;", "&").replace("&lt;", "<").replace("&gt;", ">"))
-    return inner
+    return _decode_inner(inner).lstrip()
+
+
+def _plain(text):
+    """Plain-text decode of non-token fragment: \<em>X</em> is an
+    underscore the export wrapped with its tail text; \\X escapes keep
+    the punctuation (real code brackets), any other backslash marks an
+    underscore the export destroyed (__init__ -> \_\_init\_\_)."""
+    text = re.sub(r"\\<em[^>]*>(.*?)</em>", lambda m: "_" + m.group(1), text)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"\\([#{}\[\]|>&])", r"\1", text)
+    text = text.replace("\\", "_")
+    return _entity(text)
+
+
+def _decode_inner(inner):
+    out = []
+    pos = 0
+    trailing = ""
+    if inner.endswith("\\"):
+        # the escaped real ] sits under this token's closing marker
+        inner = inner[:-1]
+        trailing = "]"
+    for m in re.finditer(FLAT_SEG, inner):
+        gap = inner[pos:m.start()]
+        prepend = ""
+        if gap.endswith("\\"):
+            # the escaped real [ sits under this token's opening marker
+            gap = gap[:-1]
+            prepend = "["
+        out.append(_plain(gap))
+        out.append(prepend + _decode_inner(m.group(0)[1:-1]))
+        pos = m.end()
+    out.append(_plain(inner[pos:]))
+    return "".join(out) + trailing
+
+
+def _block_pieces(block):
+    """Split a block into (code pieces, leftover prose text, origin).
+    Strong tokens are only code when free of CJK (otherwise they are
+    bold headings). origin: 'p' for paragraph blocks, 'loose' otherwise
+    — loose blocks continue the previous source line."""
+    pieces = []
+    rest = block
+    for m in re.finditer(STRONG_CODE.pattern + "|" + FLAT_SEG, block):
+        tok_src = m.group(0)
+        if tok_src.startswith("<strong"):
+            tok = _entity(re.sub(r"<[^>]+>", "", STRONG_CODE.match(tok_src).group(1))).strip()
+            if CJK_RE.search(tok):
+                return None, None, None
+        else:
+            tok = _decode_flat(tok_src[1:-1])
+        if tok:
+            pieces.append(tok)
+    rest = re.sub(STRONG_CODE.pattern + "|" + FLAT_SEG, "", block)
+    rest = re.sub(r"<[^>]+>", "", rest).strip()
+    origin = "p" if block.startswith("<p") else "loose"
+    return pieces, rest, origin
+
+
+KEYWORD_START = re.compile(
+    r"^(?:return|def|class|if|elif|else|for|while|import|from|with|try|"
+    r"except|raise|print|yield|assert|del|global|@)\b")
+
+
+def _join_pieces(pieces):
+    """Join code fragments of one source line. Word-char boundaries get a
+    space (print re-wraps split words), statements/annotations start a new
+    line, everything else butts together."""
+    line = ""
+    for tok in pieces:
+        if not tok:
+            continue
+        if not line:
+            line = tok
+        elif ANN_END.search(line) or KEYWORD_START.match(tok):
+            line += "\n" + tok
+        elif tok.startswith("#"):
+            line += " " + tok
+        elif line.endswith("#"):
+            line += " " + tok
+        elif line.endswith(")") and tok.startswith("self."):
+            line += "\n" + tok
+        elif re.search(r"[)\]}]$", line) and re.match(r"[a-z_]", tok):
+            line += "\n" + tok
+        elif re.search(r"[\w$]$", line) and re.match(r"[\w$]", tok):
+            line += " " + tok
+        else:
+            line += tok
+    return line
 
 
 def rebuild_flat_listings(body):
-    """Merge runs of '[...]' paragraphs into <figure class="code-listing">.
+    """Merge runs of flattened code paragraphs into <figure> cards.
 
-    A run qualifies when it is at least 2 paragraphs of pure bracketed
-    segments. Multi-segment paragraphs are segments joined without space
-    if the segment ends mid-expression, else joined with a newline — we
-    approximate the original line breaks by treating each paragraph as one
-    or more lines split at segment boundaries that end with punctuation
-    hints (commas/brackets) versus continuation brackets.
+    Handles both MEAP shapes: '[line]' paragraphs (Designing AI Systems)
+    and strong-token + '[tok]' lines (Illustrated Guide). A run is a
+    maximal sequence of code-ish blocks separated only by whitespace.
+    A lone block only counts when its decoded text has no CJK.
     """
-    para_re = re.compile(
-        r"<p>(\s*(?:" + FLAT_SEG + r")\s*)+</p>", re.S)
     parts = []
     pos = 0
-    for m in para_re.finditer(body):
+    for m in BLOCK_RE.finditer(body):
         gap = body[pos:m.start()]
         if gap:
             parts.append(("gap", gap))
-        parts.append(("para", m.group(0)))
+        parts.append(("blk", m.group(0)))
         pos = m.end()
     tail = body[pos:]
     if tail:
         parts.append(("gap", tail))
 
-    # group consecutive "para" parts
     out = []
-    i = 0
-    while i < len(parts):
+    i, n = 0, len(parts)
+    while i < n:
         kind, val = parts[i]
-        if kind != "para":
+        if kind != "blk":
             out.append(val)
             i += 1
             continue
         run = []
-        while i < len(parts):
+        blocks = []
+        while i < n:
             kind, val = parts[i]
-            if kind == "para":
-                run.append(val)
-                i += 1
+            if kind == "blk":
+                pieces, rest, origin = _block_pieces(val)
+                if pieces and rest == "":
+                    run.append((origin, pieces))
+                    blocks.append(val)
+                    i += 1
+                    continue
+                break
             elif kind == "gap" and val.strip() == "":
-                i += 1  # whitespace between adjacent <p> tags
+                # cross the whitespace gap only if another code-ish block
+                # follows; otherwise stop so the gap is preserved
+                j = i + 1
+                if j < n and parts[j][0] == "blk":
+                    pieces, rest, _ = _block_pieces(parts[j][1])
+                    if pieces and rest == "":
+                        i += 1
+                        continue
+                break
             else:
                 break
-        if len(run) < 2:
-            # A lone paragraph of bracket segments: only treat as code when
-            # it is purely segments (>=3, no prose around them) — e.g. a
-            # one-paragraph listing. Otherwise it is inline code in prose.
-            inner = re.sub(r"^<p>|</p>$", "", run[0], flags=re.S)
-            segs = re.findall(FLAT_SEG, inner)
-            rest = re.sub(FLAT_SEG, "", inner).strip()
-            if len(segs) >= 3 and not rest:
-                out.append(render_flat_listing(run))
-            else:
-                out.extend(run)
+        if not run:
+            out.append(val)
+            i += 1
+            continue
+        if len(run) == 1 and CJK_RE.search(
+                _join_pieces([p for _, ps in run for p in ps])):
+            # bracket-wrapped CJK prose: export artifact of callout/note
+            # text — unwrap the brackets into a callout paragraph
+            inner = re.sub(r"^<p[^>]*>|</p>$", "", blocks[0], flags=re.S)
+            inner = re.sub(FLAT_SEG,
+                           lambda m: _decode_flat(m.group(0)[1:-1]), inner)
+            inner = re.sub(r"<[^>]+>", "", inner)
+            out.append(f'<p class="callout">{_entity(inner.strip())}</p>')
             continue
         out.append(render_flat_listing(run))
     return "".join(out)
 
 
-def render_flat_listing(paras):
-    """Convert a list of '<p>[seg][seg]...</p>' into a code-listing figure."""
+def render_flat_listing(runs):
+    """Render collected code lines as a code-listing figure. 'loose'
+    blocks (unwrapped strong/segment runs) continue the previous line."""
     lines = []
-    for p in paras:
-        inner = re.sub(r"^<p>|</p>$", "", p, flags=re.S)
-        segs = re.findall(FLAT_SEG, inner)
-        # leftover text outside segments (rare) is appended to last segment
-        rest = re.sub(FLAT_SEG, "", inner).strip()
-        line = " ".join(_decode_flat(s[1:-1]) for s in segs if s[1:-1].strip())
-        if rest:
-            line += (" " if line else "") + rest
-        if line:
-            lines.append(line)
-    code_html = "\n".join(lines)
-    esc = (code_html.replace("&", "&amp;").replace("<", "&lt;")
-           .replace(">", "&gt;"))
-    return (f'<figure class="code-listing">'
-            f'<pre><code>{esc}</code></pre></figure>')
+    origins = []
+    for origin, pieces in runs:
+        if origin == "p" or not lines or origins[-1] != "loose":
+            lines.append(pieces)
+            origins.append(origin)
+        else:
+            lines[-1].extend(pieces)
+    lines = [_join_pieces(pieces) for pieces in lines]
+    lines = [ln for ln in lines if ln.strip()]
+    esc = ("\n".join(lines).replace("&", "&amp;")
+           .replace("<", "&lt;").replace(">", "&gt;"))
+    return f'<figure class="code-listing"><pre><code>{esc}</code></pre></figure>'
+
+
+def _heading_for(num, text):
+    level = "h3" if num.count(".") >= 2 else "h2"
+    return f"<{level}>{num} {text.strip()}</{level}>"
+
+
+CODE_SPLIT = re.compile(
+    r'(<figure class="code-listing">.*?</figure>|<pre[^>]*>.*?</pre>)', re.S)
+
+
+def typography_pass(body):
+    """Residual typography cleanup after structure rebuilding:
+    pandoc anchor leaks, citation/ref brackets, inline code, fake bold
+    subheads, curly quotes inside code, stray running-header h2."""
+    # pandoc anchor attribute leaks (some sit inside code figures)
+    body = re.sub(r"\s*\{#[^}]*\}", "", body)
+
+    # calibre export mangled a few oreil.ly short links (escaped tags
+    # inside the attribute); rebuild the cluster as a plain link
+    def link_fix(m):
+        url = m.group("u1") + m.group("u2")
+        text = (m.group("text") or "").strip()
+        tail = (m.group("tail") or "").split("&gt;")[-1]
+        tail = tail.replace("[", "").replace("]", "").lstrip()
+        if not text:
+            return tail
+        return f'<a href="{url}">{_entity(text)}</a>{tail}'
+    body = re.sub(
+        r'<a href="(?P<u1>https?://[^"]*?)&lt;em&gt;(?P<u2>[^"<>]*?)”&gt;'
+        r'(?:\[(?P<text>[^<&]+?)&lt;/a&gt;\])?'
+        r'.*?(?P<tail>[^<]*)</a>',
+        link_fix, body, flags=re.S)
+
+    # running-header artifact: '<h2>第N章</h2>' mid-chapter (not the
+    # chapter's own title, which sits within the first 300 chars)
+    def h2_guard(m):
+        return "" if m.start() > 300 else m.group(0)
+    body = re.sub(r'(?:<section[^>]*>\s*)?<h2[^>]*>\s*第\s*\d+\s*章\s*</h2>\s*',
+                  h2_guard, body)
+
+    parts = CODE_SPLIT.split(body)
+    for i in range(0, len(parts), 2):
+        t = parts[i]
+        # citation markers [[1]] -> superscript
+        t = re.sub(r"\[\[(\d+)\]\]", r'<sup class="cite">\1</sup>', t)
+        # cross-references: [图 2-14] / [第2章] -> plain text
+        t = re.sub(r"\[(图\s*\d+(?:[-–]\d+)?)\]", r"\1", t)
+        t = re.sub(r"\[(第\s*\d+\s*章)\]", r"\1", t)
+        # print line-wrap brackets: leading [ before CJK and trailing ]
+        # after CJK are wrap markers, not content
+        t = re.sub(r"(<p[^>]*>)\[(?=\s*[\u4e00-\u9fff])", r"\1", t)
+        t = re.sub(r"([\u4e00-\u9fff。，、])\](\s*</p>)", r"\1\2", t)
+        # a stray ] right after CJK with no opening [ left in the paragraph
+        def _stray_close(m):
+            seg = m.group(1)
+            return m.group(0) if seg.count("[") > seg.count("]") else \
+                m.group(2) + m.group(3)
+        t = re.sub(r"(<p[^>]*>)(.*?)(</p>)",
+                   lambda m: m.group(0) if "[" in m.group(2) else
+                   re.sub(r"([\u4e00-\u9fff。，、])\s*\] ", r"\1 ", m.group(0)),
+                   t, flags=re.S)
+        # bracketed identifiers in prose -> inline code (CJK stays prose)
+        t = re.sub(
+            r"\[([^\[\]<>]{1,120})\]",
+            lambda m: (m.group(0) if CJK_RE.search(m.group(1))
+                       else f"<code>{_entity(m.group(1))}</code>"),
+            t)
+        # leftover empty brackets from TOC/export artifacts
+        t = re.sub(r"\[\](\s*)", r"\1", t)
+        # bold-paragraph subheads -> real headings (X.Y -> h2, X.Y.Z -> h3)
+        t = re.sub(r"<p><strong>(\d+(?:\.\d+)+)\s+([^<]+)</strong></p>",
+                   lambda m: _heading_for(m.group(1), m.group(2)), t)
+        # loose bold section headings (calibre export) -> h3
+        t = re.sub(
+            r'(?<=[\n\r])\s*<strong class="calibre3">([^<]+)</strong>'
+            r'(?=\s*(?:[\n\r]|$))',
+            lambda m: f"\n<h3>{m.group(1).strip()}</h3>\n", t)
+        parts[i] = t
+    for i in range(1, len(parts), 2):
+        # straighten curly quotes inside code blocks
+        def straighten(m):
+            inner = (m.group(2).replace("“", '"').replace("”", '"')
+                     .replace("‘", "'").replace("’", "'"))
+            return f"<pre{m.group(1)}>{inner}</pre>"
+        parts[i] = re.sub(r"<pre([^>]*)>(.*?)</pre>", straighten,
+                          parts[i], flags=re.S)
+    return "".join(parts)
 
 
 # -------------------------------------------------------------------- crypto
@@ -528,6 +718,7 @@ def build_book(book):
     for ch in raw:
         title = re.sub(r"\{#[^}]*\}", "", ch["title"]).strip()
         title = re.sub(r"\s+", " ", title)
+        title = re.sub(r"^(第\s*\d+\s*章)\s*\.\s*", r"\1 ", title)
         body = ch["body"]
         body = inline_images(body, z, root, slug, book["max_img_w"], img_map)
         body = polish(body)

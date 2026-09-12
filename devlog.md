@@ -233,3 +233,33 @@ git add -A && git commit -m "Rebuild books payload" && git push origin main:mast
 
 产物：设计 AI 系统 220 个代码清单卡、图解书 315 个图注；两 payload 重建
 （1003KB / 5370KB）。散文段落零误伤（全书校验 leftover=0）。
+
+### 2026-09-12 排版专项 review（第二轮 polish）
+
+以排版视角全面审计两本 payload，发现并修复 8 类问题：
+
+1. **pandoc 锚点泄漏**（16 处）：正文/标题里残留 `{#chapter-xxx .calibre20}`
+   可见文本 → 全局剥离（含 figure 内部 3 处）。
+2. **第三种清单形态**（图解书）：代码被拆成 `<strong class="calibre3">from</strong>
+   <strong>import</strong> [LLM][, ][TinyAgent]` 的 strong 词元 + bracket token
+   混排。`rebuild_flat_listings()` v2 统一处理三种形态（dais 行段落 / illu
+   token 段落 / loose strong 行）；递归解码嵌套 token，`\[` `\]` `\{` `\|`
+   是被转义的真实代码括号，孤立 `\` 是被导出器吃掉的下划线
+   （`__init__` → `\_​_init\_​_`）。`return`/`self.` 等关键词前自动换行。
+3. **行内代码**：散文中 `[platform.data.search()]` 等 2100+ 处括号标识符
+   → `<code>`（内含 CJK 的引用/图号另走引用规则，不误伤）。
+4. **伪标题**：`<p><strong>2.1.2 …</strong></p>` → 真 `<h3>`（X.Y.Z）/`<h2>`
+   （X.Y），共 117+204 个标题层级修正；calibre 加粗小节标题 → h3。
+5. **引用标记**：`[[1]]` → `<sup class="cite">1</sup>`（64 处）。
+6. **交叉引用**：`[图2-8]`、`[第2章]` 括号剥离。
+7. **标注框**：注意/提示框正文（bracket 包裹的 CJK 段落）→
+   `<p class="callout">`（103 处）。
+8. **杂项**：目录标题「第 9 章.」句点、代码块内弯引号 → 直引号（45 块）、
+   打印页眉伪影 `<h2>第6章</h2>`（章中出现）、oreil.ly 短链被
+   `<em>` 劈开 + 转义标签垃圾（3 处，重建成正常 `<a>`）。
+
+阅读器 CSS 新增：`.callout` 标注卡、`sup.cite`、行内 `<code>` 徽章、
+h4、`text-autospace`（中西文间距）。
+
+最终审计：dais 270 代码卡/1136 行内 code/117 h2；illu 344 代码卡/
+194 h3/64 引用/99 callout；anchor 泄漏与 bracket 残留均为 0。

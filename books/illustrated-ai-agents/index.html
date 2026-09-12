@@ -85,6 +85,19 @@
     .reader-nav button:disabled { opacity: .4; cursor: default; }
     .reader-status { text-align: center; color: var(--ink-muted); font-size: .85rem; padding: 2rem 0; }
     /* content polish */
+    /* typography review */
+    .chapter sup.cite { font-size: .72em; color: var(--accent); font-weight: 600; margin-left: .1em; }
+    .chapter h4 { font-size: 1rem; margin: 1.4rem 0 .5rem; color: var(--ink); }
+    .chapter p code, .chapter li code, .chapter td code {
+      font-family: var(--font-mono); font-size: .86em;
+      background: var(--page-tint); border: 1px solid var(--hairline);
+      border-radius: .3rem; padding: .08em .35em; color: var(--accent); }
+    .chapter p.callout {
+      background: var(--page-tint); border-left: 3px solid var(--accent);
+      border-radius: 0 .5rem .5rem 0; padding: .9rem 1.1rem;
+      color: var(--ink-2); font-size: .92rem; margin: 1.4rem 0; }
+    .chapter { text-autospace: normal; -webkit-text-autospace: normal; }
+
     .chapter figure.code-listing { margin: 1.6rem 0; }
     .chapter .listing-cap {
       background: var(--code-bg); color: #addb67;
