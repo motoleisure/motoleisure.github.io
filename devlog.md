@@ -343,3 +343,25 @@ span）→ decode_pre_lines 里一并剔除。
 
 - 本地预览服务器端口统一用 **8899**（`python3 -m http.server 8899`），
   不再使用 8765。
+
+### 2026-09-13 新书：AI 与教育（MIT 报告）接入书架
+
+来源：https://aiandeducation.mit.edu/report/ （MIT 教学与研究训练中
+AI 使用特设委员会报告，2026-08-13）。流程：
+
+1. curl 抓取页面 → 提取 entry-content、链接绝对化 → calibre 转 EPUB
+   （convert.py 只收 pdf/docx/epub，网页需先过 calibre）。
+2. translate-book 技能管线：46 chunks、20 条术语表（MIT 保留、特设
+   委员会、生成式 AI、人名音译、p-set=问题集、UROP/住校教育等）、
+   子代理按 3 个/批翻译（并发上限实际约 3，超限报 captcha/
+   concurrency 错误，等待后重试即可）、每批 record + merge meta。
+3. merge_and_build 产出 book.epub（输出四格式），EPUB 结构干净：
+   spine 直接可用（strategy="spine"，新策略：spine 顺序 + 跳过
+   <1500 字符无图标题残片）。
+4. 书架接入：BOOKS 第三条目 + 新封面 SVG + 阅读器页
+   （books/ai-education-report/，从图解书复制替换书字段）+ 书架
+   第三张卡。payload 101KB，4 章，同一密码体系。
+
+教训：translate-book 的 meta 校验很严——used_term_sources 必须是
+字符串数组、new_entities 必须有 source，占位空对象会被隔离；
+decode_pre_lines 会误伤参考文件里含 [] 的行，注意区分。

@@ -52,6 +52,17 @@ BOOKS = [
         "strategy": "dais-map",  # scrambled MEAP export; explicit file map below
     },
     {
+        "slug": "ai-education-report",
+        "title": "AI 与教育",
+        "title_en": "AI and Education: Report of the Ad Hoc Committee on AI Use in Teaching, Learning, and Research Training",
+        "author": "MIT 教学与研究训练中 AI 使用特设委员会",
+        "blurb": "MIT 特设委员会关于生成式 AI 时代教学的调查与建议：八项指导原则、三项行动路线与 27 条具体建议。",
+        "epub": "/Users/tim/my-sys/ai-education-report_temp/book.epub",
+        "cover": "assets/images/books/cover-ai-education-report.svg",
+        "max_img_w": 1200,
+        "strategy": "spine",  # clean calibre EPUB; use spine order, skip title fragments
+    },
+    {
         "slug": "illustrated-ai-agents",
         "title": "AI 智能体图解",
         "title_en": "An Illustrated Guide to AI Agents",
@@ -950,6 +961,11 @@ def build_book(book):
 
     if book["strategy"] == "dais-map":
         raw = chapters_dais(z)
+    elif book["strategy"] == "spine":
+        raw = []
+        for ch in chapters_raw:
+            raw.append({"title": extract_title(ch["html"]) or "章节",
+                        "body": extract_body(ch["html"])})
     else:
         raw = chapters_by_heading(chapters_raw)
 
@@ -961,7 +977,8 @@ def build_book(book):
         body = ch["body"]
         body = inline_images(body, z, root, slug, book["max_img_w"], img_map)
         body = polish(body)
-        if len(body) < 400 and "<img" not in body:
+        min_len = 1500 if book["strategy"] == "spine" else 400
+        if len(body) < min_len and "<img" not in body:
             continue
         chapters.append({"id": f"ch{len(chapters)+1:03d}", "title": title[:80],
                          "html": body})
