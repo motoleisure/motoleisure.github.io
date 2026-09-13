@@ -65,28 +65,30 @@ BOOKS = [
     },
     {
         "slug": "ai-agents-in-depth",
+        "external_images": True,
         "protected": False,
         "title": "深入理解 AI Agent",
         "title_en": "AI Agents in Depth",
         "author": "李博杰",
         "blurb": "Agent = LLM + 上下文 + 工具。从上下文工程、记忆、工具到评估与多智能体协作的设计原理与工程实践。",
-        "epub": "/Users/tim/my-sys/li-brojie-books/ai-agents-in-depth.epub",
+        "epub": "/Users/tim/my-sys/li-brojie-books/AI-Agents-in-Depth-zh-CN-official.epub",
         "cover": "assets/images/books/cover-ai-agents-in-depth.svg",
         "max_img_w": 1200,
-        "strategy": "pdf-toc",  # LaTeX PDF -> calibre; split by PDF bookmarks
-        "plain_listings": False,  # math-heavy; avoid false code figures
+        "strategy": "spine",  # official pandoc EPUB: one file per chapter
+        "protected": False,
     },
     {
         "slug": "ai-infra-book",
+        "external_images": True,
         "protected": False,
         "title": "深入理解 AI Infra",
         "title_en": "AI Infra Book",
         "author": "李博杰",
         "blurb": "支撑模型训练与推理的基础设施：从模型架构、加速器、算子运行时到超节点、网络与推理优化的量化分析。",
-        "epub": "/Users/tim/my-sys/li-brojie-books/ai-infra-book.epub",
+        "epub": "/Users/tim/my-sys/li-brojie-books/ai-infra-official.epub",
         "cover": "assets/images/books/cover-ai-infra-book.svg",
         "max_img_w": 1200,
-        "strategy": "pdf-toc",
+        "strategy": "spine",  # official pandoc EPUB built from md source
         "plain_listings": False,
     },
     {
@@ -195,24 +197,49 @@ def convert_image(src_bytes, ext, book_slug, max_w):
     return f"assets/images/books/{name}"
 
 
-def inline_images(body, z, root, book_slug, max_w, img_map):
+def posixpath_join(base, rel):
+    import posixpath as _p
+    return _p.normpath(_p.join(base, rel)).replace("\\", "/")
+
+
+def inline_images(body, z, root, book_slug, max_w, img_map, base_dir="",
+                  external=False):
     """Rewrite <img src> to site AVIF paths, then inline them as data URIs
-    (payload is self-contained; reader injects into sandboxed DOM)."""
+    (payload is self-contained; reader injects into sandboxed DOM).
+    base_dir = the current chapter's directory — pandoc EPUBs reference
+    media relative to it (text/../media/...), not to the OPF root."""
     def repl(m):
         attrs, src = m.group(1), m.group(2)
         if src.startswith(("http", "data:")):
             return m.group(0)
-        path = f"{root}/{src}" if root else src
-        path = os.path.normpath(path).replace("\\", "/")
-        try:
-            raw = z.read(path)
-        except KeyError:
+        rel = src.replace("\\", "/")
+        if rel.startswith("/"):
+            rel = rel.lstrip("/")
+        base = base_dir or root
+        # src 相对章节目录解析，再挂到 OPF 根；同时保留旧的根相对回退
+        p1 = posixpath_join(root, posixpath_join(base, rel))
+        p2 = posixpath_join(root, rel)
+        candidates = [p1, p2]
+        raw = None
+        used = None
+        for cand in candidates:
+            try:
+                raw = z.read(cand)
+                used = cand
+                break
+            except KeyError:
+                continue
+        if raw is None:
             return m.group(0)
         ext = os.path.splitext(src)[1].lower()
-        site_rel = img_map.get(path)
+        site_rel = img_map.get(used)
         if not site_rel:
             site_rel = convert_image(raw, ext, book_slug, max_w)
-            img_map[path] = site_rel
+            img_map[used] = site_rel
+        if external:
+            # image-heavy books: serve images as site files (same-origin,
+            # cacheable) instead of inlining megabytes into the payload
+            return f'<img {attrs}src="../../{site_rel}">'
         with open(os.path.join(SITE_DIR, site_rel), "rb") as f:
             data = f.read()
         b64 = base64.b64encode(data).decode()
@@ -1099,7 +1126,9 @@ def build_book(book):
         title = re.sub(r"\s+", " ", title)
         title = re.sub(r"^(第\s*\d+\s*章)\s*\.\s*", r"\1 ", title)
         body = ch["body"]
-        body = inline_images(body, z, root, slug, book["max_img_w"], img_map)
+        body = inline_images(body, z, root, slug, book["max_img_w"], img_map,
+                             base_dir=os.path.dirname(ch.get("href", "")),
+                             external=book.get("external_images", False))
         body = polish(body, plain_listings=book.get("plain_listings", True))
         min_len = 1500 if book["strategy"] == "spine" else 400
         if len(body) < min_len and "<img" not in body:

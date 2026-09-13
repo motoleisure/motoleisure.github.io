@@ -421,3 +421,36 @@ xiaoxiang-librarian.png（页面吉祥物）}。
   书架卡片标签区分 🔒 密码解锁 / 📖 免费阅读。
 - 教训：**改版必须先 headless 截图自检再交付**，上一版就是没看
   就发；同时避免用多层小补丁叠改 CSS，必要时整段重写。
+
+### 2026-09-13 修正：李博杰两本书的图与代码块（换官方源）
+
+用户指出两本书的图和代码块都不对。根因：PDF→calibre EPUB 这条路
+天然保不住结构——TikZ 图退化为散落文字、代码行丢失换行并与中文
+解释混排、还有转义的假 &lt;code&gt; 标签。
+
+根治 = 换官方源（两本都是开源书，Apache 2.0）：
+
+1. **深入理解 AI Agent**：bojieli/ai-agent-book Releases 有官方
+   zh-CN EPUB（pandoc 生成，每章一个文件、58 个代码块、114 张图）。
+   → 直接换源 + spine 策略重建。
+2. **深入理解 AI Infra**：bojieli/ai-infra-book 仓库 manuscripts/
+   有全部 13 章 markdown + chNN/ 配图（SVG）。→ 浅克隆 + pandoc
+   3.11 自建 EPUB（--epub-chapter-level=1），477 张 SVG 图入册。
+
+两个管线 bug 顺带修掉：
+
+- **inline_images 路径解析**：pandoc EPUB 的媒体引用是相对章节目录
+  （text/../media/file9.svg），原实现按 OPF 根解析，normpath 把
+  EPUB/../ 爬出去导致 KeyError、图片引用原样残留（图全裂）。
+  → 按"章节目录解析 + 挂 OPF 根"双候选解析。
+- **图片外置模式**：477 张 SVG 若内联 data URI，payload 会到 32MB。
+  新增 external_images 标志：图片写成站点文件，payload 存相对引用
+  （同源加载 + 浏览器缓存），payload 回落到 1.2MB/2.6MB。
+
+验证（headless 截图，注意 --virtual-time-budget 会把图片加载掐早、
+产生假裂图，去掉该参数重截才作数）：图 1-1/1-2/2-1 彩色 SVG 图
+完整渲染，代码块带语法高亮，正文排版正常。
+
+payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
+13 章/477 图。附带收益：设计 AI 系统的图片此前也因路径问题静默
+裂着，本次一并修复（payload 971→1763KB）。
