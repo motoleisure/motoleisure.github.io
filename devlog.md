@@ -365,3 +365,25 @@ AI 使用特设委员会报告，2026-08-13）。流程：
 教训：translate-book 的 meta 校验很严——used_term_sources 必须是
 字符串数组、new_entities 必须有 source，占位空对象会被隔离；
 decode_pre_lines 会误伤参考文件里含 [] 的行，注意区分。
+
+### 2026-09-13 书架扩充：李博杰两本 PDF 书 + 分类重组
+
+新增《深入理解 AI Agent》《深入理解 AI Infra》（李博杰，LaTeX/ElegantBook
+PDF）。PDF 无法直接进 convert 管线，走 calibre：
+
+- ebook-convert PDF → EPUB（--enable-heuristics），spine 按页碎片化
+  （78/65 个分片），但 PDF 书签完整保留在 toc.ncx。
+- 新策略 **pdf-toc**：解析 ncx 顶层书签（第 N 章/前言/后记），用
+  calibre 页码锚点 id="page_NN" 在拼接正文流上定位切章；引言章里的
+  印刷目录在 `>目录<` 处截断。注意切点要取锚点**标签闭合之后**，
+  否则标签残余会变成可见文本。
+- 数学公式密集，关闭 plain-listings 规则（plain_listings: False），
+  避免公式段被误判为代码卡；代码以段落形式呈现。
+
+书架按类别重组为三组：**智能体开发**（深入理解 AI Agent、AI 智能体
+图解）、**系统与基础设施**（深入理解 AI Infra、设计 AI 系统）、
+**报告与政策**（AI 与教育）。书架页用 .cat-title 分组标题。
+
+payload：ai-agents-in-depth 2258KB/12 章；ai-infra-book 3667KB/13 章。
+已知限制：TikZ 矢量图在 PDF→EPUB 中退化为散落文字，公式/图表阅读
+体验不如原 PDF；正文段落完好。

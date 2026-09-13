@@ -15,6 +15,13 @@
   <link rel="stylesheet" href="../assets/css/style.css">
   <style>
     .books-band { background: var(--page-tint); padding: 4rem 0 5rem; }
+    .cat-title {
+      font-family: Inter, system-ui, sans-serif;
+      font-size: .82rem; font-weight: 600; letter-spacing: .18em;
+      color: var(--ink-muted); text-transform: uppercase;
+      margin: 2.6rem 0 1rem; display: flex; align-items: center; gap: .8rem;
+    }
+    .cat-title::after { content: ""; flex: 1; height: 1px; background: var(--hairline); }
     .shelf {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -111,23 +118,14 @@
           <p class="page-subtitle">私人书架 · 输入密码解锁在线阅读</p>
         </div>
 
+        <div class="cat-title">智能体开发</div>
         <div class="shelf rise rise-2">
-          <a class="book-card" href="designing-ai-systems/">
-            <img src="../assets/images/books/cover-designing-ai-systems.svg" alt="《设计 AI 系统》封面" loading="lazy">
+          <a class="book-card" href="ai-agents-in-depth/">
+            <img src="../assets/images/books/cover-ai-agents-in-depth.svg" alt="《深入理解 AI Agent》封面" loading="lazy">
             <div class="book-info">
-              <h2>设计 AI 系统</h2>
-              <p class="author">Suhas Suresha</p>
-              <p class="blurb">从平台、SDK、模型服务到记忆与上下文管理，一本面向工程师的 AI 系统设计实战指南。</p>
-              <span class="lock-tag">🔒 密码解锁</span>
-            </div>
-          </a>
-
-          <a class="book-card" href="ai-education-report/">
-            <img src="../assets/images/books/cover-ai-education-report.svg" alt="《AI 与教育》封面" loading="lazy">
-            <div class="book-info">
-              <h2>AI 与教育</h2>
-              <p class="author">MIT 教学、学习与研究训练中 AI 使用特设委员会</p>
-              <p class="blurb">MIT 特设委员会关于生成式 AI 时代教学的调查与建议：八项指导原则、三项行动路线与 27 条具体建议。</p>
+              <h2>深入理解 AI Agent</h2>
+              <p class="author">李博杰</p>
+              <p class="blurb">Agent = LLM + 上下文 + 工具。从上下文工程、记忆、工具到评估与多智能体协作的设计原理与工程实践。</p>
               <span class="lock-tag">🔒 密码解锁</span>
             </div>
           </a>
@@ -142,6 +140,43 @@
             </div>
           </a>
         </div>
+
+        <div class="cat-title">系统与基础设施</div>
+        <div class="shelf">
+          <a class="book-card" href="ai-infra-book/">
+            <img src="../assets/images/books/cover-ai-infra-book.svg" alt="《深入理解 AI Infra》封面" loading="lazy">
+            <div class="book-info">
+              <h2>深入理解 AI Infra</h2>
+              <p class="author">李博杰</p>
+              <p class="blurb">支撑模型训练与推理的基础设施：从模型架构、加速器、算子运行时到超节点、网络与推理优化的量化分析。</p>
+              <span class="lock-tag">🔒 密码解锁</span>
+            </div>
+          </a>
+
+          <a class="book-card" href="designing-ai-systems/">
+            <img src="../assets/images/books/cover-designing-ai-systems.svg" alt="《设计 AI 系统》封面" loading="lazy">
+            <div class="book-info">
+              <h2>设计 AI 系统</h2>
+              <p class="author">Suhas Suresha</p>
+              <p class="blurb">从平台、SDK、模型服务到记忆与上下文管理，一本面向工程师的 AI 系统设计实战指南。</p>
+              <span class="lock-tag">🔒 密码解锁</span>
+            </div>
+          </a>
+        </div>
+
+        <div class="cat-title">报告与政策</div>
+        <div class="shelf">
+          <a class="book-card" href="ai-education-report/">
+            <img src="../assets/images/books/cover-ai-education-report.svg" alt="《AI 与教育》封面" loading="lazy">
+            <div class="book-info">
+              <h2>AI 与教育</h2>
+              <p class="author">MIT 教学、学习与研究训练中 AI 使用特设委员会</p>
+              <p class="blurb">MIT 特设委员会关于生成式 AI 时代教学的调查与建议：八项指导原则、三项行动路线与 27 条具体建议。</p>
+              <span class="lock-tag">🔒 密码解锁</span>
+            </div>
+          </a>
+        </div>
+
       </div>
     </section>
   </main>

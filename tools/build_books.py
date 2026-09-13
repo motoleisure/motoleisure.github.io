@@ -63,6 +63,30 @@ BOOKS = [
         "strategy": "spine",  # clean calibre EPUB; use spine order, skip title fragments
     },
     {
+        "slug": "ai-agents-in-depth",
+        "title": "深入理解 AI Agent",
+        "title_en": "AI Agents in Depth",
+        "author": "李博杰",
+        "blurb": "Agent = LLM + 上下文 + 工具。从上下文工程、记忆、工具到评估与多智能体协作的设计原理与工程实践。",
+        "epub": "/Users/tim/my-sys/li-brojie-books/ai-agents-in-depth.epub",
+        "cover": "assets/images/books/cover-ai-agents-in-depth.svg",
+        "max_img_w": 1200,
+        "strategy": "pdf-toc",  # LaTeX PDF -> calibre; split by PDF bookmarks
+        "plain_listings": False,  # math-heavy; avoid false code figures
+    },
+    {
+        "slug": "ai-infra-book",
+        "title": "深入理解 AI Infra",
+        "title_en": "AI Infra Book",
+        "author": "李博杰",
+        "blurb": "支撑模型训练与推理的基础设施：从模型架构、加速器、算子运行时到超节点、网络与推理优化的量化分析。",
+        "epub": "/Users/tim/my-sys/li-brojie-books/ai-infra-book.epub",
+        "cover": "assets/images/books/cover-ai-infra-book.svg",
+        "max_img_w": 1200,
+        "strategy": "pdf-toc",
+        "plain_listings": False,
+    },
+    {
         "slug": "illustrated-ai-agents",
         "title": "AI 智能体图解",
         "title_en": "An Illustrated Guide to AI Agents",
@@ -306,7 +330,7 @@ def chapters_by_heading(spine_chapters):
 
 # --------------------------------------------------------- content polishing
 
-def polish(body):
+def polish(body, plain_listings=True):
     """Clean up MEAP/pandoc artifacts and upgrade presentation structures.
 
     - strip pandoc line-number anchors (<a href="#cbN-M">) inside code
@@ -401,8 +425,10 @@ def polish(body):
         r'(<figure class="code-listing">.*?</figure>|<pre[^>]*>.*?</pre>)',
         body, flags=re.S)
     for _i in range(0, len(parts), 2):
-        parts[_i] = rebuild_flat_listings(
-            rebuild_plain_listings(rebuild_fenced_listings(parts[_i])))
+        seg = rebuild_fenced_listings(parts[_i])
+        if PLAIN_LISTINGS_ENABLED:
+            seg = rebuild_plain_listings(seg)
+        parts[_i] = rebuild_flat_listings(seg)
     body = "".join(parts)
 
     body = typography_pass(body)
@@ -507,6 +533,87 @@ def decode_pre_lines(body):
 
 
 FENCE_P = re.compile(r'<p[^>]*>\s*[\u201c\u201d"]{1,2}`{1,3}\s*[a-z]*\s*</p>')
+
+
+def chapters_pdf_toc(z, root, chapters_raw):
+    """Split by top-level PDF bookmarks (toc.ncx) using calibre page
+    anchors (id="page_NN"). Designed for LaTeX->PDF->calibre EPUBs."""
+    ncx_name = [n for n in z.namelist() if n.endswith(".ncx")][0]
+    ncx = z.read(ncx_name).decode("utf-8", errors="ignore")
+    points, depth = [], 0
+    for m in re.finditer(r"<navPoint[^>]*>|</navPoint>|<text>([^<]*)</text>"
+                         r'|<content src="([^"]+)"', ncx):
+        tag = m.group(0)
+        if tag.startswith("<navPoint"):
+            depth += 1
+        elif tag == "</navPoint>":
+            depth -= 1
+        elif m.group(1) is not None and depth >= 1:
+            points.append([depth, m.group(1).strip(), None])
+        elif m.group(2) is not None and points and points[-1][2] is None:
+            points[-1][2] = m.group(2)
+    top = [(t, s) for d, t, s in points if d == 1 and s]
+    if not top:
+        return []
+
+    hrefs = [ch["href"] for ch in chapters_raw]
+    htmls = [ch["html"] for ch in chapters_raw]
+    # spine 文件序号映射（ncx src 去掉锚点）
+    file_idx = {}
+    for idx, ch in enumerate(chapters_raw):
+        file_idx[ch["href"]] = idx
+
+    # 拼接正文流并记录 (href, page) 锚点的全局偏移
+    stream, offsets = [], []
+    for idx, body in enumerate(htmls):
+        start = sum(len(s) for s in stream)
+        stream.append(body)
+        for am in re.finditer(r'id="page_(\d+)"[^>]*>', body):
+            offsets.append((hrefs[idx], int(am.group(1)),
+                            start + am.start(), start + am.end()))
+    stream_html = "".join(stream)
+
+    def locate(href, page):
+        best = None
+        for h, p, off, tag_end in offsets:
+            if h == href and p == page:
+                best = tag_end
+                break
+            if best is None and h == href and p >= page:
+                best = tag_end
+        if best is None:
+            # 退化：文件起点
+            fi = file_idx.get(href)
+            if fi is None:
+                return None
+            return sum(len(s) for s in stream[:fi])
+        return best
+
+    bounds = []
+    for title, src in top:
+        href, _, page = src.partition("#")
+        page = int(re.sub(r"\D", "", page) or 0)
+        href = posixpath_norm(href)
+        pos = locate(href, page)
+        if pos is not None:
+            bounds.append((title, pos))
+    bounds.sort(key=lambda x: x[1])
+
+    chapters = []
+    for i, (title, start) in enumerate(bounds):
+        end = bounds[i + 1][1] if i + 1 < len(bounds) else len(stream_html)
+        body = stream_html[start:end]
+        # 前言/引言章里混入的印刷目录：在 >目录< 处截断
+        m = re.search(r">\s*目\s*录\s*<", body)
+        if m and i == 0 and m.start() > 500:
+            body = body[:m.start()] + "</body>"
+        chapters.append({"title": title, "body": body})
+    return chapters
+
+
+def posixpath_norm(href):
+    import posixpath as _p
+    return _p.normpath(href)
 
 
 def rebuild_fenced_listings(body):
@@ -803,7 +910,19 @@ CODE_SPLIT = re.compile(
     r'(<figure class="code-listing">.*?</figure>|<pre[^>]*>.*?</pre>)', re.S)
 
 
-def typography_pass(body):
+PLAIN_LISTINGS_ENABLED = True
+
+
+def typography_pass(body, plain_listings=True):
+    global PLAIN_LISTINGS_ENABLED
+    prev, PLAIN_LISTINGS_ENABLED = PLAIN_LISTINGS_ENABLED, plain_listings
+    try:
+        return _typography_pass_inner(body)
+    finally:
+        PLAIN_LISTINGS_ENABLED = prev
+
+
+def _typography_pass_inner(body):
     """Residual typography cleanup after structure rebuilding:
     pandoc anchor leaks, citation/ref brackets, inline code, fake bold
     subheads, curly quotes inside code, stray running-header h2."""
@@ -966,6 +1085,8 @@ def build_book(book):
         for ch in chapters_raw:
             raw.append({"title": extract_title(ch["html"]) or "章节",
                         "body": extract_body(ch["html"])})
+    elif book["strategy"] == "pdf-toc":
+        raw = chapters_pdf_toc(z, root, chapters_raw)
     else:
         raw = chapters_by_heading(chapters_raw)
 
@@ -976,7 +1097,7 @@ def build_book(book):
         title = re.sub(r"^(第\s*\d+\s*章)\s*\.\s*", r"\1 ", title)
         body = ch["body"]
         body = inline_images(body, z, root, slug, book["max_img_w"], img_map)
-        body = polish(body)
+        body = polish(body, plain_listings=book.get("plain_listings", True))
         min_len = 1500 if book["strategy"] == "spine" else 400
         if len(body) < min_len and "<img" not in body:
             continue
