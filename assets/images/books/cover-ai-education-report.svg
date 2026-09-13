@@ -13,6 +13,4 @@
   <text x="150" y="710" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" font-size="110" font-weight="600" letter-spacing="12" fill="#00172e">教育</text>
   <text x="150" y="980" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" font-size="26" font-weight="500" fill="#243d58">MIT 教学、学习与研究训练中</text>
   <text x="150" y="1020" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" font-size="26" font-weight="500" fill="#243d58">AI 使用特设委员会</text>
-  <rect x="150" y="1050" width="200" height="44" rx="22" fill="#00172e"/>
-  <text x="250" y="1080" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="20" fill="#ffffff">🔒 私人书架</text>
 </svg>

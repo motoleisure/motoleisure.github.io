@@ -12,6 +12,4 @@
   <text x="150" y="560" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" font-size="88" font-weight="600" letter-spacing="8" fill="#00172e">深入理解</text>
   <text x="150" y="710" font-family="Inter, system-ui, sans-serif" font-size="96" font-weight="600" letter-spacing="4" fill="#00172e">AI Infra</text>
   <text x="150" y="1010" font-family="PingFang SC, Hiragino Sans GB, Microsoft YaHei, sans-serif" font-size="30" font-weight="500" fill="#243d58">李博杰</text>
-  <rect x="150" y="1050" width="200" height="44" rx="22" fill="#00172e"/>
-  <text x="250" y="1080" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="20" fill="#ffffff">🔒 私人书架</text>
 </svg>
