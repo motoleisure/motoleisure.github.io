@@ -23,25 +23,8 @@
     .reader-meta .author { margin: .3rem 0 0; color: var(--ink-muted); font-size: .92rem; }
     .reader-meta .blurb { margin: .6rem 0 0; color: var(--ink-2); font-size: .95rem; line-height: 1.75; max-width: 34rem; }
 
-    /* lock screen */
-    .lock-screen { position: fixed; inset: 0; z-index: 90; background: rgba(0,23,46,.55);
       -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
       display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
-    .lock-card { background: var(--page); border: 1px solid var(--hairline); border-radius: 1rem;
-      padding: 2.2rem 2rem; max-width: 22rem; width: 100%; text-align: center;
-      box-shadow: 0 24px 60px -24px rgba(0,23,46,.5); }
-    .lock-card .lock-icon { font-size: 2rem; margin-bottom: .6rem; }
-    .lock-card h2 { margin: 0 0 .4rem; font-size: 1.15rem; color: var(--ink); }
-    .lock-card p { margin: 0 0 1.2rem; color: var(--ink-muted); font-size: .9rem; }
-    .lock-card input { width: 100%; padding: .7rem .9rem; border: 1px solid var(--hairline);
-      border-radius: .55rem; font-size: 1rem; color: var(--ink); text-align: center; letter-spacing: .2em; }
-    .lock-card input:focus { outline: 2px solid var(--accent-bright); outline-offset: 1px; border-color: var(--accent-bright); }
-    .lock-card button { width: 100%; margin-top: .9rem; padding: .7rem; border: 0; border-radius: .55rem;
-      background: var(--ink); color: #fff; font-size: .95rem; font-weight: 500; cursor: pointer;
-      transition: background .18s ease; }
-    .lock-card button:hover { background: var(--accent); }
-    .lock-err { display: none; margin-top: .8rem; color: #b91c1c; font-size: .85rem; }
-    .lock-err.show { display: block; }
     [hidden] { display: none !important; }
 
     /* unlocked reader */
@@ -187,7 +170,7 @@
           </div>
         </div>
 
-        <p class="reader-status" id="status">🔒 内容已加密，请输入密码解锁。</p>
+        <p class="reader-status" id="status">免费阅读，无需密码。</p>
       </div>
     </section>
   </main>
@@ -213,29 +196,12 @@
     </div>
   </footer>
 
-  <div class="lock-screen" id="lock">
-    <div class="lock-card">
-      <div class="lock-icon">🔒</div>
-      <h2>这本书已上锁</h2>
-      <p>输入密码解锁《AI 与教育》</p>
-      <form id="lock-form">
-        <input type="password" id="pwd" placeholder="密码" autocomplete="off" aria-label="解锁密码">
-        <button type="submit" id="unlock-btn">解锁阅读</button>
-      </form>
-      <p class="lock-err" id="err">密码不正确，请重试。</p>
-    </div>
-  </div>
-
   <script>
   (function () {
     var SLUG = "ai-education-report";
-    var PBKDF2_ITERS = 150000;
     var book = null;
     var current = -1;
 
-    var lock = document.getElementById("lock");
-    var err = document.getElementById("err");
-    var btn = document.getElementById("unlock-btn");
     var readerEl = document.getElementById("reader");
     var statusEl = document.getElementById("status");
     var tocEl = document.getElementById("toc");
@@ -244,46 +210,14 @@
     var prevBtn = document.getElementById("prev");
     var nextBtn = document.getElementById("next");
 
-    var b64ToBuf = function (b64) {
-      var bin = atob(b64);
-      var buf = new Uint8Array(bin.length);
-      for (var i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
-      return buf;
-    };
-
-    function deriveKey(password, salt) {
-      var enc = new TextEncoder();
-      return crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveKey"])
-        .then(function (pk) {
-          return crypto.subtle.deriveKey(
-            { name: "PBKDF2", salt: salt, iterations: PBKDF2_ITERS, hash: "SHA-256" },
-            pk, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
-        });
-    }
-
-    function fetchAndDecrypt(password) {
+    function fetchBook() {
       return fetch("../../assets/books/" + SLUG + ".bin")
         .then(function (r) {
           if (!r.ok) throw new Error("payload missing");
-          return r.arrayBuffer();
-        })
-        .then(function (buf) {
-          var bytes = new Uint8Array(buf);
-          var salt = bytes.slice(0, 16);
-          var iv = bytes.slice(16, 28);
-          var tag = bytes.slice(28, 44);
-          var ct = bytes.slice(44);
-          return deriveKey(password, salt).then(function (key) {
-            // AES-GCM in WebCrypto appends the tag to ciphertext
-            var ctTag = new Uint8Array(ct.length + tag.length);
-            ctTag.set(ct); ctTag.set(tag, ct.length);
-            return crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ctTag);
-          });
-        })
-        .then(function (plain) {
-          return JSON.parse(new TextDecoder().decode(plain));
+          return r.json();
         });
     }
+
 
     function renderToc() {
       tocEl.innerHTML = "";
@@ -314,32 +248,21 @@
     }
 
     function unlock() {
-      lock.hidden = true;
       readerEl.hidden = false;
       statusEl.hidden = true;
       renderToc();
       show(0);
     }
 
-    document.getElementById("lock-form").addEventListener("submit", function (e) {
-      e.preventDefault();
-      var pwd = document.getElementById("pwd").value;
-      if (!pwd) return;
-      btn.disabled = true;
-      btn.textContent = "解锁中…";
-      err.classList.remove("show");
-      fetchAndDecrypt(pwd)
-        .then(function (data) {
-          book = data;
-          try { sessionStorage.setItem("books-unlocked", "1"); } catch (e) {}
-          unlock();
-        })
-        .catch(function () {
-          err.classList.add("show");
-          btn.disabled = false;
-          btn.textContent = "解锁阅读";
-        });
-    });
+    fetchBook()
+      .then(function (data) {
+        book = data;
+        unlock();
+      })
+      .catch(function (e) {
+        statusEl.hidden = false;
+        statusEl.textContent = "加载失败：" + (e && e.message || e);
+      });
 
     prevBtn.addEventListener("click", function () { show(current - 1); });
     nextBtn.addEventListener("click", function () { show(current + 1); });

@@ -53,6 +53,7 @@ BOOKS = [
     },
     {
         "slug": "ai-education-report",
+        "protected": False,
         "title": "AI 与教育",
         "title_en": "AI and Education: Report of the Ad Hoc Committee on AI Use in Teaching, Learning, and Research Training",
         "author": "MIT 教学与研究训练中 AI 使用特设委员会",
@@ -64,6 +65,7 @@ BOOKS = [
     },
     {
         "slug": "ai-agents-in-depth",
+        "protected": False,
         "title": "深入理解 AI Agent",
         "title_en": "AI Agents in Depth",
         "author": "李博杰",
@@ -76,6 +78,7 @@ BOOKS = [
     },
     {
         "slug": "ai-infra-book",
+        "protected": False,
         "title": "深入理解 AI Infra",
         "title_en": "AI Infra Book",
         "author": "李博杰",
@@ -1108,7 +1111,10 @@ def build_book(book):
         "slug": slug, "title": book["title"], "author": book["author"],
         "chapters": chapters,
     }
-    blob = encrypt_payload(payload)
+    if book.get("protected", True):
+        blob = encrypt_payload(payload)
+    else:
+        blob = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     os.makedirs(OUT_DIR, exist_ok=True)
     out = os.path.join(OUT_DIR, f"{slug}.bin")
     with open(out, "wb") as f:

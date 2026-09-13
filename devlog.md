@@ -405,3 +405,19 @@ payload：ai-agents-in-depth 2258KB/12 章；ai-infra-book 3667KB/13 章。
 
 设计资产：assets/images/shelf-design/{design-A-librarian.png（设计底稿）,
 xiaoxiang-librarian.png（页面吉祥物）}。
+
+### 2026-09-13 返工：书架布局回滚重做 + 密码策略调整
+
+小象方案上线后被否（页头断裂、全宽横卡无书架感，"比之前还烂"）。
+用 headless Chrome 截图自检后推倒重做：
+
+- 移除小象吉祥物（用户明确不要）及相关 CSS/资产；
+- 书卡恢复竖版（封面在上、信息在下），但网格改为
+  repeat(auto-fill, minmax(200px,1fr))、封面比例 2/3、简介 3 行
+  截断——比初版封面小约 45%，且保持书卡密度与观感；
+- **密码策略**：仅《AI 智能体图解》《设计 AI 系统》保留密码。
+  build_books 增加 protected 标志，未保护书直接输出明文 JSON
+  payload；三个阅读器页移除锁屏/解密逻辑，改为 fetch+JSON 直读，
+  书架卡片标签区分 🔒 密码解锁 / 📖 免费阅读。
+- 教训：**改版必须先 headless 截图自检再交付**，上一版就是没看
+  就发；同时避免用多层小补丁叠改 CSS，必要时整段重写。

@@ -15,12 +15,6 @@
   <link rel="stylesheet" href="../assets/css/style.css">
   <style>
     .books-band { background: var(--page-tint); padding: 4rem 0 5rem; }
-    .shelf-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
-    .shelf-mascot {
-      width: 120px; height: auto; flex: none;
-      background: #fbf7ee; border: 1px solid var(--hairline);
-      border-radius: 1rem; padding: .3rem;
-    }
     .cat-title {
       font-family: Inter, system-ui, sans-serif;
       font-size: .82rem; font-weight: 600; letter-spacing: .18em;
@@ -29,40 +23,31 @@
     }
     .cat-title::after { content: ""; flex: 1; height: 1px; background: var(--hairline); }
     .shelf {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 2rem;
-      margin-top: 3rem;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1.1rem; margin-top: 3rem;
     }
-    @media (max-width: 767px) { .shelf { grid-template-columns: 1fr; } }
     .book-card {
-      display: flex; align-items: center; gap: 1.1rem;
+      display: flex; flex-direction: column;
       background: var(--page); border: 1px solid var(--hairline);
-      border-radius: .8rem; padding: .85rem 1.1rem;
+      border-radius: .8rem; overflow: hidden;
       text-decoration: none; transition: transform .15s ease, box-shadow .15s ease;
     }
     .book-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px -12px rgba(0,23,46,.35);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 24px -14px rgba(0,23,46,.4);
     }
     .book-card img {
-      width: 74px; height: 111px; object-fit: cover; display: block;
-      border-radius: .35rem; border: 1px solid var(--hairline); flex: none;
+      width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block;
+      border-bottom: 1px solid var(--hairline);
     }
-    .book-card .book-info { padding: 0; min-width: 0; }
-    .book-card h2 { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--ink); }
-    .book-card .author { margin: .2rem 0 0; color: var(--ink-muted); font-size: .82rem; }
-    .book-card .blurb { margin: .4rem 0 0; color: var(--ink-2); font-size: .86rem; line-height: 1.6; }
-    .book-card .lock-tag { display: inline-block; margin-top: .45rem; }
-    .shelf { display: grid; grid-template-columns: 1fr; gap: .9rem; }
-    .book-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 12px 32px -18px rgba(0,23,46,.4);
+    .book-card .book-info { padding: .75rem .85rem .9rem; }
+    .book-card h2 { margin: 0; font-size: .98rem; font-weight: 600; color: var(--ink); }
+    .book-card .author { margin: .15rem 0 0; color: var(--ink-muted); font-size: .76rem; }
+    .book-card .blurb {
+      margin: .35rem 0 0; color: var(--ink-2); font-size: .8rem; line-height: 1.55;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
     }
-    .book-card .book-info { padding: 1.3rem 1.4rem 1.4rem; }
-    .book-card h2 { margin: 0; font-size: 1.2rem; font-weight: 600; color: var(--ink); }
-    .book-card .author { margin: .35rem 0 0; color: var(--ink-muted); font-size: .88rem; }
-    .book-card .blurb { margin: .6rem 0 0; color: var(--ink-2); font-size: .93rem; line-height: 1.7; }
+    .book-card .lock-tag { display: inline-block; margin-top: .5rem; font-size: .72rem; }
     .lock-tag {
       display: inline-block; margin-top: .8rem; padding: .15rem .7rem;
       border: 1px solid var(--hairline); border-radius: 9999px;
@@ -130,14 +115,8 @@
     <section class="books-band">
       <div class="container container--wide">
         <div class="rise rise-1">
-          <div class="shelf-head">
-            <div>
-              <h1 class="page-title">书架</h1>
-              <p class="page-subtitle">私人书架 · 输入密码解锁在线阅读</p>
-            </div>
-            <img class="shelf-mascot" src="../assets/images/shelf-design/xiaoxiang-librarian.png"
-                 alt="小象管理员正在把书放上架" width="120">
-          </div>
+          <h1 class="page-title">书架</h1>
+          <p class="page-subtitle">私人书架 · 部分书籍需密码解锁在线阅读</p>
 
         <div class="cat-title">智能体开发</div>
         <div class="shelf rise rise-2">
@@ -147,7 +126,7 @@
               <h2>深入理解 AI Agent</h2>
               <p class="author">李博杰</p>
               <p class="blurb">Agent = LLM + 上下文 + 工具。从上下文工程、记忆、工具到评估与多智能体协作的设计原理与工程实践。</p>
-              <span class="lock-tag">🔒 密码解锁</span>
+              <span class="lock-tag">📖 免费阅读</span>
             </div>
           </a>
 
@@ -170,7 +149,7 @@
               <h2>深入理解 AI Infra</h2>
               <p class="author">李博杰</p>
               <p class="blurb">支撑模型训练与推理的基础设施：从模型架构、加速器、算子运行时到超节点、网络与推理优化的量化分析。</p>
-              <span class="lock-tag">🔒 密码解锁</span>
+              <span class="lock-tag">📖 免费阅读</span>
             </div>
           </a>
 
@@ -193,7 +172,7 @@
               <h2>AI 与教育</h2>
               <p class="author">MIT 教学、学习与研究训练中 AI 使用特设委员会</p>
               <p class="blurb">MIT 特设委员会关于生成式 AI 时代教学的调查与建议：八项指导原则、三项行动路线与 27 条具体建议。</p>
-              <span class="lock-tag">🔒 密码解锁</span>
+              <span class="lock-tag">📖 免费阅读</span>
             </div>
           </a>
         </div>
