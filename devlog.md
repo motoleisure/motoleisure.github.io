@@ -387,3 +387,21 @@ PDF）。PDF 无法直接进 convert 管线，走 calibre：
 payload：ai-agents-in-depth 2258KB/12 章；ai-infra-book 3667KB/13 章。
 已知限制：TikZ 矢量图在 PDF→EPUB 中退化为散落文字，公式/图表阅读
 体验不如原 PDF；正文段落完好。
+
+### 2026-09-13 书架改版：小封面 + 小象吉祥物（illo 方案 A）
+
+用户反馈封面太大。用 illo 技能（xiaoxiang 小象角色包 + storybook-plush
+风格，站点配色映射）生成三张设计图纸供审核，用户选定方案 A
+（象管理员上架：小封面书架排 + 大封面缩小箭头叙事）。
+
+实现：
+- 书卡从大竖图改为**横向布局**：封面 74×111px 在左，信息在右；
+  分类分组保留（智能体开发 / 系统与基础设施 / 报告与政策）。
+- 从方案 A 裁出小象管理员（stool + 大书道具）作为书架页头吉祥物
+  （shelf-mascot，120px 宽圆角卡）。
+- 生成管线注意：illo 输出路径要写真实仓库路径；本次误写到
+  /Users/tim/my-sys/motoleisure.github.io（mkdir -p 建出的杂散目录，
+  已清理归位）。落选方案 B/C 移至 ~/my-sys/shelf-design-review/。
+
+设计资产：assets/images/shelf-design/{design-A-librarian.png（设计底稿）,
+xiaoxiang-librarian.png（页面吉祥物）}。

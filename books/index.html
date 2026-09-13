@@ -15,6 +15,12 @@
   <link rel="stylesheet" href="../assets/css/style.css">
   <style>
     .books-band { background: var(--page-tint); padding: 4rem 0 5rem; }
+    .shelf-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
+    .shelf-mascot {
+      width: 120px; height: auto; flex: none;
+      background: #fbf7ee; border: 1px solid var(--hairline);
+      border-radius: 1rem; padding: .3rem;
+    }
     .cat-title {
       font-family: Inter, system-ui, sans-serif;
       font-size: .82rem; font-weight: 600; letter-spacing: .18em;
@@ -30,19 +36,29 @@
     }
     @media (max-width: 767px) { .shelf { grid-template-columns: 1fr; } }
     .book-card {
-      display: flex;
-      flex-direction: column;
-      border: 1px solid var(--hairline);
-      border-radius: 1rem;
-      background: var(--page);
-      overflow: hidden;
-      transition: transform .2s ease, box-shadow .2s ease;
+      display: flex; align-items: center; gap: 1.1rem;
+      background: var(--page); border: 1px solid var(--hairline);
+      border-radius: .8rem; padding: .85rem 1.1rem;
+      text-decoration: none; transition: transform .15s ease, box-shadow .15s ease;
     }
+    .book-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -12px rgba(0,23,46,.35);
+    }
+    .book-card img {
+      width: 74px; height: 111px; object-fit: cover; display: block;
+      border-radius: .35rem; border: 1px solid var(--hairline); flex: none;
+    }
+    .book-card .book-info { padding: 0; min-width: 0; }
+    .book-card h2 { margin: 0; font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+    .book-card .author { margin: .2rem 0 0; color: var(--ink-muted); font-size: .82rem; }
+    .book-card .blurb { margin: .4rem 0 0; color: var(--ink-2); font-size: .86rem; line-height: 1.6; }
+    .book-card .lock-tag { display: inline-block; margin-top: .45rem; }
+    .shelf { display: grid; grid-template-columns: 1fr; gap: .9rem; }
     .book-card:hover {
       transform: translateY(-3px);
       box-shadow: 0 12px 32px -18px rgba(0,23,46,.4);
     }
-    .book-card img { width: 100%; aspect-ratio: 3/4; object-fit: cover; display: block; }
     .book-card .book-info { padding: 1.3rem 1.4rem 1.4rem; }
     .book-card h2 { margin: 0; font-size: 1.2rem; font-weight: 600; color: var(--ink); }
     .book-card .author { margin: .35rem 0 0; color: var(--ink-muted); font-size: .88rem; }
@@ -114,9 +130,14 @@
     <section class="books-band">
       <div class="container container--wide">
         <div class="rise rise-1">
-          <h1 class="page-title">书架</h1>
-          <p class="page-subtitle">私人书架 · 输入密码解锁在线阅读</p>
-        </div>
+          <div class="shelf-head">
+            <div>
+              <h1 class="page-title">书架</h1>
+              <p class="page-subtitle">私人书架 · 输入密码解锁在线阅读</p>
+            </div>
+            <img class="shelf-mascot" src="../assets/images/shelf-design/xiaoxiang-librarian.png"
+                 alt="小象管理员正在把书放上架" width="120">
+          </div>
 
         <div class="cat-title">智能体开发</div>
         <div class="shelf rise rise-2">
