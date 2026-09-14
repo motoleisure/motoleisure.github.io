@@ -461,3 +461,26 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
 书卡简化为：封面 + 悬浮在封面左下角的状态胶囊（📖 免费阅读 /
 🔒 密码解锁，半透明墨蓝底），网格收紧到 minmax(168px)。
 5 个封面 SVG 里烘焙的「私人书架」徽章也一并删除，避免三处重复。
+
+## 2026-09-14 上传新文章 16–27 + 20 篇系列
+
+- pi-output/article 对比已上传集合：00–15 已在线；新增 16–27 共 12 篇
+  （frontier-dsh-plugin / prompt-caching / epiplexity / deepseek-engram-lpddr /
+  sparse-attention-extrapolation / software-factory-opensource /
+  gpt-live-1-reverse / voice-agent-eval / learning-loop-presence /
+  gpt-live-1-architecture / frognano / liveavatar-gpt-live），全部走标准管线
+  （插画 ffmpeg scale→avifenc 转 AVIF，polish，PAGE_TMPL 渲染，封面 SVG）。
+- 17-prompt_caching 引用 assets/prompt-caching-illustrations/（实际目录
+  17-prompt-caching-illustrations/）→ convert_images 加同名文件 glob fallback，
+  按文章编号前缀消歧。
+- 28-llm-inference-series（20 篇《成为 LLM Inference Engineer 全景指南》）：
+  首页只放一张系列卡（blog/llm-inference-series/），分篇
+  blog/llm-inference-series/<slug>/，PAGE_TMPL 资源路径参数化 {pfx}
+  （普通 ../../、分篇 ../../../），每篇末尾 上一篇·系列目录·下一篇 导航。
+- 修复：pipe 表格头前缺空行 → python-markdown 渲染成纯文本（系列第 20 篇
+  8 处）→ read_article 里 fence 感知地补空行。
+- 顺手修：文章 14（frontieragent-mac）源目录后来补了 5 张插画，本次重建自动
+  带上；figure 内 img 重复 loading="lazy" 属性去重。
+- 验证：无 missing image 警告；headless 截图（8899）检查首页网格 31 卡、
+  prompt-caching（fallback 图）、系列 hub、part1/3/20（代码块+表格）、
+  post16。pfx 少了尾斜杠导致 CSS 404 一轮返工——参数化路径务必带 /。

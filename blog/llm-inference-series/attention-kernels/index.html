@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>07 · Attention 算子优化：FlashAttention、PagedAttention、Ring/Context Parallel - Agent's Photolog</title>
+  <meta name="description" content="Attention 是 Transformer 里计算和访存都最重的算子。它的实现质量直接决定 prefill 速度和 decode 带宽效率。这一篇讲三个层面的优化：单 GPU 内的 kernel（FlashAttention、PagedAttention）、长上下文的内存（Ring/Context Parallel）、以及它们怎么协作。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/attention-kernels/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="07 · Attention 算子优化：FlashAttention、PagedAttention、Ring/Context Parallel">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/attention-kernels/">
+  <meta property="og:description" content="Attention 是 Transformer 里计算和访存都最重的算子。它的实现质量直接决定 prefill 速度和 decode 带宽效率。这一篇讲三个层面的优化：单 GPU 内的 kernel（FlashAttention、PagedAttention）、长上下文的内存（Ring/Context Parallel）、以及它们怎么协作。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/attention-kernels/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">07 · Attention 算子优化：FlashAttention、PagedAttention、Ring/Context Parallel</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">Attention 是 Transformer 里计算和访存都最重的算子。它的实现质量直接决定 prefill 速度和 decode 带宽效率。这一篇讲三个层面的优化：单 GPU 内的 kernel（FlashAttention、PagedAttention）、长上下文的内存（Ring/Context Parallel）、以及它们怎么协作。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>Attention 是 Transformer 里计算和访存都最重的算子。它的实现质量直接决定 prefill 速度和 decode 带宽效率。这一篇讲三个层面的优化：单 GPU 内的 kernel（FlashAttention、PagedAttention）、长上下文的内存（Ring/Context Parallel）、以及它们怎么协作。</p>
+</blockquote>
+<hr />
+<h2>一、为什么 attention 需要专门优化</h2>
+<h3>1.1 标准 attention 的两个问题</h3>
+<p>朴素 attention（按公式写）：</p>
+<pre><code>scores = Q @ K.T / sqrt(d)     <span class="tok-c"># [seq, seq]</span>
+attn = softmax(scores)
+out = attn @ V                  <span class="tok-c"># [seq, d]</span>
+</code></pre>
+<p>两个致命问题：</p>
+<ol>
+<li><strong>中间矩阵大</strong>：<code>scores</code> 是 [seq, seq]，seq=8192 时就是 8192×8192 矩阵。每个 head、每层都要实例化这个矩阵，显存爆。</li>
+<li><strong>读写放大</strong>：要先算 scores 写到 HBM，再读回来 softmax，再写回去，再读回来乘 V。一个 attention 来回读写 HBM 几次，bandwidth-bound 下慢得离谱。</li>
+</ol>
+<h3>1.2 优化目标</h3>
+<ul>
+<li>减少 HBM 读写（少搬运）</li>
+<li>不实例化完整 [seq,seq] 矩阵（省显存）</li>
+<li>利用 GPU 内存层级（SRAM/shared memory 快）</li>
+</ul>
+<hr />
+<h2>二、FlashAttention：分块计算 + IO-aware</h2>
+<h3>2.1 核心思想</h3>
+<p>FlashAttention（Tri Dao, 2022/2023）的关键：<strong>把 Q/K/V 切块，一块一块在 GPU 的 SRAM（shared memory）里算 attention，用在线 softmax（online softmax）避免实例化完整 [seq,seq] 矩阵，算完一块直接写最终 out 到 HBM，不落中间矩阵。</strong></p>
+<pre><code>for block of Q:
+    load 到 SRAM
+    for block of K,V:
+        load 到 SRAM
+        算 partial scores → 在线 softmax 累加 → 累加到 out
+    写 out 块到 HBM
+</code></pre>
+<h3>2.2 收益</h3>
+<ul>
+<li><strong>HBM 读写从 O(n²) 降到 O(n²·d/M)</strong>（M 是 SRAM 大小），大幅减少搬运。</li>
+<li><strong>显存</strong>：不存 [seq,seq]，只需 O(n) 的 running statistics。</li>
+<li><strong>速度</strong>：长序列 attention 提速 2-4 倍，且越长收益越大。</li>
+</ul>
+<h3>2.3 演进</h3>
+<ul>
+<li><strong>FlashAttention v1</strong>：奠基，分块 + online softmax。</li>
+<li><strong>FlashAttention v2</strong>：更好的并行度（按 seq 维切分到 SM），2× 提速。</li>
+<li><strong>FlashAttention v3</strong>：Hopper 专属，用 TMA（Tensor Memory Access）和 FP8，进一步榨干硬件。</li>
+</ul>
+<p>几乎所有现代推理引擎都默认用 FlashAttention（或其变体）做 prefill 的 attention。它是底层基础设施，你很少直接调，但要知道它在那。</p>
+<hr />
+<h2>三、PagedAttention：分块物理分散的 attention</h2>
+<p>上一篇讲 KV cache 时提到 PagedAttention，这里讲它和 FlashAttention 的关系。</p>
+<h3>3.1 为什么不能直接用 FlashAttention 做 decode</h3>
+<p>FlashAttention 假设 K/V 是一块连续显存。但 PagedAttention 的 KV cache 是<strong>逻辑连续、物理分散</strong>的 block。要做 attention，得在"按页表分散访存"的条件下算。</p>
+<h3>3.2 PagedAttention kernel</h3>
+<p>vLLM 写了专门的 PagedAttention kernel：</p>
+<ul>
+<li>按 block table 查每个 block 的物理地址。</li>
+<li>一个 block 一个 block 地加载 K/V 到 SRAM，和 Q 算 attention 累加。</li>
+<li>本质是"分块 attention"，但块的边界由页表决定，不是固定切片。</li>
+</ul>
+<p>它复用了 FlashAttention 的"分块 + 在线 softmax"思想，但块的定义来自页表。这就是为什么 vLLM 能既省碎片又算得快——PagedAttention 是"FlashAttention for paged KV cache"。</p>
+<hr />
+<h2>四、长上下文的并行：Context Parallel / Ring Attention</h2>
+<h3>4.1 问题：单卡放不下超长序列的 KV cache</h3>
+<p>序列越长，KV cache 越大（线性涨）。128K 上下文的 70B 模型，KV cache 单请求就几十 GB，单卡放不下。要么多卡分（张量并行），要么专门的长序列并行。</p>
+<h3>4.2 张量并行（Tensor Parallel, TP）</h3>
+<p>最常见：把每层的权重矩阵按行/列切到多卡，每卡算一部分，用 all-reduce 合并。</p>
+<ul>
+<li>适合：模型大（权重放不下）。</li>
+<li>代价：每层都要 all-reduce 通信，卡多了通信成瓶颈。一般 TP ≤ 8。</li>
+</ul>
+<h3>4.3 序列并行 / Context Parallel (CP)</h3>
+<p>针对超长序列：把<strong>一个序列的不同位置</strong>切到不同卡，每卡只算一部分 token 的 attention。问题：每个位置的 Q 要看到所有位置的 K（attention 是全局的），卡间要通信 K/V。</p>
+<h3>4.4 Ring Attention</h3>
+<p>Context Parallel 的高效实现：把卡排成环，K/V 沿环传递，每卡一边算本地 attention 一边收下一块 K/V。通信和计算重叠，几乎不阻塞。</p>
+<ul>
+<li>适合：超长上下文（100K-1M）。</li>
+<li>用例：vLLM、SGLang 都支持 CP/Ring Attention 跑长上下文模型（如 Qwen 的 1M context）。</li>
+</ul>
+<h3>4.5 实践：并行度选择</h3>
+<pre><code>模型放不下单卡 → 张量并行 (TP)
+序列太长 KV cache 放不下 → 加序列并行 (CP)
+两者都要 → TP × CP 组合
+超大规模多机 → 再叠数据并行 (DP) / expert 并行 (MoE)
+</code></pre>
+<hr />
+<h2>五、Decode 阶段的 attention 特殊性</h2>
+<h3>5.1 decode attention 是 GEMV 不是 GEMM</h3>
+<p>Prefill：Q 是 [prompt_len, d]，K/V 是 [prompt_len, d]，attention 是大块矩阵乘（GEMM），compute-bound。</p>
+<p>Decode：Q 是 [1, d]（一个新 token），要和 cache 里 [seq, d] 的 K 做 attention。这是 <strong>矩阵-向量乘（GEMV）</strong>，计算量极小，但要把整个 K cache 读一遍 → memory-bound。</p>
+<h3>5.2 这就是为什么 decode 优化重点是带宽</h3>
+<p>decode attention 的瓶颈不是"算 attention 算得慢"，是"把 K cache 和权重从 HBM 读到 SM 慢"。所以 decode 优化方向：</p>
+<ul>
+<li>量化权重（少读）</li>
+<li>prefix caching（不重读已算的 K/V）</li>
+<li>batching（多个请求的 K/V 一起读，摊薄带宽开销）—— 这就是为什么 batch 越大 decode 吞吐越高（在显存允许范围内）。</li>
+</ul>
+<hr />
+<h2>六、MHA / GQA / MQA 在 kernel 层面</h2>
+<p>这些不仅是模型架构（上一篇讲了省 cache），也影响 kernel 实现：</p>
+<ul>
+<li><strong>MHA</strong>：每 head 独立 K/V，attention kernel 标准。</li>
+<li><strong>MQA</strong>：所有 head 共享 K/V，kernel 可以只读一份 K/V 算所有 head 的 attention → 带宽省 H 倍。但要注意 kernel 要正确处理共享。</li>
+<li><strong>GQA</strong>：组共享，介于两者。好的 kernel（vLLM/SGLang）都针对 GQA 优化过读写。</li>
+</ul>
+<hr />
+<h2>七、实践：怎么知道 attention 是不是瓶颈</h2>
+<h3>7.1 用 profiler</h3>
+<ul>
+<li><strong>NVIDIA Nsight Systems</strong>：看 timeline，attention kernel 占多少。prefill 阶段 attention 占比高正常；decode 阶段如果 attention kernel 时间长但 GPU 利用率低，说明是 memory-bound，attention kernel 在等数据。</li>
+<li><strong>NVIDIA Nsight Compute</strong>：看单个 kernel 的 roofline，落在 memory-bound 区还是 compute-bound 区。</li>
+</ul>
+<h3>7.2 一个归因经验</h3>
+<p>Inference Lab 的 Metal trace 文章给了一个重要教训：<strong>profiler trace 不等于你的负载。</strong> 一次 trace 里 36.5%–57.5% 的 GPU interval 属于无关进程（WindowServer 等）。<strong>必须按 PID 归因</strong>，否则你优化的"瓶颈"可能根本不是你的负载。</p>
+<pre><code>错误：trace_total = sum(all intervals)
+正确：target_intervals = intervals where pid == my_process
+</code></pre>
+<blockquote>
+<p>实践：profile 前先确认你的负载是 trace 里的主进程，profile 后按 PID 过滤。别拿含其他进程的 trace 调你的 kernel。</p>
+</blockquote>
+<hr />
+<h2>八、实践 checklist</h2>
+<ul>
+<li>[ ] 确认引擎用的是 FlashAttention v2/v3（基本都默认，但旧版可能不是）</li>
+<li>[ ] 长上下文用 GQA 模型（省 KV cache 和带宽）</li>
+<li>[ ] 100K+ 上下文考虑开 Context Parallel / Ring Attention</li>
+<li>[ ] decode 慢时先确认是 memory-bound（用 Nsight Compute 看 roofline）</li>
+<li>[ ] profile 时按 PID 归因，排除无关进程</li>
+<li>[ ] decode 优化优先考虑量化 + batching + prefix cache（打带宽战），而非改 attention kernel</li>
+<li>[ ] TP 度数 ≤ 8（all-reduce 通信开销），再大考虑 CP/DP 组合</li>
+</ul>
+<p>下一篇：<strong>投机解码</strong>——draft model、EAGLE/Medusa、验证策略，怎么用小模型加速大模型。</p>
+        <p><a class="back-link" href="../continuous-batching/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../speculative-decoding/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

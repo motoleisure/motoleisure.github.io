@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>19 · 训练侧边界认知：inference engineer 该懂的 9 件事 - Agent's Photolog</title>
+  <meta name="description" content="*Atlas 补强篇（对应 Technique Atlas #13 / #25-#33）*。Atlas 的 34 项技术里有 9 项归到 Training 阶段——QAT、activation checkpointing、sequence packing、mixed-precision、DDP、ZeRO、GPipe、PipeDream、Zero-bubble。inference engineer 不需要会训练，但这 9 项要&quot;听得懂、看得明白&quot;，因为：训练侧做的显存/通信/精度决策，直接决定你拿到的 checkpoint 长什么样、能怎么量化、多卡时 bubble 从哪来。 这一篇每项一节，点到&quot;能跨团队对话&quot;为止。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/training-side-boundary/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="19 · 训练侧边界认知：inference engineer 该懂的 9 件事">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/training-side-boundary/">
+  <meta property="og:description" content="*Atlas 补强篇（对应 Technique Atlas #13 / #25-#33）*。Atlas 的 34 项技术里有 9 项归到 Training 阶段——QAT、activation checkpointing、sequence packing、mixed-precision、DDP、ZeRO、GPipe、PipeDream、Zero-bubble。inference engineer 不需要会训练，但这 9 项要&quot;听得懂、看得明白&quot;，因为：训练侧做的显存/通信/精度决策，直接决定你拿到的 checkpoint 长什么样、能怎么量化、多卡时 bubble 从哪来。 这一篇每项一节，点到&quot;能跨团队对话&quot;为止。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/training-side-boundary/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">19 · 训练侧边界认知：inference engineer 该懂的 9 件事</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">*Atlas 补强篇（对应 Technique Atlas #13 / #25-#33）*。Atlas 的 34 项技术里有 9 项归到 Training 阶段——QAT、activation checkpointing、sequence packing、mixed-precision、DDP、ZeRO、GPipe、PipeDream、Zero-bubble。inference engineer 不需要会训练，但这 9 项要&quot;听得懂、看得明白&quot;，因为：训练侧做的显存/通信/精度决策，直接决定你拿到的 checkpoint 长什么样、能怎么量化、多卡时 bubble 从哪来。 这一篇每项一节，点到&quot;能跨团队对话&quot;为止。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p><em>Atlas 补强篇（对应 Technique Atlas #13 / #25-#33）</em>。Atlas 的 34 项技术里有 9 项归到 Training 阶段——QAT、activation checkpointing、sequence packing、mixed-precision、DDP、ZeRO、GPipe、PipeDream、Zero-bubble。inference engineer <strong>不需要会训练</strong>，但这 9 项要"听得懂、看得明白"，因为：训练侧做的显存/通信/精度决策，<strong>直接决定你拿到的 checkpoint 长什么样、能怎么量化、多卡时 bubble 从哪来。</strong> 这一篇每项一节，点到"能跨团队对话"为止。</p>
+</blockquote>
+<hr />
+<h2>一、为什么推理工程师要懂训练侧</h2>
+<p>两个真实交叉点：</p>
+<ol>
+<li><strong>checkpoint 是训练侧决策的产物</strong>：模型用了 BF16 还是 FP16 训、有没有 QAT、MoE 路由怎么均衡——这些都固化在权重里，推理时改不了，但影响你怎么部署。</li>
+<li><strong>推理侧的并行/通信概念来自训练侧</strong>：TP/PP/DP/ZeRO/通信原语最早都是训练概念，推理的多卡并行（第 09 篇）就是它们的"服务化复用"。看懂训练侧才能看懂推理侧 bubble 来源。</li>
+</ol>
+<blockquote>
+<p>Atlas 把这 9 项明确标成 <em>Training-systems / Distributed-training engineer</em> 的责任，不是 inference engineer 的。本篇定位 = <strong>边界认知</strong>，不是"教你训练"。</p>
+</blockquote>
+<hr />
+<h2>二、QAT（Quantization-Aware Training，#13）</h2>
+<ul>
+<li><strong>是什么</strong>：训练时在 forward 里模拟量化误差（伪量化），让模型在反向时"适应"低精度，从而量化后质量比纯 PTQ 好。</li>
+<li><strong>和 PTQ 的边界</strong>（第 04 篇）：PTQ 是推理工程师的事（训完用校准数据转换），QAT 是模型方的事（要重训，成本高）。</li>
+<li><strong>inference engineer 要懂</strong>：你拿到的"INT4 模型"是 PTQ 还是 QAT 训出来的，质量差很多——QAT 通常质量更高。选模型时问清楚。</li>
+</ul>
+<hr />
+<h2>三、Activation Checkpointing（#25）</h2>
+<ul>
+<li><strong>是什么</strong>：训练时不存全部前向激活，反向时<strong>重算</strong>前向激活——用算力换显存（"用时间换空间"）。</li>
+<li><strong>推理侧也有用</strong>：长上下文 prefill 时，激活很占显存。某些推理框架在 prefill 阶段也对长序列做激活重算，省显存换延迟——<strong>这正是第 13 篇 chunked prefill 背后的同类思想</strong>（把长 prefill 拆小，激活峰值降低）。</li>
+<li><strong>inference engineer 要懂</strong>：长上下文 OOM 时，"重算激活"是一个选项（不是只有 offload KV cache）。但要算清重算成本 vs offload 成本——和第 17 篇"搬回 vs 重算"同一个权衡。</li>
+</ul>
+<hr />
+<h2>四、Sequence Packing（#26）</h2>
+<ul>
+<li><strong>是什么</strong>：训练时把多个短序列<strong>拼（pack）成一条长序列</strong>一起跑，填满 batch 的算力，避免 padding 浪费。靠 attention mask 把不同序列隔开（block-diagonal mask）。</li>
+<li><strong>对推理心智的影响</strong>：</li>
+<li>训练时 packing 让模型见过"拼接长序列"，推理时变长 batch 也类似——调度心智一致。</li>
+<li>影响 tokenizer / 调度：推理侧的变长 batch 调度（continuous batching，第 06 篇）是 packing 的服务化版本。</li>
+<li><strong>inference engineer 要懂</strong>：为什么框架能高效处理变长——根子在训练侧的 packing 设计。</li>
+</ul>
+<hr />
+<h2>五、Mixed-precision Training（#27）</h2>
+<ul>
+<li><strong>是什么</strong>：训练用 FP16/BF16（甚至 FP8）做前向/反向，主权重用 FP32 维护（master weights）。</li>
+<li><strong>Atlas 的关键告诫</strong>："BF16 和 FP16 指数范围不同；FP16 风格的 loss scaling 不是 BF16 通用。"——</li>
+<li>FP16 动态范围小，要 loss scaling 防梯度下溢。</li>
+<li>BF16 动态范围和 FP32 一样（指数位多），<strong>通常不需要 loss scaling</strong>。把 FP16 的 loss scaling 套到 BF16 是常见错误。</li>
+<li><strong>inference engineer 要懂</strong>：模型是 BF16 还是 FP16 训的，影响你推理时的精度选择（BF16 模型推理直接用 BF16，不用操心 scaling）。</li>
+</ul>
+<hr />
+<h2>六、DDP（Data-Parallel Training，#28）</h2>
+<ul>
+<li><strong>是什么</strong>：每个 GPU 拿完整模型副本，跑不同数据 batch；反向后<strong>all-reduce 同步梯度</strong>，各卡梯度一致后各自更新。</li>
+<li><strong>核心 = all-reduce</strong>：这就是第 09 篇"通信原语"的源头。DDP 的同步成本 = 每步一次全模型梯度的 all-reduce。</li>
+<li><strong>和推理侧 DP 的区别</strong>（第 09 篇 4.3）：推理的 DP 是"多副本各跑各的请求"，<strong>不需要同步</strong>（没有梯度）——所以推理 DP 便宜得多。训练 DDP 贵在每步 all-reduce。</li>
+<li><strong>inference engineer 要懂</strong>：为什么"训练的 DP"和"推理的 DP"听起来一样、成本差几个数量级——训练要同步梯度，推理不用。</li>
+</ul>
+<hr />
+<h2>七、ZeRO State Sharding（#29）</h2>
+<ul>
+<li><strong>是什么</strong>：DDP 每卡存完整模型副本太贵。ZeRO 把<strong>优化器状态 / 梯度 / 参数</strong>分片到各卡（ZeRO-1/2/3 逐步分片更多），用 all-gather 在需要时重组。</li>
+<li><strong>Atlas 的关键告诫</strong>："ZeRO 内存减少取决于 exact state 和 layout。Avoid universal 4×/8× claims."——</li>
+<li>别信"ZeRO-3 省 8 倍显存"这种万能数字，<strong>取决于分了什么 state、什么 layout、通信能不能藏住</strong>。</li>
+<li>ZeRO-3 省 memory 但增加通信（all-gather 参数），是 memory↔communication 的交换。</li>
+<li><strong>inference engineer 要懂</strong>：</li>
+<li>ZeRO 是<strong>训练时</strong>技术，推理一般不用（推理没优化器状态要分）。但理解它才能看懂"为什么训练能单卡放不下、靠 ZeRO 切开训"。</li>
+<li>推理侧对应的"分片"是 TP（切参数）——ZeRO-3 切的是优化器/参数副本，TP 切的是计算。</li>
+</ul>
+<hr />
+<h2>八、GPipe / PipeDream / Zero-bubble（#31 / #32 / #33）——流水线调度演进</h2>
+<p>这三项是训练侧<strong>流水线并行（Pipeline Parallelism）的调度演进</strong>。理解它们才能看懂推理侧 pipeline parallelism（第 09 篇 4.2）的 bubble 从哪来、怎么藏。</p>
+<h3>8.1 GPipe（朴素）</h3>
+<ul>
+<li>把模型按层切到多卡（卡 1 跑前几层、卡 2 跑后几层），micro-batch 串行流过。</li>
+<li><strong>朴素 GPipe = 先全部 forward micro-batch，再全部 backward</strong>。问题：前向时反向卡在空等，<strong>bubble 大</strong>（流水线灌满前的空泡）。</li>
+</ul>
+<h3>8.2 PipeDream / 1F1B</h3>
+<ul>
+<li>改成 <strong>1F1B（一个 forward 紧跟一个 backward）</strong>交替调度，让前向和反向重叠，bubble 变小。</li>
+<li>代价：需要管理<strong>多版本权重</strong>（不同 micro-batch 用不同 step 的权重），PipeDream 就是为这个设计的。</li>
+</ul>
+<h3>8.3 Zero-bubble（ZB / ZB-H1）</h3>
+<ul>
+<li>更激进：在 1F1B 基础上<strong>把通信和计算重叠</strong>到极致（ZB-H1 调度），把 bubble 进一步压到接近零。</li>
+<li>
+<p>用"把 backward 拆成 B1/B2 两段、在中间塞通信"实现重叠。</p>
+</li>
+<li>
+<p><strong>Atlas #33 列出的具名变体</strong>（inference engineer 听到能对上号即可）：ZB-H1 / ZB-H2（不同显存约束下的调度设计）、breadth-first 与 depth-first looped schedule（虚拟 stage 排序方式不同）、Llama 式 stage balancing（把层围绕昂贵边界重分布）、<strong>DualPipe</strong>（DeepSeek-V3，双向流水线重叠计算与通信）。<strong>命名调度不是通用保证</strong>，每种都要各自的 trace + 收敛核对——和 Atlas“别喊通用 4×/8×”同源。</p>
+</li>
+</ul>
+<h3>8.4 对推理侧的意义</h3>
+<ul>
+<li>推理的 PP（第 09 篇）bubble 来源 = 训练 GPipe 同款"灌满前的空泡"。</li>
+<li>推理侧用 <strong>inflight batching + micro-batch 流水</strong>来填 bubble——思路和 1F1B 同源。</li>
+<li><strong>inference engineer 要懂</strong>：推理 PP 的延迟开销不是"切层"本身，是 bubble。优化 PP 的方向 = 减 bubble = 训练侧 1F1B/Zero-bubble 的服务化映射。</li>
+</ul>
+<hr />
+<h2>九、一张表：训练技术 → 推理侧的映射</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>训练技术（Atlas #）</th>
+<th>训练时干什么</th>
+<th>推理侧对应/影响</th>
+<th>inference engineer 要懂到哪</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QAT（#13）</td>
+<td>训练模拟量化误差</td>
+<td>拿到 QAT checkpoint 质量更好</td>
+<td>选模型问清 PTQ/QAT</td>
+</tr>
+<tr>
+<td>Activation ckpt（#25）</td>
+<td>重算激活换显存</td>
+<td>长 prefill 可重算激活省显存</td>
+<td>长 ctx OOM 的一个选项</td>
+</tr>
+<tr>
+<td>Sequence packing（#26）</td>
+<td>拼短序列填 batch</td>
+<td>推理变长 batch 调度同源</td>
+<td>调度心智</td>
+</tr>
+<tr>
+<td>Mixed-precision（#27）</td>
+<td>BF16/FP16 + master weights</td>
+<td>BF16 不需 loss scaling</td>
+<td>模型精度选择</td>
+</tr>
+<tr>
+<td>DDP（#28）</td>
+<td>数据并行 + all-reduce 同步梯度</td>
+<td>推理 DP 不同步、便宜</td>
+<td>训练/推理 DP 成本差</td>
+</tr>
+<tr>
+<td>ZeRO（#29）</td>
+<td>切优化器/梯度/参数副本</td>
+<td>推理用 TP 切参数</td>
+<td>别信"4×/8×"</td>
+</tr>
+<tr>
+<td>GPipe（#31）</td>
+<td>朴素流水线，bubble 大</td>
+<td>推理 PP bubble 来源</td>
+<td>bubble 从哪来</td>
+</tr>
+<tr>
+<td>PipeDream/1F1B（#32）</td>
+<td>forward/backward 交替，bubble 小</td>
+<td>推理 micro-batch 流水同源</td>
+<td>怎么减 bubble</td>
+</tr>
+<tr>
+<td>Zero-bubble（#33）</td>
+<td>通信重叠，bubble→0</td>
+<td>推理 PP 优化方向</td>
+<td>PP 优化思路</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2>十、责任边界：训练期 ≠ 服务期</h2>
+<p>Atlas 在 limits 里反复强调的一条，跨这些技术通用：</p>
+<blockquote>
+<p>"Training-time MoE balancing objectives are different from serving-time expert placement. Dropping tokens can change quality."
+"训练期的 MoE 均衡目标 ≠ 服务期 expert 放置。丢 token 会改变质量。"</p>
+</blockquote>
+<p>推广到全篇：<strong>训练时的优化目标 / 路由规则 / 精度策略，固化进权重后，推理时不能随便改</strong>——</p>
+<ul>
+<li>训练用 top-1 MoE 路由，服务期别随便改成 top-2（改路由 = 改模型行为）。</li>
+<li>训练用 BF16，推理别"为了省显存降 FP8"而不测质量。</li>
+<li>训练用 ZeRO 切开训，推理用 TP 切开服务——<strong>切的东西不同，别混为一谈</strong>。</li>
+</ul>
+<p>这和第 14 篇 Inference Lab 方法论、"测量边界先于指标"完全同源。</p>
+<hr />
+<h2>十一、实践 checklist：训练侧边界认知</h2>
+<ul>
+<li>[ ] 选模型时问清：PTQ 还是 QAT？BF16 还是 FP16 训？</li>
+<li>[ ] 长 prefill OOM 时考虑激活重算，但算清重算 vs offload 成本</li>
+<li>[ ] 别把 FP16 的 loss scaling 套到 BF16 模型</li>
+<li>[ ] 推理 DP（不同步）≠ 训练 DDP（每步 all-reduce），成本差几个数量级</li>
+<li>[ ] ZeRO 是训练技术，推理用 TP——别混</li>
+<li>[ ] 别信"ZeRO 省 4×/8×"这类万能数字，看实际 state/layout</li>
+<li>[ ] 推理 PP 的延迟开销是 bubble，优化方向 = 1F1B/Zero-bubble 的服务化</li>
+<li>[ ] 训练期路由/精度/均衡固化进权重，服务期别随便改</li>
+<li>[ ] 跨团队对话：能说清"你这个 checkpoint 训的时候是怎么切/怎么均衡的，我推理时能/不能复用"</li>
+</ul>
+<h2>十二、原书补强：QAT 已有实例（Kiely §5.1.2）</h2>
+<blockquote>
+<p>本篇 §二讲了 QAT 的机制与边界。精读原书后补一条：哪些模型是<strong>原生 QAT 训出来的</strong>——让“QAT 是训练侧事”落到具体模型。</p>
+</blockquote>
+<p>原书点名两个 QAT 实例：<strong>GPT-OSS 原生 MXFP4</strong>、<strong>Kimi K2 Thinking 原生 INT4</strong>。也就是说 lab 会把权重直接按目标低精度训出来、随模型一起发布。<strong>推理工程师拿到的只是成品权重，无法对开源模型做 QAT</strong>——你能做的只有 PTQ（见第 4 篇）。所以遇到“这模型是 MXFP4/INT4 原生”的 checkpoint，要意识到那是训练期就定的精度，不是你能量化的；你能调的是 PTQ 那一侧的校准/选择性精度。这正好印证本篇的责任边界：<strong>训练期路由/精度决策 ≠ 服务期放置/量化</strong>。</p>
+<p>下一篇：<strong>Atlas 交叉导航表</strong>——从"业务压力"（长输入/显存/多设备/…）一跳到对应技术 + 本系列文章号。</p>
+        <p><a class="back-link" href="../kernel-fusion/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../atlas-navigation/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

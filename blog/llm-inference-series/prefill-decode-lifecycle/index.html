@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>02 · 推理基础原理：一个 prompt 进来，GPU 上到底发生了什么 - Agent's Photolog</title>
+  <meta name="description" content="上一篇讲了岗位定位。这一篇回到最底层：一个 prompt 从进入推理引擎到吐出最后一个 token，GPU 上发生了什么。理解了 prefill/decode 两阶段、memory-bound 本质，你才能看懂后面所有优化（KV cache、量化、batching）到底在优化什么。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/prefill-decode-lifecycle/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="02 · 推理基础原理：一个 prompt 进来，GPU 上到底发生了什么">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/prefill-decode-lifecycle/">
+  <meta property="og:description" content="上一篇讲了岗位定位。这一篇回到最底层：一个 prompt 从进入推理引擎到吐出最后一个 token，GPU 上发生了什么。理解了 prefill/decode 两阶段、memory-bound 本质，你才能看懂后面所有优化（KV cache、量化、batching）到底在优化什么。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/prefill-decode-lifecycle/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">02 · 推理基础原理：一个 prompt 进来，GPU 上到底发生了什么</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">上一篇讲了岗位定位。这一篇回到最底层：一个 prompt 从进入推理引擎到吐出最后一个 token，GPU 上发生了什么。理解了 prefill/decode 两阶段、memory-bound 本质，你才能看懂后面所有优化（KV cache、量化、batching）到底在优化什么。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>上一篇讲了岗位定位。这一篇回到最底层：一个 prompt 从进入推理引擎到吐出最后一个 token，GPU 上发生了什么。理解了 prefill/decode 两阶段、memory-bound 本质，你才能看懂后面所有优化（KV cache、量化、batching）到底在优化什么。</p>
+</blockquote>
+<hr />
+<h2>一、推理 vs 训练：看起来像，实则完全不同</h2>
+<p>很多人从训练迁移到推理，会带着错误直觉。先把差异讲清楚：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>训练</th>
+<th>推理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>方向</td>
+<td>前向 + 反向（前向算 loss，反向算梯度）</td>
+<td>只前向</td>
+</tr>
+<tr>
+<td>batch</td>
+<td>通常固定、大、凑满</td>
+<td>动态、请求随时来随时走</td>
+</tr>
+<tr>
+<td>计算密度</td>
+<td>高（矩阵乘都是大块 GEMM，compute-bound）</td>
+<td>prefill 较密，<strong>decode 极稀疏（memory-bound）</strong></td>
+</tr>
+<tr>
+<td>关键状态</td>
+<td>优化器状态、梯度</td>
+<td><strong>KV cache（要长期驻留显存）</strong></td>
+</tr>
+<tr>
+<td>瓶颈</td>
+<td>算力 FLOPS</td>
+<td><strong>显存带宽（尤其是 decode）</strong></td>
+</tr>
+<tr>
+<td>目标</td>
+<td>降低 loss</td>
+<td>降低延迟 + 提高吞吐 + 降成本</td>
+</tr>
+</tbody>
+</table></div>
+<p>最关键的认知是最后一行：<strong>训练优化算力，推理优化带宽。</strong> 这一行决定了本系列后面几乎所有的技术选择。</p>
+<hr />
+<h2>二、Transformer 前向：从 token 到 logits</h2>
+<p>一个大模型推理的"一次前向"，本质是这么一回事（以 decoder-only 的 GPT 风格模型为例）：</p>
+<pre><code>输入 token ids: [t1, t2, ..., tn]
+   │
+   ▼  embedding 查表
+   [E1, E2, ..., En]   每个 token 变成一个向量
+   │
+   ▼  过 N 层 Transformer block
+   每层 = LayerNorm → Attention → 残差 → LayerNorm → MLP → 残差
+   │
+   ▼  最后一层 hidden state
+   [h1, h2, ..., hn]
+   │
+   ▼  lm_head（线性层，共享或独立的 embedding 矩阵）
+   logits: [l1, l2, ..., ln]   每个位置一个词表大小 V 的分布
+   │
+   ▼  对最后一个位置 ln 做 softmax + 采样
+   下一个 token: t_{n+1}
+</code></pre>
+<p>两个要点：</p>
+<ol>
+<li><strong>attention 让每个位置都能"看到"前面所有位置</strong>。这要求对每对 (i, j), j ≤ i，算一个 attention score。代价是 O(n²) 的，但更致命的是它需要每层的 K 和 V 向量。</li>
+<li><strong>autoregressive：一次前向只生成一个新 token</strong>。要生成 100 个 token，就要跑 100 次前向。每次前向，前面所有 token 的 K/V 都要重新算（除非缓存）——这就是 KV cache 存在的理由。</li>
+</ol>
+<hr />
+<h2>三、KV Cache：为什么需要它，它有多大</h2>
+<h3>3.1 没有 KV cache 时发生了什么</h3>
+<p>假设不缓存。生成第 k 个 token 时，模型要对位置 1..k 算 attention。这意味着重新计算位置 1..k-1 的 K 和 V——而这些在第 1..k-1 步早就算过了。<strong>复杂度退化到 O(n³) 级别的重复计算。</strong> 这不可接受。</p>
+<p>所以所有现代推理引擎都缓存：每生成一个 token，只算新位置的 Q/K/V，把新的 K/V 追加到缓存里。下一层 attention 时，新 Q 和缓存里所有旧 K 做点积。</p>
+<pre><code>生成第 1 个 token：算 K1,V1，缓存 [K1,V1]
+生成第 2 个 token：算 K2,V2，缓存 [K1,V2,...]，新 Q2 与 [K1,K2] 算 attention
+...
+生成第 k 个 token：只算新位置的 Qk,Kk,Vk，复用缓存里 k-1 个旧 K/V
+</code></pre>
+<p>这就是 KV cache：<strong>用空间换时间，把重复的 attention 计算变成一次 O(1) 追加 + 一次 O(k) 的 attention。</strong></p>
+<h3>3.2 KV cache 有多大：一个必须会算的数</h3>
+<p>很多人不会算这个，结果部署时 OOM 才懵。<strong>学会 back-of-envelope 估算 KV cache 大小，是 inference engineer 的基本功。</strong></p>
+<p>公式：</p>
+<pre><code>KV cache 字节数 = 2 (K和V) × num_layers × seq_len × hidden_dim × dtype_bytes × batch_size
+</code></pre>
+<p>对一个 <strong>Llama-3-8B</strong>（32 层，hidden 4096，FP16）跑 batch=1、序列长 8192：</p>
+<pre><code>2 × 32 × 8192 × 4096 × 2 (fp16) = 4,294,967,296 字节 ≈ 4.0 GB
+</code></pre>
+<p><strong>光 KV cache 就 4 GB</strong>，而 8B 模型权重 FP16 才 16 GB。序列越长，cache 占比越高。到 32K 上下文，KV cache 就 16 GB，和权重一样大。到 128K，KV cache 64 GB——<strong>比模型本身大 4 倍</strong>。</p>
+<p>这就是为什么长上下文推理特别贵：不是计算贵，是<strong>显存贵</strong>，KV cache 随序列线性涨。也是为什么 GQA / MQA（减少 KV 头数）能省 cache、为什么 PagedAttention 能省碎片。</p>
+<blockquote>
+<p>实践提示：面试和容量规划时，永远先算这三个数：<strong>权重、KV cache（按你最长序列+最大 batch）、激活/临时</strong>。三者加起来要小于可用显存，留 10-20% 余量。Inference Lab 的 OOM 文章里，一个 16 GB 权重的模型在 24 GiB Mac 上 256 token 就 OOM——因为可用显存不是 24 GiB，而是被系统、激活、KV cache 吃掉后的剩余。</p>
+</blockquote>
+<hr />
+<h2>四、Prefill vs Decode：推理的两个截然不同阶段</h2>
+<p>这是本篇最核心的认知。推理不是"一次前向"，而是<strong>两个计算特性完全相反的阶段</strong>：</p>
+<h3>4.1 Prefill（预填充阶段）</h3>
+<p>用户发来一个 prompt（比如 2000 token）。引擎要把它一次"吃进去"：对整段 prompt 做一次完整的前向，算出所有位置的 hidden state，<strong>并把这段 prompt 的 K/V 写进 KV cache</strong>。</p>
+<ul>
+<li><strong>特点</strong>：一次前向处理一长串 token。attention 是大块矩阵乘（prompt 长度 × 隐藏维度），<strong>计算密度高，compute-bound</strong>。</li>
+<li><strong>时间</strong>：和 prompt 长度大致成 O(n²) 关系（attention 部分）。2000 token 的 prefill 通常几十到上百毫秒。</li>
+<li><strong>TTFT 的主要来源</strong>：用户发的请求到第一个 token 出现，大头就是 prefill（加上排队、网络）。</li>
+</ul>
+<h3>4.2 Decode（解码阶段）</h3>
+<p>prefill 完后，引擎开始<strong>一次一个 token</strong>地生成。每生成一个 token：算这个 token 的 Q/K/V，把 K/V 追加到 cache，新 Q 和 cache 里所有 K 做 attention，最后采样。</p>
+<ul>
+<li><strong>特点</strong>：每次只处理 1 个 token，但要把整个模型权重读一遍。<strong>计算密度极低，memory-bound</strong>。GPU 计算单元大部分时间空转，等权重从 HBM 搬过来。</li>
+<li><strong>时间</strong>：每个 token 几毫秒到几十毫秒。生成长输出时，decode 总时间 = 单 token 时间 × 输出长度。</li>
+<li><strong>TPOT（time per output token）的主要来源</strong>。</li>
+</ul>
+<h3>4.3 两个阶段的对比（这张表请记牢）</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Prefill</th>
+<th>Decode</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>一次处理几个 token</td>
+<td>整段 prompt（几十到几千）</td>
+<td>1 个</td>
+</tr>
+<tr>
+<td>计算密度</td>
+<td>高</td>
+<td><strong>极低</strong></td>
+</tr>
+<tr>
+<td>瓶颈类型</td>
+<td>compute-bound（偏算力）</td>
+<td><strong>memory-bound（偏带宽）</strong></td>
+</tr>
+<tr>
+<td>主要影响指标</td>
+<td>TTFT</td>
+<td>TPOT / 吞吐</td>
+</tr>
+<tr>
+<td>attention 形状</td>
+<td>大块 GEMM</td>
+<td>一个 Q × 全部 K</td>
+</tr>
+<tr>
+<td>优化方向</td>
+<td>chunked prefill、并行</td>
+<td>batch、prefix caching、量化、投机解码</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>这个区别解释了几乎一切推理优化设计的动机</strong>：</p>
+<ul>
+<li>为什么 continuous batching 按 iteration 级别调度？因为 decode 阶段每个请求的长度不同，要能动态插拔。</li>
+<li>为什么 prefix caching 有用？因为 prefill 是 TTFT 大头，相同前缀的 prompt 复用 cache 就能跳过 prefill。</li>
+<li>为什么量化对 decode 提速明显？因为 decode 是 memory-bound，权重小一半，搬运时间就少一半。</li>
+<li>为什么 chunked prefill 把长 prompt 切块？防止一个长 prefill 独占 GPU、阻塞 decode，让两者交错执行。</li>
+</ul>
+<blockquote>
+<p>实践直觉：拿到一个性能问题，第一步永远是判断它卡在 <strong>prefill 还是 decode</strong>。TTFT 高 → prefill 慢（看 prompt 长度、排队、prefix cache 命中）。TPOT 高 / 吞吐低 → decode 慢（看 batch、量化、带宽）。两个阶段要分开测、分开优化，不要混成一锅。</p>
+</blockquote>
+<hr />
+<h2>五、采样：token 是怎么选出来的</h2>
+<p>前向算完，最后一层 lm_head 给出 logits（词表大小 V 的原始分数）。要变成"下一个 token"，还要经过采样。这一步看似简单，但有几个坑：</p>
+<h3>5.1 采样参数</h3>
+<ul>
+<li><strong>temperature</strong>：<code>logits / T</code>。T→0 趋近 argmax（确定性），T 高则更随机。</li>
+<li><strong>top-k</strong>：只在 logits 最高的 k 个里采样。</li>
+<li><strong>top-p（nucleus）</strong>：选概率累计达 p 的最小 token 集，在里面按概率归一化采样。</li>
+<li><strong>repetition penalty / frequency penalty</strong>：惩罚已出现 token，防重复。</li>
+</ul>
+<h3>5.2 工程上的坑</h3>
+<ol>
+<li><strong>采样是非确定性的</strong>。同样 prompt 不同次结果不同。对比实验时要么 temperature=0，要么固定 seed 并记录。</li>
+<li><strong>采样本身有开销</strong>。词表 V 可能十几万（如 GPT-4 的 tiktoken 词表、Qwen 的 15 万），softmax + top-p 排序在 CPU 上也要几毫秒。高 QPS 场景这会成为瓶颈，有些引擎会把它放到 GPU 或用 fused sampling kernel。</li>
+<li><strong>structured output（JSON 模式）</strong> 要在采样层强行约束只允许合法 token。vLLM/SGLang 都有 guided decoding（正则/JSON schema 约束），代价是采样变慢，但保证输出合法。</li>
+</ol>
+<h3>5.3 停止条件</h3>
+<p>生成什么时候停？三个条件：</p>
+<ol>
+<li><strong>EOS token</strong>：模型输出结束符。</li>
+<li><strong>max_tokens</strong>：达到上限。</li>
+<li><strong>stop strings</strong>：匹配到指定字符串（API 的 stop 参数）。</li>
+</ol>
+<p>注意：<strong>没收到合法终止信号的流不算成功</strong>。Inference Lab 的 TTFT 文章专门讲了这点——连接半截断了、没收到 <code>[DONE]</code> 或 finish_reason 的，应该标 truncated 而不是 success。一个把半截流算成功的 benchmark，会奖励"坏但快"的响应。</p>
+<hr />
+<h2>六、把一次推理画成时间线</h2>
+<p>把上面拼起来，一个完整的请求时间线长这样（以 streaming API 为例）：</p>
+<pre><code>t0  客户端发出请求
+    │  网络传输 + 网关排队 + provider 排队   ← TTFT 里<span class="tok-s">&quot;非计算&quot;</span>的部分
+    ▼
+t1  引擎拿到请求，开始 prefill                ← TTFT 的计算大头
+    │  prefill: 处理整段 prompt，写 KV cache
+    ▼
+t2  第一个 token 生成，开始流式返回           ← TTFT 到这里结束（客户端可见）
+    │  decode: 一个一个 token 生成
+    │  每个 token: 读权重 + 读 KV cache + attention + 采样
+    ▼
+t3  最后一个 token / EOS / 达到 max_tokens
+    │  终止信号（finish_reason / [DONE]）
+    ▼
+t4  客户端收到完整响应                        ← 完整响应延迟 E2E
+</code></pre>
+<p>对应的指标：</p>
+<ul>
+<li><strong>TTFT</strong> = t2 - t0（首 token 延迟）</li>
+<li><strong>TPOT</strong> = (t3 - t2) / 输出 token 数（每 token 延迟）</li>
+<li><strong>E2E latency</strong> = t4 - t0（完整响应延迟）</li>
+<li><strong>吞吐</strong> = 总 token 数 / 总时间（多请求并发时）</li>
+</ul>
+<hr />
+<h2>七、实践 checklist：理解推理生命周期</h2>
+<ul>
+<li>[ ] 能背出 KV cache 字节数公式，会算任意模型的 cache 大小</li>
+<li>[ ] 能说出 prefill 和 decode 的 5 个区别（计算密度、瓶颈、影响指标…）</li>
+<li>[ ] 拿到一个延迟问题，能判断该看 prefill 还是 decode</li>
+<li>[ ] 知道 TTFT、TPOT、E2E、吞吐的正确定义和它们之间的关系</li>
+<li>[ ] 理解为什么没收到终止信号的流不算成功</li>
+<li>[ ] 能解释"为什么推理是 memory-bound 而 decode 尤其是"</li>
+</ul>
+<p>下一篇：<strong>KV Cache 深度解析</strong>——PagedAttention、命中率真相、驱逐策略。</p>
+        <p><a class="back-link" href="../why-inference-engineer/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../kv-cache-pagedattention/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

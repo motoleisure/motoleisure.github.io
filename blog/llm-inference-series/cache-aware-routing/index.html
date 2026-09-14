@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>17 · 缓存感知路由与 KV 分层存储 - Agent's Photolog</title>
+  <meta name="description" content="*Atlas 补强篇（对应 Technique Atlas #09 / #10）*。多副本服务里有两个真实的成本黑洞：一是&quot;每轮对话落到不同 worker，前缀缓存全废，重复 prefill&quot;；二是&quot;GPU 放不下所有可复用上下文，丢了又得重算&quot;。这一篇讲怎么治——缓存感知路由把可复用 cache 纳入 worker 选择，KV 分层存储把 cache 溢到更便宜的地方。两者都有一条铁律：命中率不是目标，总期望完成成本才是。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/cache-aware-routing/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="17 · 缓存感知路由与 KV 分层存储">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/cache-aware-routing/">
+  <meta property="og:description" content="*Atlas 补强篇（对应 Technique Atlas #09 / #10）*。多副本服务里有两个真实的成本黑洞：一是&quot;每轮对话落到不同 worker，前缀缓存全废，重复 prefill&quot;；二是&quot;GPU 放不下所有可复用上下文，丢了又得重算&quot;。这一篇讲怎么治——缓存感知路由把可复用 cache 纳入 worker 选择，KV 分层存储把 cache 溢到更便宜的地方。两者都有一条铁律：命中率不是目标，总期望完成成本才是。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/cache-aware-routing/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">17 · 缓存感知路由与 KV 分层存储</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">*Atlas 补强篇（对应 Technique Atlas #09 / #10）*。多副本服务里有两个真实的成本黑洞：一是&quot;每轮对话落到不同 worker，前缀缓存全废，重复 prefill&quot;；二是&quot;GPU 放不下所有可复用上下文，丢了又得重算&quot;。这一篇讲怎么治——缓存感知路由把可复用 cache 纳入 worker 选择，KV 分层存储把 cache 溢到更便宜的地方。两者都有一条铁律：命中率不是目标，总期望完成成本才是。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p><em>Atlas 补强篇（对应 Technique Atlas #09 / #10）</em>。多副本服务里有两个真实的成本黑洞：一是"每轮对话落到不同 worker，前缀缓存全废，重复 prefill"；二是"GPU 放不下所有可复用上下文，丢了又得重算"。这一篇讲怎么治——<strong>缓存感知路由</strong>把可复用 cache 纳入 worker 选择，<strong>KV 分层存储</strong>把 cache 溢到更便宜的地方。两者都有一条铁律：<strong>命中率不是目标，总期望完成成本才是。</strong></p>
+</blockquote>
+<hr />
+<h2>一、问题：多副本里的两个黑洞</h2>
+<h3>1.1 缓存局部性丢失（#10 动机）</h3>
+<p>一个多副本 chatbot，前面有 N 个 worker。用户多轮对话每一轮打到 LB（负载均衡器），LB 默认按"最闲的 worker"路由。结果：第一轮 prompt 在 worker A 算了 prefill、建了 KV cache；第二轮（带第一轮上下文）被路由到 worker B——B 没缓存，从头 prefill 一遍。</p>
+<ul>
+<li>代价：<strong>重复 prefill = 重复算力 + 用户多等一个 TTFT</strong>。长上下文场景里这是真金白银。</li>
+<li>直觉解法："把带相同前缀的请求路由到同一个 worker"——但这就掉进第二个坑。</li>
+</ul>
+<h3>1.2 缓存局部性 → 热点</h3>
+<p>如果死板地"总是路由到有缓存的 worker"，热门前缀会让那个 worker 排队爆满——<strong>warm 但过载的 worker 成了慢路径</strong>。Atlas 的原图就是这个意思："The worker with the cache is a candidate, not an unconditional destination."（有缓存的 worker 只是候选，不是无条件目的地。）</p>
+<p>所以两条都不对：
+- 只看队列长度 → 丢缓存、重复 prefill。
+- 只看缓存命中 → 制造热点、排队变长。</p>
+<p>正确答案：<strong>比较总期望完成成本</strong>。</p>
+<hr />
+<h2>二、缓存感知路由（Cache-aware routing，#10）</h2>
+<h3>2.1 核心公式</h3>
+<p>选 worker 时不能只看 hit/miss，要比较每个候选的<strong>总期望完成成本</strong>：</p>
+<pre><code>cost(worker) = queue_time           <span class="tok-c"># 已排队的等待</span>
+             + (1 - hit) × prefill_cost   <span class="tok-c"># 没命中要重算 prefill 的代价</span>
+             + hit × transfer_cost        <span class="tok-c"># 命中但要从慢层搬回 KV 的代价</span>
+             + execution_time             <span class="tok-c"># 实际 decode</span>
+</code></pre>
+<ul>
+<li>命中的 worker 候选：省掉 prefill_cost，但要加 transfer_cost（如果 KV 在慢层）。</li>
+<li>没命中的 worker：要付 prefill_cost，但可能队列空。</li>
+<li><strong>选 cost 最小的那个，而不是 hit 最高的那个。</strong></li>
+</ul>
+<h3>2.2 什么时候命中反而更慢</h3>
+<p>这是 Atlas 反复强调的、最反直觉的点：<strong>"A cache hit in slow storage can be slower than recomputation."</strong>（慢存储里的 cache 命中可能比重算还慢。）</p>
+<ul>
+<li>KV 在 GPU HBM：命中 ≈ 省掉 prefill，纯赚。</li>
+<li>KV 在 Host RAM：要 PCIe 搬回，几十 GB/s 带宽，长上下文可能几毫秒到几十毫秒——比 prefill 算还快，赚。</li>
+<li>KV 在本地 SSD / 远端网络存储：搬运带宽更低、延迟更高，<strong>搬回来的时间可能比重算 prefill 还长</strong>。这时"命中"反而是亏的。</li>
+</ul>
+<p>→ 路由器要拿到 <strong>KV 当前在哪个 tier</strong> 的信息（residency），不是只"命中过"。tier 级别决定 transfer_cost。</p>
+<h3>2.3 热点与 failover</h3>
+<ul>
+<li><strong>完美局部性制造热点</strong>：所有同前缀请求挤到一个 worker。</li>
+<li><strong>failover 要处理 residency 丢失</strong>：worker 挂了、扩容时新 worker 没缓存、cache 被驱逐（LRU）——residency 信息会过期。路由器要能优雅降级到"按队列长度+prefill 成本"的常规路由。</li>
+<li><strong>residency 信息一致性</strong>：多个 router 副本时，cache residency 表要一致或最终一致，否则路由决策打架。</li>
+</ul>
+<h3>2.4 和第 11 篇成本路由的区别</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>第 11 篇：质量门控路由</th>
+<th>本篇：缓存感知路由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>路由依据</td>
+<td>模型质量分级（大模型 vs 小模型）</td>
+<td>KV cache residency（命中/不命中/tier）</td>
+</tr>
+<tr>
+<td>目标</td>
+<td>省 cost（便宜模型兜底）</td>
+<td>省 TTFT + prefill 算力</td>
+</tr>
+<tr>
+<td>联动</td>
+<td>按请求难度路由</td>
+<td>按请求前缀路由</td>
+</tr>
+</tbody>
+</table></div>
+<p>两者正交，可叠加：质量门控决定"用哪个模型"，缓存感知决定"打到这个模型的哪个副本"。</p>
+<hr />
+<h2>三、KV-cache 分层存储（#09）</h2>
+<h3>3.1 动机</h3>
+<p>一个文档服务不可能把所有可复用上下文都留在 GPU HBM。丢了又重复 prefill 很贵。于是分几层：</p>
+<pre><code>GPU HBM   ←── 最近、最快、最贵、容量最小
+   ↓
+Host RAM   ←── PCIe 带宽，容量大、便宜
+   ↓
+本地 SSD    ←── 容量更大、带宽更低
+   ↓
+网络/远端存储 ←── 容量最大、延迟最高（RDMA/对象存储）
+</code></pre>
+<blockquote>
+<p>Atlas 原图："More capacity usually means a longer path back to the GPU."（容量越大，回 GPU 的路越长。）——tier 越往下越便宜越能装，但取回越慢。</p>
+</blockquote>
+<h3>3.2 拿什么存、存哪、何时丢</h3>
+<p>owner 的三个决策：</p>
+<ol>
+<li><strong>留什么在快层</strong>：高频复用的前缀（system prompt、常见 RAG 前缀、热门会话）留 HBM。</li>
+<li><strong>溢到哪</strong>：低频但还可能复用的，按访问概率 + 搬运成本决定是 RAM 还是 SSD。</li>
+<li><strong>何时丢 / 何时重算</strong>：当 tier 命中的搬运时间 &gt; 重算 prefill 时间，<strong>直接丢掉重算更划算</strong>。</li>
+</ol>
+<p>→ 这就回到 2.2 的铁律：<strong>tier hit rate 不是目标，"搬回 vs 重算"的总成本才是。</strong></p>
+<h3>3.3 实操组件（2026）</h3>
+<ul>
+<li><strong>LMCache</strong>（vLLM 生态）：跨请求、跨副本的 KV cache 池，支持 GPU→CPU→SSD 分层，vLLM 集成。</li>
+<li><strong>Mooncake</strong>（Moonshot）：KV cache为中心的分离存储，prefill/decode disaggregated 场景的 KV 转移。</li>
+<li><strong>PagedAttention 的 block 粒度</strong>：KV cache 按 block 管理，block 可以在 tier 间搬运、引用计数、LRU 驱逐——这是分层存储能做的基础（第 03 篇讲的 PagedAttention）。</li>
+</ul>
+<h3>3.4 tradeoff 与证据</h3>
+<p>Atlas 列的证据指标：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tier hit rate</td>
+<td>各层命中比例（HBM/RAM/SSD 各多少）</td>
+</tr>
+<tr>
+<td>transfer time</td>
+<td>把 KV 从慢层搬回 GPU 的时间</td>
+</tr>
+<tr>
+<td>bytes moved</td>
+<td>搬运量（看带宽压力）</td>
+</tr>
+<tr>
+<td>recompute cost</td>
+<td>重算 prefill 的时间（对比基准）</td>
+</tr>
+<tr>
+<td>end-to-end latency</td>
+<td>最终用户延迟（真北极）</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>关键诊断</strong>：如果 SSD tier hit rate 高但 E2E 没降反升——说明搬运时间 &gt; 重算时间，应该把 SSD 的东西直接丢掉重算，或者把 SSD 降级为"只存、不主动搬回"的冷备份。</p>
+<hr />
+<h2>四、一个量化：搬回 vs 重算</h2>
+<p>假设一个 8K 前缀、70B 模型、GQA，KV cache ≈ 2×8K×2KB ≈ 32 MB。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>层</th>
+<th>带宽</th>
+<th>搬回时间</th>
+<th>重算 prefill（对比）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HBM</td>
+<td>2-3 TB/s</td>
+<td>~0.01 ms</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Host RAM (PCIe)</td>
+<td>~50-80 GB/s</td>
+<td>~0.4-0.6 ms</td>
+<td>prefill ~5-15 ms → 搬回更赚</td>
+</tr>
+<tr>
+<td>本地 SSD (NVMe)</td>
+<td>~3-7 GB/s</td>
+<td>~5-10 ms</td>
+<td>prefill ~5-15 ms → <strong>可能持平甚至亏</strong></td>
+</tr>
+<tr>
+<td>网络存储</td>
+<td>视链路</td>
+<td>几十 ms</td>
+<td>prefill ~5-15 ms → <strong>大概率亏，重算更赚</strong></td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>数字为量级估算。<strong>结论稳定：越往下的 tier，"命中"的含金量越低，到达某层后命中不如重算。</strong> 这就是为什么不能"命中率越高越好"。</p>
+</blockquote>
+<hr />
+<h2>五、和 Inference Lab 的实证联动</h2>
+<p>第 14 篇 / kv-cache-truth-auditor 那篇的核心警告在这里直接适用：</p>
+<blockquote>
+<p>"Cache hit 不证明你跳过了工作。"</p>
+</blockquote>
+<ul>
+<li>命中 ≠ 省了——可能只是从 HBM 命中（真省），也可能从 SSD 命中（搬运比重算还慢，反而亏）。</li>
+<li><strong>null ≠ zero</strong>：residency 表说"没命中"不等于"这个前缀从没算过"——可能算过但被 LRU 驱逐了，可能还在别的 tier。路由决策别把"没命中"当"没缓存"。</li>
+<li><strong>独立 oracle 校验</strong>：tier hit rate 这个框架报的数，要和"实际 prefill 调用次数 / token 算力"对照——框架说命中率 80%，但 prefill 调用量没降，说明命中是"假命中"（慢层搬回后又被重算，或 residency 信息失准）。</li>
+</ul>
+<p>这就是 Inference Lab 的三方核对纪律在缓存分层场景的直接应用。</p>
+<hr />
+<h2>六、责任边界</h2>
+<p>Atlas 把 #09 归 <em>Inference / platform engineer</em>，#10 归 <em>Serving-platform engineer</em>。inference engineer 要：</p>
+<ol>
+<li>设计 residency 表与路由 cost 公式（不是写 LB 代码，但要定义 cost model）。</li>
+<li>选 tier 策略（哪些留 HBM、溢到哪、何时丢）。</li>
+<li>评估"搬回 vs 重算"边界，决定 tier 的取舍线。</li>
+<li>监控 tier hit rate <strong>和</strong> E2E 的关系——防止"高命中但更慢"的假优化。</li>
+</ol>
+<hr />
+<h2>七、实践 checklist：缓存感知路由与 KV 分层</h2>
+<ul>
+<li>[ ] 路由 cost 公式包含 queue + (1-hit)×prefill + hit×transfer + exec，不只看命中率</li>
+<li>[ ] residency 表带 tier 信息（HBM/RAM/SSD/网络），transfer_cost 按 tier 区分</li>
+<li>[ ] 算清"搬回 vs 重算"的边界，决定哪些 tier 只作冷备份、不主动搬回</li>
+<li>[ ] 防 hot spot：命中是候选不是无条件目的地，加队列长度约束</li>
+<li>[ ] failover / 扩容时 residency 丢失要优雅降级到常规路由</li>
+<li>[ ] 监控 tier hit rate <strong>与</strong> E2E 关系：高命中但没降延迟 → 查假命中</li>
+<li>[ ] 独立 oracle 校验：框架命中率 vs 实际 prefill 调用量对照（Inference Lab 三方核对）</li>
+<li>[ ] null ≠ zero：residency 表"没命中"不等于"没缓存过"，别据此全量重算</li>
+<li>[ ] LMCache/Mooncake 这类组件 benchmark 搬回带宽，别信文档数字</li>
+<li>[ ] 声明写边界："命中率 80%（HBM 60% / RAM 20%），E2E 降 35%——不是'开了缓存感知就快'"</li>
+</ul>
+<h2>八、原书补强：KVBM 与全局 G4 缓存（Kiely §5.3.2/§5.3.3）</h2>
+<blockquote>
+<p>精读原书后补两个本篇缺的组件/机制。</p>
+</blockquote>
+<p><strong>1. KVBM（KV Block Manager）——Dynamo 的 tier 搬运 API。</strong> 原书点名 NVIDIA Dynamo 通过 <strong>KVBM</strong> 提供 KV cache block 在不同显存层（GPU VRAM ↔ Host RAM ↔ SSD ↔ 网络）之间移动的 API。原则：<strong>最常用的 block 留在高带宽层，不常用的下沉到慢层待命</strong>。本篇 §3 讲了 tier 分层与“搬回 vs 重算”边界，KVBM 就是落地这套的工程接口（而非自己写搬运逻辑）。</p>
+<p><strong>2. 全局 G4 缓存——跨副本保活。</strong> cache-aware routing 之外，可用 <strong>G4 网络存储建一个跨副本的全局 KV cache</strong>：routing 仍重要（热 G1 副本仍比读 G4 快），但全局缓存保证<strong>节点轮换/autoscale 缩容时缓存序列不丢</strong>、所有副本最终都能取到任意已算序列。这是“命中率 vs 总完成成本”之外的第三维考量：<strong>缓存生存性</strong>——单副本缓存再热，节点一换就没了；全局 G4 用带宽换生存。</p>
+<p>下一篇：<strong>算子融合与 kernel 选型</strong>——torch.compile、CUDA graphs、CUTLASS，以及 Inference Lab vLLM 编译 break-even 的实证案例。</p>
+        <p><a class="back-link" href="../long-context-attention/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../kernel-fusion/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

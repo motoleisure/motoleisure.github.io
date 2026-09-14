@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>04 · 量化全景：FP8/INT8/INT4、AWQ/GPTQ/GGUF，精度-延迟-成本三角 - Agent's Photolog</title>
+  <meta name="description" content="量化是推理工程师的&quot;第一杠杆&quot;：模型小一半，显存少一半，带宽省一半，decode 快一半。但它有代价——精度掉。这一篇把量化讲透：为什么量化能加速、各格式区别、怎么选、怎么验证精度没掉太多。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/quantization-triangle/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="04 · 量化全景：FP8/INT8/INT4、AWQ/GPTQ/GGUF，精度-延迟-成本三角">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/quantization-triangle/">
+  <meta property="og:description" content="量化是推理工程师的&quot;第一杠杆&quot;：模型小一半，显存少一半，带宽省一半，decode 快一半。但它有代价——精度掉。这一篇把量化讲透：为什么量化能加速、各格式区别、怎么选、怎么验证精度没掉太多。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/quantization-triangle/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">04 · 量化全景：FP8/INT8/INT4、AWQ/GPTQ/GGUF，精度-延迟-成本三角</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">量化是推理工程师的&quot;第一杠杆&quot;：模型小一半，显存少一半，带宽省一半，decode 快一半。但它有代价——精度掉。这一篇把量化讲透：为什么量化能加速、各格式区别、怎么选、怎么验证精度没掉太多。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>量化是推理工程师的"第一杠杆"：模型小一半，显存少一半，带宽省一半，decode 快一半。但它有代价——精度掉。这一篇把量化讲透：为什么量化能加速、各格式区别、怎么选、怎么验证精度没掉太多。</p>
+</blockquote>
+<hr />
+<h2>一、为什么量化能加速（回到 memory-bound）</h2>
+<p>上一篇讲了 decode 是 memory-bound：每生成一个 token，GPU 要把整个模型权重从 HBM 读一遍。读的时间 ≈ 权重字节 / HBM 带宽。</p>
+<pre><code>70B FP16: 140 GB 权重
+A100 HBM 带宽: 2 TB/s
+读一遍 ≈ 70 ms（理想，不含计算）
+</code></pre>
+<p>如果量化到 INT4：</p>
+<pre><code>70B INT4: ~35 GB 权重
+读一遍 ≈ 17.5 ms  ← 快了 4 倍
+</code></pre>
+<p><strong>这就是量化对 decode 的加速本质：不是"算得快"，是"搬得少"。</strong> 因为 decode 瓶颈是带宽，权重小一半，搬运时间就少一半。这也是为什么量化对 prefill（compute-bound）加速不明显，对 decode（memory-bound）加速显著。</p>
+<hr />
+<h2>二、量化的两大流派：PTQ vs QAT</h2>
+<ul>
+<li><strong>PTQ（Post-Training Quantization，训练后量化）</strong>：模型训完后，用一小批校准数据算量化参数（scale/zero-point），直接转换。<strong>这是推理工程师 99% 场景用的方式</strong>——快、不需要重训。</li>
+<li><strong>QAT（Quantization-Aware Training，量化感知训练）</strong>：训练时模拟量化误差，让模型适应低精度。质量更好但要重训，成本高，一般是模型方做。</li>
+</ul>
+<p>下面讲的都是 PTQ。</p>
+<hr />
+<h2>三、精度格式速览</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>格式</th>
+<th>位宽</th>
+<th>典型场景</th>
+<th>质量损失</th>
+<th>加速</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FP16/BF16</td>
+<td>16</td>
+<td>基线，最常用</td>
+<td>0（基线）</td>
+<td>1×</td>
+</tr>
+<tr>
+<td>FP8</td>
+<td>8</td>
+<td>H100/H200 原生支持</td>
+<td>很小</td>
+<td>~2×</td>
+</tr>
+<tr>
+<td>INT8 / W8A16</td>
+<td>8</td>
+<td>通用</td>
+<td>小</td>
+<td>~2×</td>
+</tr>
+<tr>
+<td>INT4 / W4A16</td>
+<td>4</td>
+<td>边缘、省显存</td>
+<td>中等</td>
+<td>~3-4×</td>
+</tr>
+<tr>
+<td>低于 4</td>
+<td>2-3</td>
+<td>极限压缩</td>
+<td>明显</td>
+<td>受限于质量</td>
+</tr>
+</tbody>
+</table></div>
+<h3>3.1 FP8：NVIDIA Hopper/Blackwell 的杀手锏</h3>
+<p>H100（Hopper）开始，GPU 硬件原生支持 FP8（E4M3 和 E5M2 两种）。相比 INT8，FP8 有浮点指数，<strong>动态范围大，几乎不掉精度</strong>。H200/B200 进一步强化。</p>
+<ul>
+<li>适合：有 H100/H200/B200 的服务端。</li>
+<li>工具：TensorRT-LLM、vLLM 都支持 FP8（<code>--quantization fp8</code>）。</li>
+<li>代价：旧卡（A100/V100）不支持，要降级到 INT8/INT4。</li>
+</ul>
+<h3>3.2 W8A16 / W4A16：权重低精度，激活高精度</h3>
+<p>一个关键经验：<strong>权重可以量化得很狠（INT4 甚至 INT2），但激活保持 FP16</strong>。因为激活的分布更难预测，量化损失大。这种"权重量化、激活不变"的方案叫 <strong>weight-only quantization</strong>（W4A16 = weight 4-bit, activation 16-bit）。</p>
+<ul>
+<li>decode 阶段瓶颈是读权重，所以权重量化已经能拿到大部分加速。</li>
+<li>激活保持 FP16 保住质量。</li>
+<li>主流的 AWQ、GPTQ、GGUF 的 Q4_K 等，大多是这个路线。</li>
+</ul>
+<hr />
+<h2>四、三大主流权重量化算法</h2>
+<h3>4.1 GPTQ</h3>
+<ul>
+<li>思路：基于二阶信息（Hessian）逐层量化权重，每次量化一个权重就更新剩余的来补偿误差。</li>
+<li>优点：速度快（一次校准几分钟到几十分钟），质量不错。</li>
+<li>缺点：对异常值敏感，某些层（如 embedding 附近）量化后掉点多。</li>
+<li>格式：常见 <code>.gptq</code> 后缀的 HF 模型，vLLM/TGI 直接加载。</li>
+</ul>
+<h3>4.2 AWQ（Activation-aware Weight Quantization）</h3>
+<ul>
+<li>思路：观察激活发现，<strong>只有少数"重要"权重通道对激活幅度大的特征敏感</strong>。保护这些通道（保持更高精度或加 scale），其余狠压。</li>
+<li>优点：比 GPTQ 在 INT4 下质量更好（尤其大模型），是 INT4 的主流选择之一。</li>
+<li>缺点：校准稍慢。</li>
+<li>格式：<code>.awq</code>，vLLM/SGLang 都支持。</li>
+</ul>
+<h3>4.3 GGUF（llama.cpp 生态）</h3>
+<ul>
+<li>思路：llama.cpp 自己的二进制格式，支持多种位宽混合的 <strong>k-quant</strong>：Q2_K、Q3_K、Q4_K、Q5_K、Q6_K、Q8_0。</li>
+<li>特点：<strong>Q4_K_M 是社区公认性价比之王</strong>——质量接近 Q5，体积接近 Q4。可以在 CPU/Apple Silicon/GPU 混合跑。</li>
+<li>场景：本地、边缘、Apple Silicon、没有高端 GPU 的环境。</li>
+<li>工具：<code>llama-quantize</code> 命令行量化。</li>
+</ul>
+<h3>4.4 选型决策树</h3>
+<pre><code>有 H100/B200 → FP8（质量最好，硬件原生）
+有 A100/4090，要省显存 → AWQ INT4（质量好）
+有 A100/4090，要平衡 → GPTQ INT8 或 AWQ
+本地/CPU/Apple Silicon → GGUF Q4_K_M（llama.cpp）
+极致省显存且能接受质量损失 → INT4 / Q3_K
+不能接受任何质量损失 → FP16/BF16
+</code></pre>
+<hr />
+<h2>五、量化后怎么验证精度（千万别省这步）</h2>
+<p>量化最危险的事：<strong>只看延迟降了，不看质量掉了多少。</strong> 上线后发现模型变蠢了，已经晚。</p>
+<h3>5.1 评估方法</h3>
+<ol>
+<li><strong>跑标准 benchmark 对照</strong>：用 MMLU、HellaSwag、GSM8K 等跑 FP16 基线和量化版，看分数掉多少。一般 INT4 掉 1-3 分可接受，掉 &gt;5 分要警惕。</li>
+<li><strong>跑你的真实业务任务</strong>：标准 benchmark 不一定反映你的场景。用你线上真实 prompt 的一部分，人工或自动评估输出质量。</li>
+<li><strong>perplexity 对照</strong>：在固定文本上算困惑度，量化前后对比，是最快的"质量指纹"。</li>
+</ol>
+<h3>5.2 一个对照实验模板</h3>
+<pre><code>固定 prompt 集（你的真实业务样本，50-200 条）
+   │
+   ├─ FP16 基线 → 记录输出 + 评估分
+   ├─ INT8      → 同 prompt，记录输出 + 评估分
+   └─ INT4      → 同 prompt，记录输出 + 评估分
+   
+对比：
+  - 输出 token 级一致性（量化版和基线 token 重合率）
+  - 评估分差距
+  - 是否出现<span class="tok-s">&quot;明显错误&quot;</span>（幻觉、格式崩、拒答）
+</code></pre>
+<p>Inference Lab 的 vLLM 编译对比文章里，eager 和 compiled 两条路，12 个请求里 4 个输出不同——这还只是编译差异，量化差异通常更大。<strong>做量化决策必须带质量 gate</strong>。</p>
+<hr />
+<h2>六、量化对延迟和成本的实际影响（经验数字）</h2>
+<p>以 70B 模型为例（数字为量级估算，实际看硬件/框架）：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>配置</th>
+<th>显存</th>
+<th>单 token decode</th>
+<th>单 token 成本(相对)</th>
+<th>质量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FP16</td>
+<td>140 GB</td>
+<td>1.0×</td>
+<td>1.0×</td>
+<td>基线</td>
+</tr>
+<tr>
+<td>FP8</td>
+<td>70 GB</td>
+<td>~0.55×</td>
+<td>~0.55×</td>
+<td>~99%</td>
+</tr>
+<tr>
+<td>INT8</td>
+<td>70 GB</td>
+<td>~0.6×</td>
+<td>~0.6×</td>
+<td>~98%</td>
+</tr>
+<tr>
+<td>INT4 (AWQ)</td>
+<td>35-40 GB</td>
+<td>~0.3×</td>
+<td>~0.3×</td>
+<td>~95-97%</td>
+</tr>
+</tbody>
+</table></div>
+<p>几个观察：</p>
+<ol>
+<li><strong>decode 加速接近权重压缩比</strong>（因为 memory-bound），但不是线性——有 kernel 开销和计算部分。</li>
+<li><strong>成本下降≈显存下降</strong>，因为同样显存能跑更大 batch，单位成本降。</li>
+<li><strong>INT4 是性价比拐点</strong>：再往下到 INT2，质量掉得比省的多，通常不划算。</li>
+<li><strong>prefill 加速小</strong>：因为 prefill 是 compute-bound，权重小了但算的次数没少。</li>
+</ol>
+<hr />
+<h2>七、实战：用量化模型上线</h2>
+<h3>7.1 vLLM 加载量化模型</h3>
+<pre><code># 直接加载 HF 上的 AWQ 模型
+vllm serve TheBloke/Llama-2-13B-AWQ \
+  --quantization awq_marlin \
+  --max-model-len 8192
+
+# FP8（需要 H100+）
+vllm serve neuralmagic/Meta-Llama-3.1-70B-Instruct-FP8 \
+  --quantization fp8
+</code></pre>
+<h3>7.2 llama.cpp 量化流程</h3>
+<pre><code># 1. 下载原始 FP16 权重
+huggingface-cli download meta-llama/Llama-3.1-8B --local-dir ./Llama-3.1-8B
+
+# 2. 转成 GGUF
+python convert_hf_to_gguf.py ./Llama-3.1-8B --outtype f16 --outfile Llama-3.1-8B-f16.gguf
+
+# 3. 量化到 Q4_K_M
+./llama-quantize Llama-3.1-8B-f16.gguf Llama-3.1-8B-Q4_K_M.gguf Q4_K_M
+
+# 4. 跑
+./llama-server -m Llama-3.1-8B-Q4_K_M.gguf -c 8192 --port 8080
+</code></pre>
+<h3>7.3 MLX 量化（Apple Silicon）</h3>
+<pre><code># MLX 自带量化命令
+mlx_lm.convert --model meta-llama/Llama-3.1-8B --q-bits 4
+
+# 服务
+mlx_lm.server --model mlx-community/Meta-Llama-3.1-8B-Instruct-4bit
+</code></pre>
+<hr />
+<h2>八、量化决策的常见陷阱</h2>
+<ol>
+<li><strong>只比延迟不比质量</strong>：最常见错误。务必带评估 gate。</li>
+<li><strong>不同算法同位宽质量不同</strong>：AWQ INT4 通常优于 GPTQ INT4，别只看位宽。</li>
+<li><strong>校准数据要匹配业务分布</strong>：用通用维基语料校准的量化，在你的代码/法律/医学场景可能掉得多。用业务样本校准。</li>
+<li><strong>量化 + 长上下文叠加放大误差</strong>：INT4 在短 prompt 看着没事，到 32K 可能出现明显退化。长上下文场景要专门测。</li>
+<li><strong>某些层不该量化</strong>：embedding、lm_head、最后几层通常保持高精度。好的量化方案会跳过这些。检查你用的量化模型有没有乱压关键层。</li>
+</ol>
+<hr />
+<h2>九、选择性 &amp; 混合精度量化：逐层精度、离群点保护、W4A8（Atlas #12 补强）</h2>
+<blockquote>
+<p>前面讲的是「一刀切」量化——整模 INT4 / INT8。但真实工程里，<strong>不是所有层都该压到同一精度</strong>。这一节补 Atlas #12：逐层精度选择、离群点保护、weight-activation 混合精度，以及为什么 W4A8 比 W4A16 多省一截。</p>
+</blockquote>
+<h3>9.1 逐层精度选择：敏感层留高精度</h3>
+<p>一刀切 INT4 的代价是「某些层掉点特别多」。经验上敏感的层：</p>
+<ul>
+<li><strong>embedding / lm_head</strong>：第一层和最后一层，分布特殊，量化后质量损失大。</li>
+<li><strong>首尾几层 attention</strong>：对全局信息最敏感。</li>
+<li><strong>某些 MLP down_proj</strong>：权重有离群大值。</li>
+</ul>
+<p><strong>混合精度量化</strong>：敏感层留 FP16/INT8，其余 INT4。好的量化方案（AWQ/GPTQ 工具链）会自动跳过这些层或加保护。检查你用的量化模型有没有「乱压关键层」——这是第 04 篇陷阱清单第 5 条的深化。</p>
+<h3>9.2 离群点保护：SmoothQuant</h3>
+<p>激活里的<strong>离群大值</strong>（outlier）是量化的天敌：一个超大值会把整个量化 scale 撑大，让 99% 的普通值精度全废。</p>
+<ul>
+<li><strong>SmoothQuant</strong>：把激活的离群「光滑」到权重侧——把激活的大值除掉、对应权重乘上去，让激活分布变平、好量化，权重侧虽然变难量化但权重好处理。</li>
+<li>这是 W8A8（权重+激活都 8-bit）能不掉点的关键技术。纯 weight-only（W4A16）不碰激活，所以没这问题；但要进一步省就要面对激活离群。</li>
+</ul>
+<h3>9.3 W4A8 vs W4A16：再多省一截</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>方案</th>
+<th>权重</th>
+<th>激活</th>
+<th>谁的带宽</th>
+<th>适用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>W4A16</td>
+<td>4-bit</td>
+<td>FP16</td>
+<td>权重带宽省 4×，激活不变</td>
+<td>decode 主力（权重带宽主导）</td>
+</tr>
+<tr>
+<td>W4A8</td>
+<td>4-bit</td>
+<td>8-bit</td>
+<td>权重 + 激活都省</td>
+<td>高 batch / prefill（激活带宽也显著）</td>
+</tr>
+<tr>
+<td>W8A8</td>
+<td>8-bit</td>
+<td>8-bit</td>
+<td>两者都省，质量好</td>
+<td>H100 FP8 路线</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li>decode 阶段瓶颈是读权重，所以 W4A16 已拿到大头；但<strong>大 batch 时激活读取也占带宽</strong>，W4A8 能再多省一截。</li>
+<li>代价：激活量化要处理离群（SmoothQuant 类），调参更复杂，质量 gate 更严。</li>
+</ul>
+<h3>9.4 实操与框架支持</h3>
+<ul>
+<li>vLLM 支持 FP8（W8A8 等效）、AWQ/GPTQ（W4A16）、部分 INT8 混合。</li>
+<li>SGLang 类似，对 DeepSeek 的 W8A8 / NVFP4 有专门路径。</li>
+<li><strong>混合精度量化通常不是 CLI 一行命令</strong>，要用工具链（AutoAWQ/GPTQ 校准脚本）逐层配置，或用社区已校准好的混合精度 checkpoint。</li>
+</ul>
+<h3>9.5 tradeoff</h3>
+<ul>
+<li>调参复杂：逐层精度、离群阈值都要试，不是「装上就快」。</li>
+<li>要逐层评估：不只是总 perplexity，要看敏感层有没有掉。</li>
+<li>Atlas 的纪律适用：「Architecture/precision changes require compatible weights and evaluation」——混合精度配置是模型特定的，别套到别的模型。</li>
+</ul>
+<hr />
+<h2>十、实践 checklist：量化工程</h2>
+<ul>
+<li>[ ] 选型前确认目标硬件支持的最低精度（FP8 要 Hopper+）</li>
+<li>[ ] INT4 用 AWQ，CPU/Apple 用 GGUF Q4_K_M</li>
+<li>[ ] 量化后跑标准 benchmark + 业务样本双评估，记录分数差</li>
+<li>[ ] 做输出 token 级一致性对照（不只是平均分）</li>
+<li>[ ] 在你最长上下文场景专门测（量化误差在长上下文放大）</li>
+<li>[ ] 记录延迟/成本/质量三角，做有边界的声明（别只说"快了 3 倍"）</li>
+<li>[ ] FP8 能用就别降 INT8，质量差距小但带宽收益大</li>
+</ul>
+<h2>十一、原书补强：工具链、组件敏感性、生产甜区（Kiely §5.1）</h2>
+<blockquote>
+<p>精读原书《Inference Engineering》§5.1 后补三条工程性事实。</p>
+</blockquote>
+<p><strong>1. PTQ 工具链：NVIDIA ModelOpt。</strong> 原书点名 <strong>TensorRT Model Optimizer (ModelOpt)</strong> 是领先的 PTQ 工具（开源，也支持剪枝/蒸馏/稀疏），关键是它的输出<strong>兼容所有主流推理引擎</strong>——vLLM、SGLang、TensorRT-LLM。也就是说你不是为每个引擎各做一次量化，而是 ModelOpt 出一份、三引擎通用。日常 PTQ 流程里它是首选起点。</p>
+<p><strong>2. 组件敏感性四档（从低到高）：weights &lt; activations &lt; KV cache &lt; attention。</strong> 原书给了一张明确的敏感性阶梯：</p>
+<ul>
+<li><strong>Weights（线性层）</strong>：最不敏感，最先量化。</li>
+<li><strong>Activations（激活函数中间输出）</strong>：次之；注意激活函数本身几乎不量化（占权重比太小）。</li>
+<li><strong>KV cache</strong>：中等敏感——<strong>每个 token 的 KV 会被后续每个 token 反复读</strong>，所以量化误差会<strong>从 token 到 token 累积</strong>，这是它比 weights 敏感的根因。</li>
+<li><strong>Attention（尤其 softmax）</strong>：最敏感。attention 每步依赖前序所有结果，误差在数千 token 的序列上滚雪球式放大。所以<strong>除最激进的方案外，softmax 类运算一律留原精度</strong>。</li>
+</ul>
+<p>这条阶梯比“逐层选精度”更进一步：它告诉你<strong>该按组件类型分精度</strong>，而不只是按层。KV cache 量化之所以值得冒险，是因为它直接放大 prefix caching / disaggregation 的收益；但代价就是上面的累积误差。</p>
+<p><strong>3. 生产甜区：FP8/MXFP8，整数格式留边缘。</strong> 原书明确表态：<strong>生产质量敏感场景坚持浮点格式（FP8/MXFP8）</strong>，整数（INT8/INT4/GGUF 的 1.58-bit 动态量化）适合本地/边缘推理（把 DeepSeek 塞进消费级 Apple 机器很酷），但<strong>整数格式因缺动态范围，不适合质量敏感的生产服务</strong>。MXFP8/MXFP4 的 microscaling（每 32 参数一个 block scale）和 NVFP4（block 16 + 32-bit 全局 scale）就是用更高粒度对抗低精度的动态范围损失。结论：生产 FP8 起步，NVFP4 在 Blackwell 上试，INT 留给边缘。</p>
+<p>下一篇：<strong>推理框架横评</strong>——vLLM vs SGLang vs TensorRT-LLM vs llama.cpp vs MLX，各自擅长什么、怎么选。</p>
+        <p><a class="back-link" href="../kv-cache-pagedattention/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../inference-frameworks/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

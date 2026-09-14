@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>16 · 长上下文注意力变体菜单：稀疏/滑动/膨胀、低秩/潜空间、跨层 KV（MLA/YOCO） - Agent's Photolog</title>
+  <meta name="description" content="*Atlas 补强篇（对应 Technique Atlas #03 / #04 / #05）*。标准 dense attention 是 O(n²) 计算 + O(n·d·L) 的 KV cache，到 32K/128K 上下文就压不动。这一篇讲 model engineer 的三类架构菜单——把 attention 变便宜的三种思路。inference engineer 的责任不是去改这些架构，而是：拿到一个 checkpoint 能判断它用的是什么 attention、KV 显存预算差几倍、质量评估怎么做。 &quot;会读、会评估、不乱改权重&quot;——这句话贯穿全篇。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/long-context-attention/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="16 · 长上下文注意力变体菜单：稀疏/滑动/膨胀、低秩/潜空间、跨层 KV（MLA/YOCO）">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/long-context-attention/">
+  <meta property="og:description" content="*Atlas 补强篇（对应 Technique Atlas #03 / #04 / #05）*。标准 dense attention 是 O(n²) 计算 + O(n·d·L) 的 KV cache，到 32K/128K 上下文就压不动。这一篇讲 model engineer 的三类架构菜单——把 attention 变便宜的三种思路。inference engineer 的责任不是去改这些架构，而是：拿到一个 checkpoint 能判断它用的是什么 attention、KV 显存预算差几倍、质量评估怎么做。 &quot;会读、会评估、不乱改权重&quot;——这句话贯穿全篇。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/long-context-attention/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">16 · 长上下文注意力变体菜单：稀疏/滑动/膨胀、低秩/潜空间、跨层 KV（MLA/YOCO）</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">*Atlas 补强篇（对应 Technique Atlas #03 / #04 / #05）*。标准 dense attention 是 O(n²) 计算 + O(n·d·L) 的 KV cache，到 32K/128K 上下文就压不动。这一篇讲 model engineer 的三类架构菜单——把 attention 变便宜的三种思路。inference engineer 的责任不是去改这些架构，而是：拿到一个 checkpoint 能判断它用的是什么 attention、KV 显存预算差几倍、质量评估怎么做。 &quot;会读、会评估、不乱改权重&quot;——这句话贯穿全篇。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p><em>Atlas 补强篇（对应 Technique Atlas #03 / #04 / #05）</em>。标准 dense attention 是 O(n²) 计算 + O(n·d·L) 的 KV cache，到 32K/128K 上下文就压不动。这一篇讲 model engineer 的三类架构菜单——把 attention 变便宜的三种思路。<strong>inference engineer 的责任不是去改这些架构，而是：拿到一个 checkpoint 能判断它用的是什么 attention、KV 显存预算差几倍、质量评估怎么做。</strong> "会读、会评估、不乱改权重"——这句话贯穿全篇。</p>
+</blockquote>
+<hr />
+<h2>一、为什么标准 attention 在长上下文撑不住</h2>
+<p>回顾第 02 篇：dense self-attention 里，第 t 个 token 要对前面所有 t 个 token 算 attention，计算量随序列长度 <strong>平方增长</strong>；同时每层都要把每个历史 token 的 K、V 存进 KV cache，显存随长度 <strong>线性增长</strong>。</p>
+<p>两个瓶颈，分开看：</p>
+<pre><code>计算瓶颈（prefill 主导）:  O(n² · d)     ← prefill 是 compute-bound
+显存瓶颈（KV cache）:      O(n · d · L)  ← 每多一个 token，所有层都要存
+</code></pre>
+<p>以 Llama-2 70B、128K 上下文、64 层、GQA（8 组 KV head、head_dim 128）粗算 KV cache：</p>
+<pre><code>KV cache ≈ 2(K和V) × 128K × 128 × 64 × 8 ≈ 16 GB（仅 KV，不含权重）
+</code></pre>
+<p>换 MHA（64 个 KV head）就直接 8 倍 → 128 GB，一张 H100 80G 根本放不下。<strong>长上下文的两个杀手：prefill 算力平方爆炸 + KV cache 线性但常数很大。</strong> 下面三类技术分别攻这两个瓶颈，但思路完全不同。</p>
+<hr />
+<h2>二、稀疏 / 滑动窗口 / 膨胀注意力（Atlas #03）</h2>
+<p><strong>核心思想</strong>：不是每个 token 都需要看全部历史。让每个 token 只对一部分历史 token 算 attention，把 O(n²) 降到 O(n·w)（w 是窗口/稀疏规模）。</p>
+<h3>2.1 三种稀疏 pattern</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>变体</th>
+<th>机制</th>
+<th>感受野</th>
+<th>典型模型</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sliding-window（滑动窗口）</td>
+<td>每个 token 只看前面 w 个</td>
+<td>局部 w</td>
+<td>Mistral（w=4096）、Longformer 局部窗口</td>
+</tr>
+<tr>
+<td>Strided / dilated（膨胀空洞）</td>
+<td>窗口内跳着取（步长 s），扩大感受野</td>
+<td>w·s 但仍 O(n·w)</td>
+<td>Sparse Transformer、Dilated Attention</td>
+</tr>
+<tr>
+<td>Global + local（全局点）</td>
+<td>局部窗口 + 少量"全局 token"看所有</td>
+<td>近似全局但稀疏</td>
+<td>Longformer、BigBird</td>
+</tr>
+</tbody>
+</table></div>
+<h3>2.2 滑动窗口的 KV cache 红利</h3>
+<p>滑动窗口有个推理侧的直接好处：<strong>KV cache 只需保留最近 w 个 token</strong>，超出窗口的旧 KV 可以丢弃。所以滑动窗口模型的 KV cache 是 <strong>O(w·d·L)</strong> 而非 O(n·d·L)——128K 上下文也能把 KV 控制在窗口大小内。这是 Mistral 选 sliding-window 的关键理由之一。</p>
+<h3>2.3 tradeoff 与质量评估</h3>
+<ul>
+<li>稀疏降低了计算和显存，但<strong>可能丢掉远距离依赖</strong>。</li>
+<li>质量评估<strong>不能只看 perplexity</strong>：要测<strong>长距离检索任务</strong>——needle-in-a-haystack（大海捞针）、长文档 QA、跨段推理。一个 sliding-window 模型 perplexity 可能很好，但"第 1 万 token 埋的针、第 10 万 token 问"会彻底失败。</li>
+<li>Atlas 的纪律："Architecture changes such as sparse attention require compatible weights and evaluation."——<strong>不能在推理时对一个 dense 训练出来的模型随便套窗口</strong>，权重没训过这种 pattern，质量会崩。</li>
+</ul>
+<h3>2.4 责任边界</h3>
+<p>这是 <strong>model engineer</strong> 的架构选择。inference engineer 的活是：看 config 确认 <code>sliding_window</code> 字段、确认推理框架支持该 pattern、按窗口大小做 KV 预算。</p>
+<hr />
+<h2>三、低秩 / 潜空间注意力（Atlas #04）</h2>
+<p><strong>核心思想</strong>：attention 矩阵往往是低秩的，可以用低秩投影或核近似来逼近，把 O(n²) 压到 O(n·k) 甚至 O(n)。</p>
+<h3>3.1 两条路线</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>变体</th>
+<th>机制</th>
+<th>复杂度</th>
+<th>代表</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Linformer（低秩投影）</td>
+<td>把 K、V 的序列维度 n 投影到 k（n→k），attention 变 O(n·k)</td>
+<td>O(n·k)</td>
+<td>Linformer</td>
+</tr>
+<tr>
+<td>Performer / 线性 attention</td>
+<td>用 random features / kernel feature map 把 softmax attention 近似成线性，去掉显式 n×n 矩阵</td>
+<td>O(n)</td>
+<td>Performer、Linear Transformers、RWKV、RetNet</td>
+</tr>
+</tbody>
+</table></div>
+<h3>3.2 tradeoff</h3>
+<ul>
+<li><strong>近似有误差</strong>：低秩投影丢信息，线性 attention 的核近似对长距离精度有退化。</li>
+<li><strong>和标准 attention 输出不完全等价</strong>——这是和稀疏 attention 不同的"近似"本质：稀疏是"少算一些位置但算的还算准"，低秩是"算了但近似了"。</li>
+<li>这类模型通常需要<strong>专门训练</strong>才能在低秩假设下表现好。</li>
+</ul>
+<h3>3.3 责任边界</h3>
+<p>同样是 model engineer 的架构选择。inference engineer 看到 <code>Linformer</code>/<code>linear</code>/<code>Performer</code> 这类模型，要知道它的 prefill 不是平方复杂度、但质量评估要做长距离对照。</p>
+<hr />
+<h2>四、跨层 KV 共享（YOCO, Atlas #05）+ MLA 潜空间（Atlas #04）—— 当前最重要的一类</h2>
+<blockquote>
+<p>⚠️ <strong>Atlas 把两类分开</strong>：<strong>#04 Low-rank &amp; latent attention</strong>（MLA、Linformer——把 KV 压进低秩/潜空间表示）与 <strong>#05 Cross-layer KV sharing</strong>（YOCO——多层共用同一份 KV 状态）。两者都是“减少需保留的 KV”，但机制不同：<strong>MLA 压维度、YOCO 跨层复用</strong>。本节合并讲（对 KV 预算影响同向），但记住 <strong>MLA 属 #04、YOCO 属 #05</strong>，别混为一谈——这是上一轮把 MLA 误挂到 #05 的纠正。</p>
+</blockquote>
+<p><strong>核心思想</strong>：与其减少每层看的 token 数，不如减少"需要保留几套独立的 KV 状态"。这是 2024-2026 主流大模型把 KV cache 压到极致的方向。</p>
+<h3>4.1 从 MQA/GQA 到跨层共享</h3>
+<p>第 03 篇讲了 MQA/GQA：减少 KV head 数（多 query head 共享一套 KV）。跨层共享走得更远——<strong>多层共用同一套 KV</strong>。</p>
+<ul>
+<li><strong>YOCO（You Only Cache Once）</strong>：多个 decoder 层复用同一份 KV cache，cache 量直接除以共享层数。</li>
+<li><strong>Cross-layer attention</strong>：上层直接读下层的 K/V，不再独立存。</li>
+</ul>
+<h3>4.2 MLA（Multi-head Latent Attention）—— DeepSeek 的事实标准</h3>
+<p>DeepSeek-V2 引入、V3/R1 沿用的 MLA 是当前最激进的 KV 压缩：</p>
+<ul>
+<li><strong>不存每 head 的 K/V，而是存一个压缩后的低秩 latent 向量</strong>。推理时 KV cache 只存这个 latent；需要算 attention 时再"解压"出各 head 的 K/V。</li>
+<li><strong>为什么 DeepSeek 的 KV cache 这么小</strong>：latent 维度远小于 <code>num_heads × head_dim</code>，压缩比比 GQA 再低一个量级。</li>
+</ul>
+<pre><code>MHA:   cache ~ 2 × n × num_heads × head_dim
+GQA:   cache ~ 2 × n × num_kv_groups × head_dim      (减少 head 数)
+MLA:   cache ~ 2 × n × kv_lora_rank  (+ 少量解耦部分)  (压到 latent 维度)
+</code></pre>
+<p>对 128K 长上下文，MLA 能把 KV cache 压到 GQA 的 <strong>1/3 ~ 1/5</strong>。这是 DeepSeek 能以更低显存成本服务长上下文的核心原因。</p>
+<h3>4.3 tradeoff 与责任边界</h3>
+<ul>
+<li><strong>架构改动需训练</strong>：MLA 不是运行时开关，权重就是按 latent 压缩训出来的。</li>
+<li><strong>解压有额外计算</strong>：每次 attention 要从 latent 解出 K/V，多一层矩阵乘。</li>
+<li><strong>和 GQA/MHA checkpoint 不通用</strong>：你不能拿一个 GQA 模型"开启 MLA"。</li>
+<li><strong>责任边界</strong>：inference engineer <strong>必须能判断"这个 checkpoint 是 MLA/GQA/MHA"</strong>——KV 显存预算公式完全不同，预算做错直接 OOM。看 <code>config.json</code> 里的 <code>q_lora_rank</code> / <code>kv_lora_rank</code> 字段就是 MLA 的标志。</li>
+</ul>
+<hr />
+<h2>五、一张表：拿到 checkpoint 怎么判断 attention 类型</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Attention 类型</th>
+<th>config 关键字段</th>
+<th>KV cache 公式（每 token）</th>
+<th>典型模型</th>
+<th>主流框架支持</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MHA</td>
+<td><code>num_kv_heads == num_heads</code></td>
+<td>2·num_heads·head_dim</td>
+<td>Llama-2、GPT</td>
+<td>全支持</td>
+</tr>
+<tr>
+<td>GQA</td>
+<td><code>num_kv_heads &lt; num_heads</code></td>
+<td>2·num_kv_groups·head_dim</td>
+<td>Llama-3、Mistral、Qwen2</td>
+<td>全支持</td>
+</tr>
+<tr>
+<td>MQA</td>
+<td><code>num_kv_heads == 1</code></td>
+<td>2·head_dim</td>
+<td>PaLM、StarCoder</td>
+<td>全支持</td>
+</tr>
+<tr>
+<td>Sliding-window</td>
+<td><code>sliding_window</code></td>
+<td>2·num_kv_groups·head_dim（按窗口截断）</td>
+<td>Mistral、Gemma2</td>
+<td>vLLM/SGLang/llama.cpp</td>
+</tr>
+<tr>
+<td>MLA（潜空间）</td>
+<td><code>q_lora_rank</code> / <code>kv_lora_rank</code></td>
+<td>~2·kv_lora_rank</td>
+<td>DeepSeek-V2/V3/R1</td>
+<td>vLLM、SGLang</td>
+</tr>
+<tr>
+<td>Sparse/线性</td>
+<td>模型自定义</td>
+<td>视实现</td>
+<td>Longformer、Linformer、Performer</td>
+<td>部分支持</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>实操</strong>：拿到一个新模型，先 <code>cat config.json | grep -E "num_attention_heads|num_key_value_heads|sliding_window|q_lora_rank|kv_lora_rank"</code>，再决定 KV 预算公式。<strong>没查清 attention 类型就估显存 = 盲算。</strong></p>
+<hr />
+<h2>六、显存预算：不同 attention 差几倍</h2>
+<p>以 70B、64 层、128K 上下文粗算（仅 KV cache，head_dim=128）：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Attention</th>
+<th>每 token KV</th>
+<th>128K KV cache</th>
+<th>相对</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MHA（64 head）</td>
+<td>2·64·128 = 16 KB</td>
+<td>~128 GB</td>
+<td>1×（放不下）</td>
+</tr>
+<tr>
+<td>GQA（8 组）</td>
+<td>2·8·128 = 2 KB</td>
+<td>~16 GB</td>
+<td>1/8</td>
+</tr>
+<tr>
+<td>MQA（1 组）</td>
+<td>2·128 = 256 B</td>
+<td>~2 GB</td>
+<td>1/64</td>
+</tr>
+<tr>
+<td>MLA（latent 512）</td>
+<td>2·512 ≈ 1 KB</td>
+<td>~8 GB</td>
+<td>1/16</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>数字为量级估算，实际看 latent 维度、是否解耦、框架实现。<strong>结论稳定：attention 类型选错，KV 预算差一个数量级。</strong> 这就是为什么"拿到 checkpoint 先判 attention 类型"是 inference engineer 的基本功。</p>
+</blockquote>
+<hr />
+<h2>七、责任边界与质量评估（Inference Lab 精神）</h2>
+<p>Atlas 把 #03/#04/#05 全归到 <strong>Model design · Model engineer</strong>，责任写得明白：</p>
+<blockquote>
+<p>"An architectural change needs trained support. Reusing arbitrary layers' caches in an existing model is not equivalent."
+"架构改动需训练支持；在已有模型里复用任意层的 cache 不等价。"</p>
+</blockquote>
+<p>翻译成 inference engineer 的纪律：</p>
+<ol>
+<li><strong>会读</strong>：拿到 checkpoint 能判断 attention 类型，估对 KV 预算。</li>
+<li><strong>会评估</strong>：长上下文模型的质量评估要测<strong>长距离检索</strong>（needle-in-haystack、跨段 QA），不是只看短 prompt perplexity。</li>
+<li><strong>不乱改</strong>：不能对 dense 模型"开启稀疏"、不能把 GQA 权重当 MLA 跑——<strong>架构改动不是运行时开关</strong>。</li>
+<li><strong>null ≠ zero</strong>：config 里没有 <code>sliding_window</code> 字段，不等于"它用了 dense attention"——也可能是字段名不同、也可能是 MLA（看 <code>kv_lora_rank</code>）。<strong>缺失哨兵不变成零</strong>，要去验证。</li>
+</ol>
+<p>这和第 14 篇 Inference Lab 方法论完全同源：claim 要有界，测量边界先于指标。</p>
+<hr />
+<h2>八、推理框架支持现状（2026）</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>框架</th>
+<th>MLA（DeepSeek）</th>
+<th>滑动窗口</th>
+<th>稀疏/线性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>vLLM</td>
+<td>✅ 原生支持 DeepSeek MLA</td>
+<td>✅ 支持 <code>sliding_window</code></td>
+<td>视模型实现</td>
+</tr>
+<tr>
+<td>SGLang</td>
+<td>✅ Day-0 支持 DeepSeek 系列</td>
+<td>✅</td>
+<td>视实现</td>
+</tr>
+<tr>
+<td>llama.cpp</td>
+<td>✅ DeepSeek MLA 已支持</td>
+<td>✅</td>
+<td>部分社区实现</td>
+</tr>
+<tr>
+<td>MLX</td>
+<td>✅ DeepSeek 支持</td>
+<td>✅</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>DeepSeek MLA 的普及倒逼所有主流框架都加了 latent attention 路径。但<strong>支持 ≠ 最优</strong>：MLA 的解压 kernel 在不同硬件上性能差很多，要 benchmark。Atlas 的纪律——"Use the diagram to form a hypothesis, then measure"——在这里同样适用。</p>
+</blockquote>
+<hr />
+<h2>九、实践 checklist：长上下文注意力变体</h2>
+<ul>
+<li>[ ] 拿到新模型先 <code>grep config.json</code> 判 attention 类型（MHA/GQA/MQA/MLA/滑窗）</li>
+<li>[ ] 按对应公式估 KV cache，别用 MHA 公式套 GQA 模型</li>
+<li>[ ] MLA 看 <code>q_lora_rank</code>/<code>kv_lora_rank</code>，预算按 latent 维度</li>
+<li>[ ] 长上下文模型质量评估必测 needle-in-haystack + 跨段 QA，不只看 perplexity</li>
+<li>[ ] 滑动窗口模型确认 KV 按窗口截断（不是无限增长）</li>
+<li>[ ] 架构改动不当运行时开关：dense 权重不能"开稀疏"，GQA 不能当 MLA</li>
+<li>[ ] null ≠ zero：缺 <code>sliding_window</code> 字段要去验证，别默认 dense</li>
+<li>[ ] 框架声称支持 ≠ 最优，在目标硬件 benchmark MLA 解压 kernel</li>
+<li>[ ] 声明写边界："MLA 在 128K 把 KV 压到 ~8GB（量级，实测为准）"</li>
+</ul>
+<p>下一篇：<strong>缓存感知路由与 KV 分层存储</strong>——多副本里"每轮对话落不同 worker"怎么治、KV cache 从 GPU 溢到 RAM/SSD/网络怎么权衡。</p>
+        <p><a class="back-link" href="../learning-path/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../cache-aware-routing/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>语音 agent 为什么比文本 agent 难测 10 倍？CRAWL-WALK-RUN 评测框架全拆解 - Agent's Photolog</title>
+  <meta name="description" content="OpenAI 给 GPT-Live-1 配了开源评测框架，把语音 agent 评估拆成「爬行—行走—奔跑」三档；τ-Voice 论文用 278 个真实任务测出：全双工语音 agent 只保留了文本能力的 30%–45%。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/voice-agent-eval/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="语音 agent 为什么比文本 agent 难测 10 倍？CRAWL-WALK-RUN 评测框架全拆解">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/voice-agent-eval/">
+  <meta property="og:description" content="OpenAI 给 GPT-Live-1 配了开源评测框架，把语音 agent 评估拆成「爬行—行走—奔跑」三档；τ-Voice 论文用 278 个真实任务测出：全双工语音 agent 只保留了文本能力的 30%–45%。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/voice-agent-eval/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">语音 agent 为什么比文本 agent 难测 10 倍？CRAWL-WALK-RUN 评测框架全拆解</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-12">发布于 2026 年 9 月 12 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">OpenAI 给 GPT-Live-1 配了开源评测框架，把语音 agent 评估拆成「爬行—行走—奔跑」三档；τ-Voice 论文用 278 个真实任务测出：全双工语音 agent 只保留了文本能力的 30%–45%。</p>
+
+        <div class="prose">
+<blockquote>
+<p>OpenAI给GPT-Live-1配了一套开源评测框架,把语音agent的评估拆成"爬行—行走—奔跑"三档。更狠的是,τ-Voice论文用278个真实任务测了一遍,发现全双工语音agent只保留了文本能力的30%–45%。这篇拆解这套框架怎么用,以及那个数字背后意味着什么。</p>
+</blockquote>
+<figure><p><img alt="CRAWL→WALK→RUN:三档递进评测" src="../../assets/images/posts/voice-agent-eval/01.avif"  loading="lazy" /></p><figcaption>CRAWL→WALK→RUN:三档递进评测</figcaption></figure>
+<h2>一、先说为什么语音agent的评测,和文本agent根本不是一回事</h2>
+<p>文本agent的评测已经有一套成熟打法:给一个任务,看agent调用工具的序列对不对、最终状态对不对。τ-bench(Sierra Research出的benchmark)就是这么做的——airline/retail/telecom几个域,用户模拟器发文字,agent调API,按最终数据库状态判对错。</p>
+<p>但全双工语音agent——也就是能同时听和说、随时能被插话打断的那种——一上语音,这套评测就崩了。原因有三个:</p>
+<p><strong>第一,音频和事件必须对齐在一条持续推进的时间线上。</strong> GPT-Live边听边说,用户说话、agent回应、打断、委托给后端、工具执行,这些在时间上是重叠的,不是干净的"你说→我说→你说"。评测框架<strong>不能在交换之间暂停时钟</strong>,必须把对话轮次事后观察,而不是在执行时强制交替。</p>
+<p><strong>第二,"听起来很自然的确认"不代表后端真执行了正确操作。</strong> agent可能用最温柔的语气说"好的,已经帮您订好了",但实际create_reservation的参数是错的、或者根本没调。只看转写文本和最终回复,会漏掉大量失败模式。</p>
+<p><strong>第三,真实世界的音频条件会打垮在干净环境下测出来的分数。</strong> 背景噪声、口音、打断——这些在纯文本里不存在,在语音里是致命变量。</p>
+<p>所以OpenAI发布GPT-Live-1的同时,放出了<strong>CRAWL/WALK/RUN三档评测框架</strong>,完整代码在<code>github.com/openai/openai-cookbook</code>的<code>examples/audio/duplex_voice_agent_evaluation</code>目录下。我抓了全部源码和文档,下面逐档拆。</p>
+<figure><p><img alt="三个原因:时间线重叠/确认≠执行/噪声打垮分数" src="../../assets/images/posts/voice-agent-eval/02.avif"  loading="lazy" /></p><figcaption>三个原因:时间线重叠/确认≠执行/噪声打垮分数</figcaption></figure>
+<h2>二、CRAWL:合成音频,单轮,最干净的基线</h2>
+<p>CRAWL(爬行)是最简单的一档,解决一个核心问题:<strong>在完全可控的输入下,agent的推理和任务质量到底行不行。</strong></p>
+<p>它的做法是把场景文本变成可复用的合成语音(TTS),发给agent一次,然后评agent的口头回复、委托行为、工具调用和最终应用状态。我curl了crawl_harness的README原文,它明确写:</p>
+<blockquote>
+<p>"CRAWL is a repeatable single-turn evaluation harness for GPT Live voice agents. It turns scenario text into reusable caller audio, sends one spoken request to the assistant, and grades the spoken response, delegation and tool behavior, and final application state."
+<img alt="CRAWL:合成音频→单轮请求→评分" src="../../assets/images/posts/voice-agent-eval/03.avif"  loading="lazy" /></p>
+</blockquote>
+<p>一个典型场景是<code>restaurant_003</code>:用户说"Book a table for Maya on August 7—sorry, August 6—at 7 p.m. for two"。一次通过的评测必须:保留修正(August 7改成August 6)、只创建一条August 6的预订、验证最终应用状态、并且<strong>只在工具成功后才确认</strong>。</p>
+<p>CRAWL的关键设计是"可复现":合成音频每次一样,所以你可以拿它来对比不同prompt、不同工具配置、不同模型的效果。它<strong>不导入WALK</strong>,CLI、输入准备、session生命周期、批量执行都自己管。</p>
+<p>CRAWL能测什么:单次请求下回复对不对、有没有正确委托、工具参数对不对、工具调用顺序对不对、最终状态对不对、有没有处理请求中的修正和缺失信息、有没有对越权操作说不。不能测什么:多轮行为(让步、backchannel、追问、流程遵守)——那些得用RUN。</p>
+<h2>三、WALK:真实录音,加声学退化</h2>
+<p>WALK(行走)在CRAWL基础上加了一个维度:<strong>真实音频的声学条件。</strong></p>
+<p>做法是用保存的真实录音WAV,可选地叠加声学退化(噪声、回声等),然后像CRAWL一样发一次单轮请求。它测的是CRAWL在干净条件下建立的行为,在真实录音环境下还成不成立。</p>
+<p>WALK和CRAWL共用同一套场景数据(比如<code>restaurant_003</code>在两个harness里都用),区别只在音频来源:CRAWL是合成的,WALK是录的。如果手头没有真实录音,WALK还提供了<code>generate_audio.py</code>脚本可以自己生成带声学退化的音频。</p>
+<p>WALK的价值:它隔离了"音频条件"这个变量。你可以用CRAWL确认agent的推理没问题,再用WALK确认在真实噪声下也没退化,最后才上RUN测完整对话。</p>
+<figure><p><img alt="WALK:真实录音+声学退化→行为是否成立" src="../../assets/images/posts/voice-agent-eval/04.avif"  loading="lazy" /></p><figcaption>WALK:真实录音+声学退化→行为是否成立</figcaption></figure>
+<h2>四、RUN:模拟来电者,连续多轮,真正的全双工</h2>
+<p>RUN(奔跑)是最完整的一档。它接一个<strong>独立的模拟来电者</strong>(也是一个GPT-Live session),和被测agent进行一段连续的、全双工的、多轮对话。模拟来电者有自己的私有目标和议程,被测agent要回答、委托、用工具、改应用状态,全程不能暂停时钟。</p>
+<figure><p><img alt="一个请求从头跟到尾:口语意图→对话→委托→工具→状态→结果" src="../../assets/images/posts/voice-agent-eval/05.avif"  loading="lazy" /></p><figcaption>一个请求从头跟到尾:口语意图→对话→委托→工具→状态→结果</figcaption></figure>
+<p>RUN的README原文写得非常清楚,我逐字引用关键段:</p>
+<blockquote>
+<p>"RUN evaluates a GPT Live voice agent through a complete, continuously paced conversation. A simulated caller follows a private goal and agenda while the assistant answers, delegates, uses tools, and changes application state."</p>
+<p>"Simulator: A GPT Live caller creates continuously full-duplex conversations with an independent managed Responses reasoning backend (gpt-5.6-luna, low effort) and no caller-owned application tools."</p>
+</blockquote>
+<p>注意这个设计:模拟来电者也有自己的后端(Luna,低推理档),但它<strong>没有自己的应用工具</strong>——它只是一个打电话的人,不会自己去建预订。这就保证了被测的agent才是那个操作工具的人。
+<img alt="RUN:来电者有后端但无工具,agent才有工具" src="../../assets/images/posts/voice-agent-eval/06.avif"  loading="lazy" /></p>
+<p>RUN能测的行为:任务完成和最终状态、有没有追问缺失信息而不是瞎猜、有没有跨轮记住偏好和修正、有没有选授权工具、有没有在工具成功后才确认、让步和打断处理、backchannel识别、响应时延、重叠语音、前端音频时长、后端用量。</p>
+<p>关键细节:RUN的评测harness以200ms一个tick运行(<code>tick_ms: 200</code>),并在输出端建了一个400ms的播放储备(jitter buffer)——因为GPT-Live的输出音频增量没有时间戳,relay会先缓存400ms再转发,这反映的是输出有多"突发",不是输入分块。</p>
+<h2>五、τ-Voice论文:278个真实任务,一个残酷的数字</h2>
+<p>讲完框架怎么用,现在说一个更狠的发现。τ-Voice的论文(我抓了arxiv原文,编号2603.13686,作者Soham Ray、Keshav Dhandhania、Victor Barres、Karthik Narasimhan)用278个真实任务测了全双工语音agent,结果是这样的:</p>
+<figure><p><img alt="语音agent只保留了文本能力的30%–45%" src="../../assets/images/posts/voice-agent-eval/07.avif"  loading="lazy" /></p><figcaption>语音agent只保留了文本能力的30%–45%</figcaption></figure>
+<p>论文原文摘要里最关键的一句:</p>
+<blockquote>
+<p>"While GPT-5 (reasoning) achieves 85%, voice agents reach only 31–51% under clean conditions and 26–38% under realistic conditions with noise and diverse accents — retaining only 30–45% of text capability; qualitative analysis confirms 79–90% of failures stem from agent behavior."</p>
+</blockquote>
+<p>翻译成大白话:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>条件</th>
+<th>语音agent得分</th>
+<th>文本基线</th>
+<th>保留比</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>干净音频</td>
+<td>31%–51%</td>
+<td>85%</td>
+<td>~36%–60%</td>
+</tr>
+<tr>
+<td>真实音频(噪声+口音)</td>
+<td>26%–38%</td>
+<td>85%</td>
+<td>~30%–45%</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>从文本到语音,最好的模型丢掉了超过一半的能力。</strong> 而且这不是ASR不准的问题——论文明确写79%–90%的失败是agent行为本身的问题,不是"没听清"。</p>
+<p>这个数字直接解释了上一轮我们追踪的那个"20分之谜":OpenAI官方博客自报86.2%、τ-bench排行榜报81.7%、Artificial Analysis报67.9%,三个来源差了20个百分点。现在有了结构性的解释:①任务集不同(官方用的是airline/retail/telecom聚合,AA用的是不同配置);②后端不同(官方用Astra medium,AA的67.9%也是Astra但配置可能不同);③语音条件不同(干净vs真实,从51%到38%就能差13个点);④动态模拟用户带来随机性。四个因素叠加,20分的差距完全合理。</p>
+<p>τ-Voice还配套了一篇τ-Knowledge论文(2603.04370),加了一个<code>banking_knowledge</code>域:agent要在约700份互相关联的知识文档里检索,即便最强模型配高推理档,pass^1也只有约25.5%,而且随着重复试验可靠性急剧下降。这说明:知识密集场景下,语音agent比纯文本agent更难,因为它还要同时管"听清楚"和"答对话"。</p>
+<h2>六、指标体系:只有一个主指标,其余都是诊断</h2>
+<p>CRAWL/WALK/RUN三档共用一套指标。设计哲学很清晰:<strong>任务完成率(task completion)是唯一的主指标,其余全是诊断指标,用来解释"为什么没过"。</strong></p>
+<figure><p><img alt="任务完成是唯一主指标,其余都是诊断" src="../../assets/images/posts/voice-agent-eval/08.avif"  loading="lazy" /></p><figcaption>任务完成是唯一主指标,其余都是诊断</figcaption></figure>
+<p>一个场景"通过"的条件:agent达成了预期结果、到达了预期应用状态、满足强制约束、没有越权操作。CRAWL和WALK还强制工具调用顺序(<code>expected.tools.required</code>),RUN则把这些当"首选工具诊断",并强制标了<code>critical: true</code>的流程步骤。</p>
+<p>诊断指标分三类:</p>
+<p><strong>任务诊断(task):</strong> 语义质量(0-1分,分5个维度:任务理解、上下文保真、追问质量、沟通落地、对话连贯)、工具准确率、工具调用次数(实际vs预期)、委托准确率、委托次数、对话轮数。</p>
+<p><strong>体验诊断(audio/interaction):</strong> 响应率、响应延迟(ms)、打断率、说话时长(累计和单次最大)、floor-hold silence(委托时的沉默,暴露后端延迟)、response_opportunities(来电者说了几轮、该响应几次、实际响应几次、没响应几次)。</p>
+<p><strong>用量(consumption):</strong> 前端和后端分开计。前端只记音频时长,后端记token(分input/output/reasoning/cached)。</p>
+<p>评分用<strong>确定性检查+独立LLM裁判</strong>混合:确定性检查验证可观察的证据(工具调用、参数、授权、应用状态、音频时序);LLM裁判评结果和对话质量,给部分分。</p>
+<h2>七、一个跑通的真实例子:餐厅订位</h2>
+<p>光讲框架太抽象。我抓到了cookbook里的一个recorded example run(<code>restaurant_booking_complete</code>场景),它跑通了,完整的results.json和transcript.txt都有。这是最好的"什么算通过"的实例。</p>
+<p>配置:<code>gpt-live-1</code>前端 + <code>gpt-5.6-terra</code>后端,assistant_mode=client(用户自己处理后端),voice=cedar,模拟来电者也是<code>gpt-live-1</code>+后端<code>gpt-5.6-luna</code>(低推理档),tick=200ms,seed=7。</p>
+<figure><p><img alt="餐厅订位:多轮收集信息→委托后端→工具成功→确认" src="../../assets/images/posts/voice-agent-eval/09.avif"  loading="lazy" /></p><figcaption>餐厅订位:多轮收集信息→委托后端→工具成功→确认</figcaption></figure>
+<p>transcript的时间线(精简):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>#</th>
+<th style="text-align: right;">时间</th>
+<th>类型</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td style="text-align: right;"><strong>1180ms</strong></td>
+<td>assistant</td>
+<td><code>"Hi, I'm John from Acme. How can I help you today?"</code></td>
+</tr>
+<tr>
+<td>2</td>
+<td style="text-align: right;"><strong>4840ms</strong></td>
+<td>user</td>
+<td><code>"Hi John! I was hoping to book a table on August 7th, if that's possible."</code></td>
+</tr>
+<tr>
+<td>3</td>
+<td style="text-align: right;"><strong>8400ms</strong></td>
+<td>DELEGATION</td>
+<td><code>target=client (agent决定委托)</code></td>
+</tr>
+<tr>
+<td>4</td>
+<td style="text-align: right;"><strong>9800ms</strong></td>
+<td>assistant</td>
+<td><code>"Sure, let me check that for you."</code></td>
+</tr>
+<tr>
+<td>5</td>
+<td style="text-align: right;"><strong>10600ms</strong></td>
+<td>BACKEND</td>
+<td>返回 <code>"Sure—what time would you like, for how many guests, and under what name?"</code></td>
+</tr>
+<tr>
+<td>6</td>
+<td style="text-align: right;"><strong>11640ms</strong></td>
+<td>assistant</td>
+<td><code>"Sure. What time would you like, for how many guests, and under what name?"</code></td>
+</tr>
+<tr>
+<td>7</td>
+<td style="text-align: right;"><strong>16280ms</strong></td>
+<td>user</td>
+<td><code>"7 p.m., please, for two under Maya."</code></td>
+</tr>
+<tr>
+<td>8</td>
+<td style="text-align: right;"><strong>19600ms</strong></td>
+<td>DELEGATION</td>
+<td><code>target=client</code></td>
+</tr>
+<tr>
+<td>9</td>
+<td style="text-align: right;"><strong>20920ms</strong></td>
+<td>assistant</td>
+<td><code>"Checking that now."</code></td>
+</tr>
+<tr>
+<td>10</td>
+<td style="text-align: right;"><strong>21060ms</strong></td>
+<td>TOOL</td>
+<td><code>create_reservation status=in_progress</code></td>
+</tr>
+<tr>
+<td>11</td>
+<td style="text-align: right;"><strong>21800ms</strong></td>
+<td>TOOL</td>
+<td><code>create_reservation status=completed, arguments={"date":"2026-08-07","guest_name":"Maya","party_size":2,"time":"19:00"}</code></td>
+</tr>
+<tr>
+<td>12</td>
+<td style="text-align: right;"><strong>21800ms</strong></td>
+<td>BACKEND</td>
+<td><code>completed</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>这个run的metrics:task_completed=true,语义质量0.9,工具准确率0.5(实际调1次/预期2次),委托准确率1.0,响应率0.75(4次该响应/3次响应了),响应延迟1513ms,打断率0,前端音频42000ms,后端2479 token(input 2374 + output 105)。</p>
+<p>注意一个细节:工具准确率只有0.5——虽然预订创建成功了,但调用次数和预期不完全一致。这说明<strong>即便最终状态对了,诊断指标也能暴露出过程中的不完美</strong>,这正是诊断指标的价值。</p>
+<h2>八、这套框架给谁用、怎么用</h2>
+<p>CRAWL/WALK/RUN不只是给OpenAI自己评GPT-Live用的,它是开源的(<code>openai/openai-cookbook</code>),README明确写"bundled restaurant scenarios are examples, not a product constraint; customers can replace the assistant implementation, tools, and datasets"。你甚至可以"point Codex at the harness you want and ask it to adapt the evaluation to your application, data, and graders"——让Codex帮你把评测改造成适配你的业务。</p>
+<p>落地路径建议:</p>
+<ol>
+<li><strong>先从CRAWL开始。</strong> 把你最高频的几个场景写成scenario,用合成音频跑一遍。如果CRAWL都过不了,不要浪费时间上RUN——先把单轮推理和工具调用修对。</li>
+<li><strong>CRAWL稳了上WALK。</strong> 录几段真实客户来电(或用generate_audio.py加噪声),看分数有没有退化。退化大=你的agent对噪声/口音敏感,需要在前端prompt里加处理逻辑。</li>
+<li><strong>最后上RUN。</strong> 用模拟来电者测完整对话。RUN是最贵的(live run同时产生前端语音session费和后端/observer/judge调用费),但它能测到CRAWL/WALK测不到的东西:追问、记忆、让步、打断、流程遵守。</li>
+<li><strong>把生产失败变成评测。</strong> cookbook里有一节叫"Turn production failures into better evaluations"——线上跑挂了的对话,变成新的CRAWL/WALK场景,下次就能回归测。</li>
+</ol>
+<p><img alt="把生产失败变评测场景→回归测试" src="../../assets/images/posts/voice-agent-eval/10.avif"  loading="lazy" />
+一句话总结:全双工语音agent的评测不能照搬文本agent那套——你必须把一个请求从口语意图到工具执行到应用状态到最终告知用户,全链路跟一遍,而且要在真实音频条件下跟。OpenAI的CRAWL/WALK/RUN给了你一套现成的、开源的、三档递进的工具链;而τ-Voice论文告诉你一个残酷的事实:今天最好的语音agent,也只保留了文本能力的一小半。差距是巨大的,但至少现在你有了一把尺子,知道自己在哪儿、还差多远。</p>
+<hr />
+<p><strong>来源(均一手核验):</strong>
+- OpenAI Cookbook <code>voice_agent_evaluation.md</code>(38KB markdown原文,<code>github.com/openai/openai-cookbook/tree/main/examples/audio/duplex_voice_agent_evaluation</code>)
+- crawl_harness / walk_harness / run_harness README(分别13.8KB/15.6KB/30.9KB,逐字引用)
+- recorded example: <code>restaurant_booking_complete</code> 的 results.json + transcript.txt(7.2KB + 2.1KB,一手数据)
+- τ-Voice论文: arXiv 2603.13686,摘要逐字引用
+- τ-Knowledge论文: arXiv 2603.04370,摘要逐字引用
+- τ³-bench repo: <code>github.com/sierra-research/tau2-bench</code>,voice README 5.8KB + 主README
+- GPT-Live Live API delegation guide: <code>developers.openai.com/api/docs/guides/live-delegation</code>(547KB,两种委托模式原文)
+- GPT-Live model page: <code>developers.openai.com/api/docs/models/gpt-live-1</code>($0.05/分钟、按concurrent session限流)
+- OpenAI business pricing: <code>openai.com/business/pricing</code>(Astra/Sol/Terra/Luna真实牌价)</p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

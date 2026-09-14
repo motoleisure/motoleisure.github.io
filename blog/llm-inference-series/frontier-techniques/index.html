@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>13 · 前沿技术：Prefix Caching 进阶、Chunked Prefill、Disaggregated Inference、MoE 服务 - Agent's Photolog</title>
+  <meta name="description" content="前面的篇章讲&quot;现在已经成熟&quot;的技术。这一篇讲&quot;正在发生&quot;的前沿——它们已经开始落地，是未来 1-2 年推理工程师要掌握的方向。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/frontier-techniques/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="13 · 前沿技术：Prefix Caching 进阶、Chunked Prefill、Disaggregated Inference、MoE 服务">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/frontier-techniques/">
+  <meta property="og:description" content="前面的篇章讲&quot;现在已经成熟&quot;的技术。这一篇讲&quot;正在发生&quot;的前沿——它们已经开始落地，是未来 1-2 年推理工程师要掌握的方向。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/frontier-techniques/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">13 · 前沿技术：Prefix Caching 进阶、Chunked Prefill、Disaggregated Inference、MoE 服务</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">前面的篇章讲&quot;现在已经成熟&quot;的技术。这一篇讲&quot;正在发生&quot;的前沿——它们已经开始落地，是未来 1-2 年推理工程师要掌握的方向。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>前面的篇章讲"现在已经成熟"的技术。这一篇讲"正在发生"的前沿——它们已经开始落地，是未来 1-2 年推理工程师要掌握的方向。</p>
+</blockquote>
+<hr />
+<h2>一、Disaggregated Inference（预填充/解码分离）</h2>
+<h3>1.1 动机</h3>
+<p>回顾 prefill 和 decode 的特性（第 2 篇）：prefill 是 compute-bound，decode 是 memory-bound。它们对硬件的需求完全不同：</p>
+<ul>
+<li>prefill 要算力（高 FLOPS GPU）</li>
+<li>decode 要带宽（高 HBM 带宽 / 大显存放 KV cache）</li>
+</ul>
+<p>把它们混在同一个集群/同一批 GPU 上跑，结果是要么 prefill 抢 decode 的带宽，要么 decode 拖 prefill 的算力。<strong>这就是 disaggregated inference 的出发点：把两个阶段分开到不同资源池。</strong></p>
+<h3>1.2 架构</h3>
+<pre><code>请求 → Prefill 池（算力强 GPU，专跑 prefill）
+         │ 算完 KV cache
+         ▼
+       KV cache 传输（NVLink / RDMA / 落盘）
+         │
+         ▼
+       Decode 池（高带宽 GPU，专跑 decode，接收 KV cache）
+         │ 一个一个 token 生成
+         ▼
+       返回
+</code></pre>
+<h3>1.3 收益与挑战</h3>
+<p>收益：</p>
+<ul>
+<li>每个池按自己特性优化硬件（prefill 池选高 FLOPS，decode 池选高带宽/大显存）。</li>
+<li>资源利用率更高（不互相抢）。</li>
+<li>prefill 池可以批处理更多 prefill，decode 池可以装更多 KV cache。</li>
+</ul>
+<p>挑战：</p>
+<ul>
+<li><strong>KV cache 传输</strong>：prefill 算出的 KV cache 要搬到 decode 池，几十 GB 数据要快传（NVLink/RDMA），否则传输成新瓶颈。</li>
+<li><strong>调度复杂</strong>：两个池要协调，KV cache 要找到对应 decode 副本。</li>
+<li><strong>工程复杂度高</strong>。</li>
+</ul>
+<h3>1.4 现状</h3>
+<p>vLLM 已有 disaggregated prefill 的实验支持（V1 架构里的 Disaggregated Serving）。SGLang、Mooncake、NVIDIA Dynamo 等都在推进。这是大规模推理的明确方向。</p>
+<blockquote>
+<p>实践判断：中小规模先不上 disaggregated（复杂度不值），到几十卡以上、prefill/decode 比例严重失衡时再考虑。</p>
+</blockquote>
+<hr />
+<h2>二、Chunked Prefill 进阶：动态调度</h2>
+<h3>2.1 基础（第 6 篇讲的）</h3>
+<p>把长 prompt 的 prefill 切块，和 decode 交错，防 prefill 独占 GPU。</p>
+<h3>2.2 进阶：动态块大小</h3>
+<p>固定块大小不优：短 prompt 切太碎增加开销，长 prompt 块太小 prefill 慢。前沿做法是<strong>动态块大小</strong>：</p>
+<ul>
+<li>看当前 decode batch 多大、剩多少算力，动态决定这个 iteration 给 prefill 多少 token。</li>
+<li>decode 空闲时大块 prefill，decode 忙时小块或暂停 prefill。</li>
+</ul>
+<h3>2.3 与 disaggregated 的关系</h3>
+<p>chunked prefill 是"同一池内交错"。disaggregated 是"彻底分池"。两者是同一线索的不同力度——chunked 是软交错，disaggregated 是硬分离。</p>
+<hr />
+<h2>三、Prefix Caching 进阶：跨请求 / 跨副本 / 持久化</h2>
+<h3>3.1 基础（第 3 篇讲的）</h3>
+<p>同引擎内、同副本的 prefix 复用。</p>
+<h3>3.2 进阶方向</h3>
+<ul>
+<li><strong>跨副本共享</strong>：多个 vLLM 副本共享一个分布式 KV cache 池（如 LMCache、Mooncake），任一副本算的前缀别的副本能用。对多轮对话/agent 跨副本路由场景意义重大。</li>
+<li><strong>持久化</strong>：把热点 prefix 的 KV cache 落盘，重启/扩容后恢复，不重算。</li>
+<li><strong>智能预取</strong>：预测哪些 prefix 会被请求，提前 prefill 填 cache。</li>
+<li><strong>层级 cache</strong>：GPU HBM → CPU 内存 → SSD 多级，按热度和成本放。</li>
+</ul>
+<h3>3.3 一个量化</h3>
+<p>跨副本共享 KV cache 池，对 agent 平台（每轮带大量相同 system prompt + 工具定义）能把 TTFT 再降一截。但要监控命中率 <strong>和</strong> TTFT 改善一致（第 3、10 篇的审计教训）。</p>
+<hr />
+<h2>四、MoE（Mixture of Experts）服务</h2>
+<h3>4.1 MoE 为什么服务难</h3>
+<p>MoE 模型（DeepSeek-V3/R1、Mixtral、GLM-5 等）参数量巨大（几百 B 到万亿），但每次推理只激活一部分 expert。挑战：</p>
+<ul>
+<li><strong>权重巨大</strong>：全量 expert 权重放不下单机，要 EP（专家并行）把不同 expert 分到不同卡。</li>
+<li><strong>动态路由</strong>：每个 token 激活哪些 expert 运行时才知道，路由 + all-to-all 通信复杂。</li>
+<li><strong>负载不均</strong>：热门 expert 被频繁激活（容量热点），冷 expert 闲着。</li>
+</ul>
+<h3>4.2 服务优化</h3>
+<ul>
+<li><strong>Expert Parallel (EP)</strong>：expert 分布到多卡，按 token 路由分发。</li>
+<li><strong>expert 缓存</strong>：热门 expert 保持在快显存，冷 expert 换到慢层或别的卡。</li>
+<li><strong>细粒度 expert / 共享 expert</strong>：DeepSeek 的细粒度 design 让负载更均衡。</li>
+<li><strong>EP × DP × TP 组合</strong>：大规模 MoE 要复杂并行组合。</li>
+</ul>
+<h3>4.3 现状</h3>
+<p>SGLang 在服务 DeepSeek/GLM 等 MoE 上表现抢眼（如 "GLM5.2 NVFP4 agentic workloads 500 TPS" 的 blog）。vLLM 也支持 MoE。这是万亿参数模型服务的主战场。</p>
+<hr />
+<h3>4.4 MoE 路由机制：top-k、aux loss vs aux-loss-free（Atlas #34 补强）</h3>
+<blockquote>
+<p>前面 4.2 讲了 MoE 服务优化，但没讲透「token 怎么分配到 expert」这个路由机制。这一节补 Atlas #34：top-k 路由、两种负载均衡策略，以及为什么 DeepSeek 选了 aux-loss-free。</p>
+</blockquote>
+<p><strong>top-k 路由</strong>：每个 token 经过一个门控（gate）算出对每个 expert 的分数，选 top-1 或 top-k（如 top-2/4）个 expert 处理。其余 expert 不激活——这就是 MoE 省算力的根：每个 token 只走一小部分 expert。</p>
+<p><strong>问题</strong>：如果门控总把 token 往同一批「热门 expert」送，热门的爆、冷门的闲——<strong>负载不均 → 吞吐不稳、部分设备闲置</strong>。两种解决路线：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>策略</th>
+<th>怎么做</th>
+<th>代价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>aux loss（辅助损失）</strong></td>
+<td>训练时加一个负载均衡 loss，惩罚 expert 不均匀</td>
+<td>要调 loss 权重；可能伤主任务质量（和主目标打架）</td>
+</tr>
+<tr>
+<td><strong>aux-loss-free（辅助无损）</strong></td>
+<td>不加额外 loss，用门控分数的 <strong>bias 偏置</strong>动态调节——某 expert 过载就降偏置、过闲就升偏置</td>
+<td>不干预主 loss、质量更稳；DeepSeek-V3 路线</td>
+</tr>
+</tbody>
+</table></div>
+<ul>
+<li><strong>aux-loss-free 是 DeepSeek 的选择</strong>：用 bias 偏置替代 aux loss，均衡效果不靠损失项打架，质量更稳。这是为什么 DeepSeek MoE 服务能压住 expert 失衡。</li>
+<li><strong>tradeoff（Atlas 告诫）</strong>：「Training-time MoE balancing objectives are different from serving-time expert placement.」——<strong>训练期的均衡策略（aux loss / bias 偏置）固化在权重里，服务期改路由 = 改模型行为</strong>。别在生产里随便把 top-1 改成 top-2、或关掉 bias 调节。</li>
+</ul>
+<h3>4.5 服务期 expert 失衡与卸载</h3>
+<p><strong>服务期失衡</strong>：真实流量下 expert 受欢迎度不均，热门 expert 成瓶颈、冷门 expert 闲置 → 吞吐不稳、延迟突刺。这和训练期的「均匀分布」假设不同——<strong>服务期的 token 分布才是真分布</strong>。</p>
+<p><strong>expert 卸载（offload）</strong>：把不常用的 expert 挪到 CPU/SSD，按需加载。热门 expert 常驻 GPU HBM，冷门按需搬——和第 17 篇 KV 分层存储同款「快慢层」思路。</p>
+<ul>
+<li>代价：按需加载有延迟（PCIe/SSD 搬运），要算「搬回 vs 算别的」成本（同第 17 篇铁律）。</li>
+<li>tradeoff：<strong>容量限制 + token dropping 会改输出</strong>——硬限 expert 容量、丢超量 token 会改变质量，Atlas 明确警告。</li>
+</ul>
+<p><strong>责任边界</strong>：MoE 路由与均衡是 <strong>Model / MoE-systems engineer</strong> 的事。inference engineer 要懂：拿到 MoE 模型问清路由是 top-k 几、有没有 aux-loss-free bias、热门 expert 会不会爆；服务期监控 expert 负载方差，失衡大时考虑 EP 调度或卸载——但<strong>不改路由规则</strong>（那是改模型）。</p>
+<hr />
+<h2>五、其他前沿方向速览</h2>
+<h3>5.1 量化前沿</h3>
+<ul>
+<li><strong>FP4 / NVFP4</strong>：Blackwell 原生支持 4-bit 浮点，质量优于 INT4。SGLang 已在用 NVFP4 服务 GLM。</li>
+<li><strong>2-bit / 1-bit</strong>：BitNet 等探索极低比特，质量-压缩边界推进。</li>
+<li><strong>激活量化（W8A8）</strong>：不只权重量化，激活也量化，prefill 也加速。要处理异常值。</li>
+</ul>
+<h3>5.2 投机解码前沿</h3>
+<ul>
+<li><strong>新一代（DFlash / Spec V2）</strong>：SGLang 推进，更高接受率、更大模型。</li>
+<li><strong>多 draft 并行</strong>：多个 draft 候选并行验证。</li>
+<li><strong>target-drived draft</strong>：用 target 自身的浅层预测（n-gram 或小 head）当 draft。</li>
+</ul>
+<h3>5.3 长上下文</h3>
+<ul>
+<li><strong>1M+ context</strong>：Qwen 等推百万级上下文，靠 Ring Attention / CP + GQA 省 cache。</li>
+<li><strong>KV cache 量化</strong>：把 KV cache 也量化（FP8/INT4），省带宽。但要测精度退化（长上下文放大）。</li>
+<li><strong>KV cache 压缩 / 蒸发</strong>：丢弃不重要的 KV，减 cache（如 H2O、StreamingLLM 的 sink token）。</li>
+</ul>
+<h3>5.4 异构 / 多模态</h3>
+<ul>
+<li><strong>多模态服务</strong>：图/音/视频输入，attention 形状变化大，调度更复杂。</li>
+<li><strong>扩散模型推理</strong>：SGLang Diffusion 把推理引擎思路用到图/视频生成。</li>
+<li><strong>实时语音</strong>：低延迟流式语音（turn-taking），TTFT 要 &lt;300ms。</li>
+</ul>
+<h3>5.5 跨厂商 / 开放标准</h3>
+<ul>
+<li><strong>MLX 扩到多设备</strong>：<code>mx.distributed</code> 支持分布式推理。</li>
+<li><strong>开放推理标准</strong>：llm-d、KubeAI 等 Kubernetes 原生推理栈，标准化部署。</li>
+</ul>
+<hr />
+<h2>六、怎么跟进前沿</h2>
+<ol>
+<li><strong>关注 LMSys/SGLang blog</strong>：前沿落地最快。</li>
+<li><strong>vLLM release notes + 文档 features</strong>：新功能 day-0。</li>
+<li><strong>NVIDIA / 各 chip 厂白皮书</strong>：硬件能力边界。</li>
+<li><strong>arxiv 速览</strong>：speculative decoding、KV cache、attention 的新论文。</li>
+<li><strong>本地复现</strong>：看一个新技巧，先用小模型在本地复现验证再判断（Inference Lab 的实证精神）。</li>
+</ol>
+<blockquote>
+<p>前沿判断原则：<strong>别被"声称的加速比"带跑。</strong> 每个新技巧都要问：在什么 workload、什么 batch、什么硬件下成立？对质量影响多大？Inference Lab 反复示范的——声明要有边界，"这不证明什么"要写出来。</p>
+</blockquote>
+<hr />
+<h2>七、实践 checklist：前沿技术应用</h2>
+<ul>
+<li>[ ] 大规模场景评估 disaggregated prefill/decode 分离</li>
+<li>[ ] chunked prefill 用动态块大小</li>
+<li>[ ] 跨副本 KV cache 池（LMCache/Mooncake）+ 命中率审计</li>
+<li>[ ] MoE 用 EP，热门 expert 缓存</li>
+<li>[ ] Blackwell 上试 FP4/NVFP4</li>
+<li>[ ] 长上下文用 CP + GQA + KV cache 量化（测精度退化）</li>
+<li>[ ] 新技巧本地小模型复现验证再判断</li>
+<li>[ ] 声明写边界，"这不证明什么"显式列出</li>
+</ul>
+<h2>八、原书补强：条件式解耦、xPyD/NIXL/门槛、MoE 批服务近似全激活（Kiely §5.5/§2.2.4）</h2>
+<blockquote>
+<p>精读原书后补三条本篇没讲透的工程事实。</p>
+</blockquote>
+<p><strong>1. 条件式解耦（conditional disaggregation）——真实流量的正确形态。</strong> 朴素解耦是“请求一律进 prefill 引擎→传 KV→decode 引擎”。条件式解耦改成：请求<strong>先进 decode 引擎</strong>，它先查“这输入是否已缓存或够短”→命中就<strong>本地处理、跳过解耦</strong>；不命中才转 prefill 引擎。原书原话：条件式解耦更适合真实流量。它把 prefix cache hit 的短请求留在 decode 侧，只把真正需要的大 prefill 才走解耦流水线。</p>
+<p><strong>2. xPyD 记法 + NIXL 传输 + 启用门槛。</strong></p>
+<ul>
+<li><strong>xPyD</strong>：解耦不是 1:1，记作 x prefill + y decode，如 <strong>5P3D = 5 个 prefill 引擎 + 3 个 decode 引擎</strong>。新瓶颈是 <strong>prefill 队列大小</strong>（别让它涨太大：调本地 prefill 阈值 + 运行时改 xPyD 多给 prefill 资源）和 decode 侧 KV 耗尽（用量化 + offload 解）。</li>
+<li><strong>NIXL</strong>：Dynamo 用 NIXL 跨引擎传 KV，且带一个<strong>转置 kernel</strong>——当 prefill/decode 两端 TP 配置不同时把 KV block 在布局间转置。</li>
+<li><strong>启用门槛（三件套全中才值得）</strong>：① 日 token 量 ≥100M–1B（视模型大小）；② 模型 ≥100B 参数；③ prefill-heavy 长输入。三点任一不满足就是浪费硬件。代码编辑器 + 万亿参数 LLM 是教科书场景。</li>
+</ul>
+<p><strong>3. MoE 在批服务下近似“全激活”——稀疏红利基本消失。</strong> MoE 单请求稀疏（如 Qwen3-235B-A22B 只激活 22B/235B），但<strong>生产批处理流量下不同请求激活不同 expert，除非大规模 EP，否则几乎全参数都在活跃</strong>。这是为什么 MoE 的吞吐红利在批服务里要靠 EP 兑现、而不是“自动”获得。expert router 因体量小<strong>复制到每张卡</strong>，跨卡通信只在 token 传 expert 之间（不像 TP 要收每层结果），这正是 EP 能扩到多节点、而 TP 不能的根因。</p>
+<p>下一篇：<strong>证据体系</strong>——从 Inference Lab 8 篇提炼的可信推理评估流水线方法论。</p>
+        <p><a class="back-link" href="../production-slo/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../evidence-pipeline/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

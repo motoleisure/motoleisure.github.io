@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>他开源了「软件工厂」却不卖钱：一个反共识选择背后的算盘 - Agent's Photolog</title>
+  <meta name="description" content="当所有人都在把 AI coding agent 卖成 SaaS、按席位收费、token 加价转卖，前亚马逊工程师 Cole Murray 偏说这条路走不通，把整套软件工厂开源白送——价值在组织流程，不在基建。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/software-factory-opensource/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="他开源了「软件工厂」却不卖钱：一个反共识选择背后的算盘">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/software-factory-opensource/">
+  <meta property="og:description" content="当所有人都在把 AI coding agent 卖成 SaaS、按席位收费、token 加价转卖，前亚马逊工程师 Cole Murray 偏说这条路走不通，把整套软件工厂开源白送——价值在组织流程，不在基建。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/software-factory-opensource/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">他开源了「软件工厂」却不卖钱：一个反共识选择背后的算盘</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-12">发布于 2026 年 9 月 12 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">当所有人都在把 AI coding agent 卖成 SaaS、按席位收费、token 加价转卖，前亚马逊工程师 Cole Murray 偏说这条路走不通，把整套软件工厂开源白送——价值在组织流程，不在基建。</p>
+
+        <div class="prose">
+<blockquote>
+<p>当所有人都在把 AI coding agent 卖成 SaaS、按席位收费、token 加价转卖，一个前亚马逊工程师偏说这条路走不通，然后把整套东西开源白送。</p>
+</blockquote>
+<h2>2026 年 9 月 11 日，一条推文</h2>
+<p>X 上一个 5 千粉的博主 Cole Murray（AI/ML 方向、CTO、前亚马逊高级工程师、开源项目 OpenInspect 维护者）发了这么一句：</p>
+<blockquote>
+<p>"you are not building a software factory, you're building the way your company works together."
+（你不是在建软件工厂，你是在建公司协同运作的方式。）</p>
+</blockquote>
+<p>这句话是个引子，他真正想说的是一篇刚发的长文——《Why I open-sourced my software factory》（我为什么把软件工厂开源）。他维护着 OpenInspect，一个定位就是"软件工厂"的开源项目。</p>
+<p>今天我们不讲"又出一个爆款开源项目"那种资讯稿——它没拿融资、没有可核实的客户、也没有付费版，写成资讯反而扑街。我们讲一个更有意思的事：<strong>所有人都在 SaaS 化 AI agent，他偏说该开源，图什么。</strong></p>
+<figure><p><img alt="软件工厂：信号到产出的闭环" src="../../assets/images/posts/software-factory-opensource/01.avif"  loading="lazy" /></p><figcaption>软件工厂：信号到产出的闭环</figcaption></figure>
+<p><em>图｜软件工厂的本质：一个把信号（工单 / Slack / 报警 / 定时 / 提问）转成产出（PR / 修复 / 问答）的 agent 闭环。</em></p>
+<h2>一、先说清："软件工厂"在 AI agent 时代到底指什么</h2>
+<p>容易混淆的是，"软件工厂"这词早就存在。传统含义（维基百科有词条）是把制造业流水线搬到软件开发上：用可复用组件、模板、产品线去"组装"应用，省掉重复编码——1969 年日立的软件工厂、2004 年微软 Greenfield/Short 那本《Software Factories》讲领域特定语言，都是这一脉。</p>
+<p>Cole 这里是<strong>借用并重定义</strong>了这个老词，套到 AI agent 时代。他给的定义很干脆：</p>
+<blockquote>
+<p>"A software factory is a system that takes a signal (issue, Slack message, alert, cron, user prompt) and converts it to an outcome: a PR, a fix, an answered question, using AI agents to drive the loop."</p>
+</blockquote>
+<p>一句话：<strong>信号 → 产出物的转换系统，中间由 AI agent 驱动整个循环。</strong> 输入是各种触发信号（Linear/JIRA 工单、Slack 消息、报警、定时任务、用户的自然语言提问），输出是具体结果（一个 PR、一个修复、一个被回答的问题）。他自己也承认这名字不算准——"Company agent infrastructure（公司级 agent 基础设施）可能是更好的名字。"</p>
+<figure><p><img alt="定义之争：两端都错，中间才对" src="../../assets/images/posts/software-factory-opensource/02.avif"  loading="lazy" /></p><figcaption>定义之争：两端都错，中间才对</figcaption></figure>
+<p><em>图｜Cole 说，把"一个人拿 Claude Code 对着一个 Linear 工单"和"全自动无人系统"当软件工厂，两端都错了——正确的是中间那个有人监督的 agent 闭环。</em></p>
+<p>这套东西在组织里怎么用？他列了典型场景：Slack 里的 bug 修复、从 Linear/JIRA 创建功能、代码审查、CI 自动修复、值班事故分诊、对代码库/文档做问答、通用数据查询。</p>
+<p>市面上同类产品（无论叫 software factory 还是 background agents）的标配部件都差不多：控制面（control plane）、沙箱（sandboxes）、agent 运行框架（harness）、Web UI、集成接口。<strong>定价普遍 $50–100/人/月，token 用量通常不包含，往往还在模型原价上加价转卖。</strong> 这一条很关键，后面会用到。</p>
+<h2>二、反共识：他在开源，别人在卖 SaaS</h2>
+<p>2026 年最卷的方向之一就是 AI coding agent / background agent。Cognition 的 Devin、Cursor、Factory.dev 都在拼命 SaaS 化、按席位收费。Cole 偏偏逆着说：<strong>这玩意儿不该做成 SaaS 卖。</strong></p>
+<figure><p><img alt="反共识：他在开源，别人在卖 SaaS" src="../../assets/images/posts/software-factory-opensource/03.avif"  loading="lazy" /></p><figcaption>反共识：他在开源，别人在卖 SaaS</figcaption></figure>
+<p><em>图｜左边：厂商把软件工厂做成密封盒子、按席位收费、token 加价；右边：Cole 选择开源白送，只留下那卷"组织流程"的线。</em></p>
+<p>他的核心论点一句话能讲完：<strong>价值在组织流程里，不在基础设施里。</strong> 所以不该做成封闭产品卖，应该开源。具体四个论据：</p>
+<p><strong>1. 组织级路由没法通用化。</strong> 非技术用户面对一堆模型 / 推理力度 / 沙箱 CPU 选项会无所适从，最后人人都默认用最贵的模型去回答一个简单问答。你需要一个<strong>贴合本公司组织结构</strong>的 agent router。可厂商只能做一个"通用"路由器——它对不上你真实的组织图，结果是个四不像。</p>
+<p><strong>2. 知识分发每家都不一样。</strong> 组织里分享上下文是 AI agent 成功的关键，靠的是团队成员造的 skills、文档、专用工具。Uber 有 3600+ 个 skill、每天执行 3 万次。skill 的发现和审批流程每家公司都不同，没法 one-size-fits-all——它必须真的匹配你公司怎么运作。</p>
+<figure><p><img alt="价值在组织流程，不在基建" src="../../assets/images/posts/software-factory-opensource/04.avif"  loading="lazy" /></p><figcaption>价值在组织流程，不在基建</figcaption></figure>
+<p><em>图｜左边那堆砖是可复制、可替换的基建（控制面 / 沙箱 / harness / Web UI）；右边那根手缝的线才是不可复制的——你公司独有的组织流程。</em></p>
+<p><strong>3. 学习闭环：不学习的系统会重复同样的错误。</strong> 每一次 session 跑完，都能告诉你系统哪里失败了。但在厂商托管系统里，你很难拿到全部 session 轨迹——没有轨迹就没法复盘。<strong>自己拥有系统，才能全量分析，一处修复、全公司受益。</strong></p>
+<figure><p><img alt="学习闭环：一处修复，全员受益" src="../../assets/images/posts/software-factory-opensource/05.avif"  loading="lazy" /></p><figcaption>学习闭环：一处修复，全员受益</figcaption></figure>
+<p><em>图｜自己拥有系统，才能读全每一条会话轨迹，找到一个根因、修一次，让整个组织受益。</em></p>
+<p><strong>4. 成本优化与 token 花费的 ROI 归因。</strong> 选哪个模型最划算高度依赖任务本身；厂商的"自动模型选择"是跨所有客户平均出来的，既不省钱也不最优。更微妙的是利益错位——厂商靠卖 token 赚钱，和你"降本增效"的诉求天然冲突。至于 token 花费到底解决了什么问题（ROI 归因），那更得你自己定立场：任务怎么分类、成本中心怎么建模，每家公司都不一样。</p>
+<p>四条合起来就是一句话：<strong>基建那层是 commodity（大路货），谁都能复制；真正值钱、且不可复制的，是把你公司组织流程焊进系统里的那份手艺。</strong> 既然如此，基建就该白送，手艺才收费。</p>
+<h2>三、冷静收尾：开源 ≠ 商业成功</h2>
+<p>讲完观点，得给个冷静的现实校准——这决定你这篇是不是有公信力。</p>
+<p>先说 OpenInspect（Cole 的开源软件工厂，仓库 <code>ColeMurray/background-agents</code>）<strong>作为开源项目</strong>确实落地了：MIT 协议，⭐ 约 2800 star、🍴 400+ fork，发推当天还在提交，连已合并 PR 都有一千六百多个；还有第三方专门为它写了生产级 Kubernetes Operator（<code>dirien/openinspect-operator</code>）——这是需要深度理解它内部才能做的重型衍生项目。社区是真实的。</p>
+<figure><p><img alt="开源 ≠ 商业成功：靠咨询吃饭" src="../../assets/images/posts/software-factory-opensource/06.avif"  loading="lazy" /></p><figcaption>开源 ≠ 商业成功：靠咨询吃饭</figcaption></figure>
+<p><em>图｜开源项目有人气、有社区，但不等于有产品收入——真正进账的，是他旁边那张"分时 CTO · 询价制"的咨询桌。</em></p>
+<p>但<strong>作为"在真实公司生产环境跑着的产品"</strong>，对外完全查不到：仓库没有 ADOPTERS 名单，官网没有定价页、没有付费版、没有席位费，GitHub Sponsors 页面也看不出有像样的赞助收入。Cole 在文章里说"在 10 到 500 人的公司部署过软件工厂"，但那是他咨询履历的整体，没有点名哪几家用的是 OpenInspect，无法核实。</p>
+<p><strong>能确认的收益只有一条路</strong>：他本人的咨询公司 CM Engineering，卖 Fractional CTO（分时 CTO），分 Standard / Premium 两档，定价一律"询价制、不公开"。文章结尾也是同一个漏斗："As part of my consulting, I help deploy software factories for teams … Reach out via DM or book time on my calendar."</p>
+<p>所以——<strong>软件工厂本身不赚钱（开源、免费、无付费版）；收益来自他把基建套进你组织流程的那份手艺。</strong> 开源软件工厂是他咨询获客的内容营销 / 引流物。这恰好印证了他自己的核心论点：价值在组织流程，不在基建。</p>
+<h2>写在最后</h2>
+<p>一个诚实的边界提示：这篇文章是 2026-09-11 发的，今天距离开源才约 8 个月、距离这篇"为什么开源"才 1 天。"有没有付费客户、是否已经回本"这类问题，外部目前没有任何数据可查，只能等他自己或第三方披露。</p>
+<p>但对国内读者，真正值得带走的是这两句：</p>
+<ul>
+<li><strong>该不该自建？</strong> 取决于你团队规模和组织流程复杂度。Cole 的论点只对"组织流程足够独特、值得自己拥有"的团队成立——十来个人的小团队，直接买 SaaS 可能更划算。</li>
+<li><strong>真正该拥有的是哪部分？</strong> 不是沙箱、不是 harness，而是<strong>与你公司组织流程深度绑定的那部分</strong>——路由、skills 分发、学习闭环、成本与 ROI 归因。这部分你最好自己攥在手里。</li>
+</ul>
+<p>用 Cole 文章结尾那句收尾，挺合适：</p>
+<blockquote>
+<p>"If you don't own the factory, you won't own the way your organization communicates together and operates going forward."
+（不拥有工厂，你就不会拥有你组织未来协同与运作的方式。）</p>
+</blockquote>
+<hr />
+<p><em>（插图由开源插画技能 illo 以 Xiaoxiang 小象吉祥物统一风格生成，文字标签为中文；数据与引用来自 Cole Murray 长文《Why I open-sourced my software factory》及 OpenInspect 仓库 <code>ColeMurray/background-agents</code>。）</em></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

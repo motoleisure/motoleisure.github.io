@@ -64,7 +64,7 @@
 </blockquote>
 <p>用终端的人都有肌肉记忆：命令打一半，↑ 一下，上一条命令回来了。可当我在 <a href="https://github.com/deepseek-ai/deepseek-harness">DeepSeek Harness</a>（下称 DSH，一个本地优先的 AI Agent 框架，自带 Web GUI）的对话框里按下 ↑，什么也没发生——光标乖乖上移一行，历史一个字都没有。</p>
 <p>这篇文章记录我用纯插件方式给 DSH Web GUI 补上这个肌肉记忆的完整过程：怎么在几十个槽位里找到落脚处、为什么写输入框内容只有一条合法路径、以及一场和端口 3080 的重启拉锯战。</p>
-<figure><p><img alt="头图：小象踩在 ↑ 键上，把历史像纸带一样摇回对话框" src="../../assets/images/posts/dsh-input-history/01.avif"  loading="lazy"  loading="lazy" /></p><figcaption>头图：小象踩在 ↑ 键上，把历史像纸带一样摇回对话框</figcaption></figure>
+<figure><p><img alt="头图：小象踩在 ↑ 键上，把历史像纸带一样摇回对话框" src="../../assets/images/posts/dsh-input-history/01.avif"  loading="lazy" /></p><figcaption>头图：小象踩在 ↑ 键上，把历史像纸带一样摇回对话框</figcaption></figure>
 <hr />
 <h2>一、先确认：这不是「没开设置」，是「能力不存在」</h2>
 <p>动手前惯例排查。全局搜 <code>ArrowUp</code>，命中分布在模型选择器、目录浏览器、菜单组件里——全是菜单导航用途。composer（输入框）自己的 <code>onKeyDown</code> 里没有任何历史逻辑。结论和上一篇「删除会话」如出一辙：<strong>框架里压根不存在这个能力</strong>，不是配置没打开。</p>
@@ -84,7 +84,7 @@
 <p>everything a control needs comes from the framework session kit (<code>sessionId</code>, <code>useSession</code>, <code>useInput</code>, <code>inputActions</code>)</p>
 </blockquote>
 <p>session 作用域的槽位组件自动拿到整套"会话标准件"：<code>useSession</code> 读会话快照、<code>inputActions</code> 写输入框、<code>sessionId</code> 知道当前是哪个会话。一个幽灵组件需要的所有缝，全在这里。</p>
-<figure><p><img alt="幽灵组件：小象坐在 composer 下方的 dock 带里，戴耳机只监听不渲染" src="../../assets/images/posts/dsh-input-history/02.avif"  loading="lazy"  loading="lazy" /></p><figcaption>幽灵组件：小象坐在 composer 下方的 dock 带里，戴耳机只监听不渲染</figcaption></figure>
+<figure><p><img alt="幽灵组件：小象坐在 composer 下方的 dock 带里，戴耳机只监听不渲染" src="../../assets/images/posts/dsh-input-history/02.avif"  loading="lazy" /></p><figcaption>幽灵组件：小象坐在 composer 下方的 dock 带里，戴耳机只监听不渲染</figcaption></figure>
 <hr />
 <h2>三、写输入框只有一条合法路径：<code>inputActions.setDraft</code></h2>
 <p>读完 <code>input/contract.ts</code> 我理解了为什么不能直接操作 DOM。DSH 的输入框背后是一台<strong>输入状态机</strong>：草稿文本、光标、undo 栈、斜杠命令 chip、粘贴匹配尝试，全部是机器内部状态，且"所有草稿变更都是一次事务"。<code>ComposerKeyboard</code> 那套更完整的键盘接口（<code>undo</code>/<code>redo</code>/<code>pasteBegin</code>/<code>track</code>……）文档写明 <strong>InputBar-private, never across a plugin boundary</strong>——插件边界之外拿不到。</p>
@@ -110,7 +110,7 @@
 }
 </code></pre>
 <p>注意这里拿到的是<strong>已发送</strong>的消息，正好就是"历史"的语义——草稿箱里没发出去的内容不算历史，和终端一致。</p>
-<figure><p><img alt="唯一写入口：所有草稿都从 setDraft 这一扇小窗递进输入状态机" src="../../assets/images/posts/dsh-input-history/03.avif"  loading="lazy"  loading="lazy" /></p><figcaption>唯一写入口：所有草稿都从 setDraft 这一扇小窗递进输入状态机</figcaption></figure>
+<figure><p><img alt="唯一写入口：所有草稿都从 setDraft 这一扇小窗递进输入状态机" src="../../assets/images/posts/dsh-input-history/03.avif"  loading="lazy" /></p><figcaption>唯一写入口：所有草稿都从 setDraft 这一扇小窗递进输入状态机</figcaption></figure>
 <hr />
 <h2>四、细节魔鬼：一份守卫清单</h2>
 <p>核心逻辑二十行，守卫占了另外四十行。每一条都对应一个真实会发生的冲突：</p>
@@ -123,7 +123,7 @@
 <p><strong>7. 换会话要重置。</strong> dock 是 session 作用域，但保险起见还是 <code>useEffect(..., [props.sessionId])</code> 里把游标归零——别的会话的历史不能串进来。</p>
 <p>最后是事件姿态：capture 阶段 + <code>preventDefault()</code> + <code>stopPropagation()</code>。capture 保证我比 composer 自己的 <code>onKeyDown</code> 先拿到按键；两个 prevent/stop 保证被召回接管的那次按键不会同时触发光标移动或别的手势。</p>
 <p>召回后还有一个小动作：<code>setDraft</code> 是异步重渲染的，光标位置要在 <code>setTimeout(0)</code> 里设到文末，否则浏览器会把光标丢在随机位置。</p>
-<figure><p><img alt="守卫清单：小象当道口员，菜单和 IME 等候，该放行时才放行 ↑" src="../../assets/images/posts/dsh-input-history/04.avif"  loading="lazy"  loading="lazy" /></p><figcaption>守卫清单：小象当道口员，菜单和 IME 等候，该放行时才放行 ↑</figcaption></figure>
+<figure><p><img alt="守卫清单：小象当道口员，菜单和 IME 等候，该放行时才放行 ↑" src="../../assets/images/posts/dsh-input-history/04.avif"  loading="lazy" /></p><figcaption>守卫清单：小象当道口员，菜单和 IME 等候，该放行时才放行 ↑</figcaption></figure>
 <hr />
 <h2>五、打包挂载：四个文件的插件</h2>
 <p>完全复刻我上一个插件的扁平结构，不需要构建工具：</p>
@@ -174,7 +174,7 @@
 # 4
 </code></pre>
 <p>200 + 命中，说明组合层已经认了这个插件，浏览器刷新即生效。剩下的一半手感验证（↑↓ 翻页、菜单冲突、IME）交给真实使用——这类交互插件的最终测试永远是你的手指。</p>
-<figure><p><img alt="重启拉锯战三格漫画：还亮 → 剪底层 → 重连" src="../../assets/images/posts/dsh-input-history/05.avif"  loading="lazy"  loading="lazy" /></p><figcaption>重启拉锯战三格漫画：还亮 → 剪底层 → 重连</figcaption></figure>
+<figure><p><img alt="重启拉锯战三格漫画：还亮 → 剪底层 → 重连" src="../../assets/images/posts/dsh-input-history/05.avif"  loading="lazy" /></p><figcaption>重启拉锯战三格漫画：还亮 → 剪底层 → 重连</figcaption></figure>
 <hr />
 <h2>七、收获与反思</h2>
 <ol>

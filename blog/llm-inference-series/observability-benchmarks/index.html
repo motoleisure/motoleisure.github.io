@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>10 · 可观测性与基准测试：TTFT/TPOT/吞吐的正确测量（Inference Lab 实证） - Agent's Photolog</title>
+  <meta name="description" content="这是全系列的&quot;灵魂篇&quot;。前面所有优化——量化、batching、cache——都建立在&quot;测量准确&quot;之上。但测量恰恰是最容易做错的。这一篇用 Inference Lab 的实证告诉你：一个 TTFT 能错 185ms，一个 GPU trace 能有 57% 不是你的负载，一个 benchmark 截图能&quot;真且无用&quot;。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/observability-benchmarks/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="10 · 可观测性与基准测试：TTFT/TPOT/吞吐的正确测量（Inference Lab 实证）">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/observability-benchmarks/">
+  <meta property="og:description" content="这是全系列的&quot;灵魂篇&quot;。前面所有优化——量化、batching、cache——都建立在&quot;测量准确&quot;之上。但测量恰恰是最容易做错的。这一篇用 Inference Lab 的实证告诉你：一个 TTFT 能错 185ms，一个 GPU trace 能有 57% 不是你的负载，一个 benchmark 截图能&quot;真且无用&quot;。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/observability-benchmarks/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">10 · 可观测性与基准测试：TTFT/TPOT/吞吐的正确测量（Inference Lab 实证）</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">这是全系列的&quot;灵魂篇&quot;。前面所有优化——量化、batching、cache——都建立在&quot;测量准确&quot;之上。但测量恰恰是最容易做错的。这一篇用 Inference Lab 的实证告诉你：一个 TTFT 能错 185ms，一个 GPU trace 能有 57% 不是你的负载，一个 benchmark 截图能&quot;真且无用&quot;。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>这是全系列的"灵魂篇"。前面所有优化——量化、batching、cache——都建立在"测量准确"之上。但测量恰恰是最容易做错的。这一篇用 Inference Lab 的实证告诉你：一个 TTFT 能错 185ms，一个 GPU trace 能有 57% 不是你的负载，一个 benchmark 截图能"真且无用"。</p>
+</blockquote>
+<hr />
+<h2>一、为什么这篇最重要</h2>
+<p>Inference Lab 的 8 篇文章，表面是技术教程，本质是<strong>一份"怎么正确测量推理性能"的方法论</strong>。它的核心论点：</p>
+<blockquote>
+<p><strong>一个基准数字（延迟/吞吐/成本/显存）若不可追溯来源——哪个模型版本、哪段代码观测的、计时从哪开始、响应是否完整、哪些制品留存、哪个价格产生成本——它就只是一张截图，可以是真的，也可以是无用的。</strong></p>
+</blockquote>
+<p>如果测错了，后面所有优化都在优化一个幻觉。所以这一篇详细讲正确定义和测量每个指标。</p>
+<hr />
+<h2>二、核心指标的正确定义</h2>
+<h3>2.1 TTFT（Time To First Token）</h3>
+<p>定义分歧最大的指标。<strong>"首 token"到底是哪个事件？</strong> 至少六种起点：</p>
+<ol>
+<li>请求创建（client send）</li>
+<li>socket 写完</li>
+<li>响应头到达</li>
+<li>第一个 body 字节</li>
+<li>第一个 server-sent event（SSE）</li>
+<li><strong>第一个非空可见内容（visible content）</strong></li>
+</ol>
+<p>Inference Lab 的立场：<strong>TTFT 应该从请求开始到"第一个非空可见内容"</strong>，因为这才是用户感知的等待。但很多实现从"第一个 SSE"算，而第一个 SSE 可能是空 delta、role metadata、keepalive——这会让 TTFT 看起来比真实等待短。</p>
+<pre><code>错误：TTFT = 第一个 SSE 到达时间（可能是空事件）
+正确：TTFT = 第一个非空 visible content delta 到达时间
+</code></pre>
+<h3>2.2 TPOT（Time Per Output Token）</h3>
+<pre><code>TPOT = (最后一个 token 时间 - 第一个 token 时间) / 输出 token 数
+</code></pre>
+<p>只算 decode 阶段每 token 时间，不含 TTFT。</p>
+<h3>2.3 E2E latency</h3>
+<pre><code>E2E = 客户端收到完整响应 - 请求发出
+</code></pre>
+<p>含 TTFT + decode + 终止确认。</p>
+<h3>2.4 吞吐（throughput）</h3>
+<p>两种语境，别混：</p>
+<ul>
+<li><strong>单请求 token/s</strong>：输出 token / decode 时间。看模型本身快慢。</li>
+<li><strong>系统吞吐（aggregate tokens/s）</strong>：所有请求总 token / 总时间。看服务能力。后者受 batching、并发、调度影响大。</li>
+</ul>
+<hr />
+<h2>三、实测踩坑实证（全部来自 Inference Lab）</h2>
+<h3>3.1 坑一：HTTP 客户端缓冲让 TTFT 错 185ms</h3>
+<p>Inference Lab 的 TTFT 文章实测：</p>
+<p>第一版采集器用 <code>response.read(8192)</code>（8KB 块）读 HTTP 流。问题：Python 的 HTTP reader 会<strong>跨多个 transport chunk 直到填满 8192 字节</strong>。一个 provider 可能早就发了可见内容，但客户端要等到攒够 8KB 才返回给采集器。</p>
+<p>对照实验（loopback HTTP/1.1，同 67 字节可见帧，20ms 后发，180ms 后关闭）：</p>
+<pre><code>read1(8192) 增量读：中位首返回 25.008 ms
+read(8192) 缓冲读  ：中位首返回 210.076 ms
+额外观测延迟：185.068 ms（8.4 倍）
+</code></pre>
+<p><strong>同样服务器、同样字节、同样时间表，只换客户端读法，TTFT 差 185ms。</strong> 这是纯客户端传输测量，不是模型/provider 结果。</p>
+<blockquote>
+<p>实践：测 TTFT 的采集器要用<strong>增量读</strong>（<code>read1</code> 或逐字节/逐 chunk），不要用缓冲块读。否则你的 TTFT 里掺了客户端缓冲延迟。</p>
+</blockquote>
+<h3>3.2 坑二：把非可见事件当首 token</h3>
+<p>OpenAI 兼容流式 API 在可见文本前可能发一堆东西：</p>
+<ul>
+<li>注释 / keepalive</li>
+<li>role metadata</li>
+<li>空 content delta</li>
+<li>provider 标识</li>
+<li>隐藏的 reasoning delta</li>
+<li>只含 usage 的事件</li>
+</ul>
+<p><strong>把任何这些当"首 token"会让 TTFT 看着比真实等待短。</strong> Inference Lab 的做法：TTFT 只在看到<strong>非空可见内容</strong>时开始；reasoning delta 只计数不存文本；provider 上报的 token usage 和客户端观测的时间分开记。</p>
+<h3>3.3 坑三：半截流算成功</h3>
+<pre><code>provider 发了半截答案 → 连接断 → 没 finish_reason → 没 [DONE]
+</code></pre>
+<p>一个把这种当成功的 benchmark，会奖励"坏但快"的流（断得早所以延迟短）。正确做法：<strong>必须有合法终止信号（finish_reason 或 [DONE]）才算成功</strong>，否则标 truncated。provider 的失败 reason 即使后来有 sentinel 也算失败。</p>
+<h3>3.4 坑四：tokens-per-second 缺 provenance</h3>
+<p>一个 SSE delta 不等于一个 token。provider 可能：一个 delta 放多个 token、一个 token 跨多个 transport chunk、上报 reasoning token 但客户端没观测到。</p>
+<p><strong>别拿 provider 上报的 token 除以客户端观测的时间窗。</strong> 如果 reasoning token 在客户端 visible-content 窗口外到达，用它除可见窗口会<strong>伪造一个更快的速率</strong>。</p>
+<h3>3.5 坑五：GPU trace 不是你的负载</h3>
+<p>Inference Lab 的 Metal trace 文章实测：五次受控 Metal 捕获，每次已知 dispatch 数（400/250/120/77/133）。每次目标 PID 的 interval 数都精确匹配已知数。<strong>但 trace 全量还包含其他进程，已知无关 interval 占全量的 36.5%-57.5%。</strong></p>
+<pre><code>错误：trace_total = sum(all intervals)
+正确：target_intervals = intervals where pid == target_process
+</code></pre>
+<blockquote>
+<p>实践：profile 后按 PID 过滤，别拿含 WindowServer/其他 app 的 trace 调你的 kernel。trace 全量 ≠ 负载数。</p>
+</blockquote>
+<h3>3.6 坑六：缓存命中不证明跳过了计算</h3>
+<p>上一篇讲了。引擎报"cache hit 8 token"不等于真的跳过了那 8 个 token 的计算。Inference Lab 建独立 oracle 三方核对。生产看 cache 命中率要同时看 TTFT 是否真的降了。</p>
+<h3>3.7 坑七：文件字节当显存预算</h3>
+<p>第 9 篇讲的。"16G 权重 &lt; 24G 内存所以能跑"是错的。峰值 = 权重 + KV cache + 激活 + 临时 + 框架。四套账本不可加成一个数。</p>
+<hr />
+<h2>四、测量的正确方法论</h2>
+<p>综合 Inference Lab 的做法，正确的推理测量要遵循几条原则：</p>
+<h3>4.1 分离客户端观测和供应商上报</h3>
+<p>两套账本：</p>
+<ul>
+<li><strong>客户端观测</strong>：请求发出、响应头、字节、SSE、可见内容、流终止。反映用户等待。</li>
+<li><strong>供应商上报</strong>：input/output/cached/reasoning token、usage cost。反映 provider 计费。</li>
+</ul>
+<p><strong>不要把供应商上报的 token 除以客户端观测的时间窗</strong>（除非该窗口覆盖那些 token）。两者分开记，分开报。</p>
+<h3>4.2 输出完整性作为成功门控</h3>
+<p>partial output = truncated = 失败。一个 failed stream 不该因为"快"而得更好分数。</p>
+<h3>4.3 测量边界要随结果一起写</h3>
+<p>每个数字旁边要写：</p>
+<ul>
+<li>模型身份（repo/revision/quantization/serving name）</li>
+<li>运行时身份（collector/framework/driver/OS）</li>
+<li>workload 身份（prompt fixture/token 数/cap/重复/停止规则）</li>
+<li>评估器身份（哪些检查决定合法/完整/合格）</li>
+<li>测量 scope（client/provider/trace/log）</li>
+<li>制品身份（manifest/summary/samples/checksums）</li>
+<li>定价身份（price sheet/account/usage）</li>
+<li>失败状态（complete/truncate/timeout/OOM/refused）</li>
+</ul>
+<h3>4.4 null ≠ zero</h3>
+<pre><code>first_token_ms: null      ← OOM 前没首 token，是 null 不是 0
+completion_tokens: null   ← 没完成，不是 0 token
+estimated_cost_usd: null  ← 没定价数据，不是免费
+</code></pre>
+<p><strong>每个 zero 都是一个 claim。</strong> 把缺失（null）当 zero 会编造数据。缺证据就留 null。</p>
+<h3>4.5 独立 oracle 校验</h3>
+<p>引擎报 cache 命中？独立重算预期复用数核对。解析器报 400 dispatch？用已知 dispatch 数核对。<strong>永远不只信系统自己的报告。</strong></p>
+<h3>4.6 可复现</h3>
+<p>精确到 commit hash + SHA-256 制品包。任何人能 clone 出来重跑。这不是洁癖，是工程纪律——只有可复现，才能做回归。</p>
+<hr />
+<h2>五、一个基准测试的契约模板</h2>
+<p>Inference Lab 的 GLM 文章给了一个范本。一个可信的比较要 pin：</p>
+<pre><code>- 模型 ID + revision + quantization
+- provider 路由（禁 fallback，防静默换）
+- 两个独立 workload（不同 evaluator，不平均）
+- 重复次数（≥2，但要承认是 bounded）
+- output cap / temperature / top-p / reasoning 控制
+- provider parameter support 要求
+- 不付 warmup/retry（否则掩盖冷启动）
+- 客户端 timing vs provider usage 分开
+- 缓存/reasoning 字段带 provenance，不归零
+- 预留最坏预算，跑完逐条核对 usage
+- 制品封 hash + 闭文件集
+- 排除项也写出来（为什么 X 不放进排行榜）
+</code></pre>
+<hr />
+<h2>六、可比性：契约不是视觉表格</h2>
+<p>Inference Lab 最深刻的洞见之一：<strong>把不可比的数字放一张表里，不等于它们可比。</strong> 它举了个例子：本地 Qwen3-8B MLX 跑 23 cases/min，托管 GLM-5.3 跑 18。能不能把 Qwen 放进托管排行榜当"最快"？不能，因为契约不同（不同模型/运行时/推理模式/seed/系统身份）。</p>
+<blockquote>
+<p>一个图表能对齐任何三个数字，但不等于它们的分母相等。<strong>可比性来自契约，不来自数字的视觉邻近。</strong></p>
+</blockquote>
+<p>横评时要么对齐契约（同模型/硬件/方法），要么明确标注"不同契约的观察，不可直接排名"。</p>
+<hr />
+<h2>七、实践 checklist：可观测性与基准</h2>
+<ul>
+<li>[ ] TTFT 从"第一个非空可见内容"算，采集器用增量读</li>
+<li>[ ] 分离客户端 timing 和 provider usage，两套账本</li>
+<li>[ ] partial output 标 truncated，不当成功</li>
+<li>[ ] 每个数字旁边写测量边界（模型/runtime/workload/evaluator/scope/制品/价格/失败状态）</li>
+<li>[ ] null 不当 zero，缺证据留 null</li>
+<li>[ ] cache 命中率 + TTFT 改善一起看，不只信引擎报告</li>
+<li>[ ] GPU trace 按 PID 过滤，排除无关进程</li>
+<li>[ ] 横评对齐契约或标注不可比，别用视觉邻近当可比</li>
+<li>[ ] 制品封 commit + SHA-256，可复现</li>
+<li>[ ] 排除项也写出来（为什么 X 不放排行榜）</li>
+<li>[ ] 预算跑托管前先 dry-run，预留最坏情况，跑完逐条核对</li>
+</ul>
+<p>下一篇：<strong>成本优化实战</strong>——autoscaling、spot 实例、智能路由、预算门控。</p>
+        <p><a class="back-link" href="../hardware-memory-budget/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../cost-optimization/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

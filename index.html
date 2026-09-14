@@ -51,8 +51,125 @@
 
         <div class="editorial-grid rise rise-2" id="post-grid">
 
+          <a class="editorial-card" href="blog/llm-inference-series/">
+            <img class="cover" src="assets/images/posts/llm-inference-series/cover.svg" alt="" loading="eager" fetchpriority="high">
+            <div class="card-body">
+              <time datetime="2026-09-14">2026 年 9 月 14 日</time>
+              <h2 class="card-title">成为 LLM Inference Engineer 全景指南（20 篇系列）</h2>
+              <p class="card-excerpt">从推理生命周期原理讲到生产部署、成本优化与证据体系，再用 34 项技术全图查漏补缺——20 篇讲透 LLM 推理工程的岗位、原理与实战。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/liveavatar-gpt-live/">
+            <img class="cover" src="assets/images/posts/liveavatar-gpt-live/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-13">2026 年 9 月 13 日</time>
+              <h2 class="card-title">把 GPT-Live-1 跑通的最小活样本：HeyGen 仓库逐行拆解</h2>
+              <p class="card-excerpt">HeyGen 的 liveavatar-gpt-live-demos（MIT）用 GPT-Live-1 驱动实时数字人，开箱是日语家教。clone 下来逐文件精读源码：架构图里的每一根线，在真实代码里长什么样。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/software-factory-opensource/">
+            <img class="cover" src="assets/images/posts/software-factory-opensource/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-12">2026 年 9 月 12 日</time>
+              <h2 class="card-title">他开源了「软件工厂」却不卖钱：一个反共识选择背后的算盘</h2>
+              <p class="card-excerpt">当所有人都在把 AI coding agent 卖成 SaaS、按席位收费、token 加价转卖，前亚马逊工程师 Cole Murray 偏说这条路走不通，把整套软件工厂开源白送——价值在组织流程，不在基建。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/gpt-live-1-reverse/">
+            <img class="cover" src="assets/images/posts/gpt-live-1-reverse/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-12">2026 年 9 月 12 日</time>
+              <h2 class="card-title">他用 0.05 美元/分钟，反推出 OpenAI 语音模型的整套架构</h2>
+              <p class="card-excerpt">OpenAI 发了全双工语音模型 GPT-Live-1，官方没公布任何架构细节。一个 NVIDIA 语音研究员只看 API、定价和第三方评测，就把内部结构推了个八九不离十——再用官方原文逐条核验。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/voice-agent-eval/">
+            <img class="cover" src="assets/images/posts/voice-agent-eval/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-12">2026 年 9 月 12 日</time>
+              <h2 class="card-title">语音 agent 为什么比文本 agent 难测 10 倍？CRAWL-WALK-RUN 评测框架全拆解</h2>
+              <p class="card-excerpt">OpenAI 给 GPT-Live-1 配了开源评测框架，把语音 agent 评估拆成「爬行—行走—奔跑」三档；τ-Voice 论文用 278 个真实任务测出：全双工语音 agent 只保留了文本能力的 30%–45%。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/learning-loop-presence/">
+            <img class="cover" src="assets/images/posts/learning-loop-presence/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-12">2026 年 9 月 12 日</time>
+              <h2 class="card-title">谁该拥有你的学习闭环：OpenAI 用 Codex 10 天降了 15% 转接率，但有个更深的押注</h2>
+              <p class="card-excerpt">生产会话暴露缺口→Codex 提议修复→团队测试批准→上线：这套闭环和 Cole Murray 开源的 OpenInspect 是同一种架构，区别只在——你租用闭环，还是拥有闭环。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/gpt-live-1-architecture/">
+            <img class="cover" src="assets/images/posts/gpt-live-1-architecture/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-12">2026 年 9 月 12 日</time>
+              <h2 class="card-title">GPT-Live-1 架构图解教程：从全双工音频流到工具调用全流程</h2>
+              <p class="card-excerpt">用 10 张图逐步拆解 GPT-Live-1 的完整实现架构：音频怎么流进流出、委托怎么发生、工具怎么执行、结果怎么确认说回用户——每一张图对应一个架构层，看完就能动手搭。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/frognano/">
+            <img class="cover" src="assets/images/posts/frognano/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-12">2026 年 9 月 12 日</time>
+              <h2 class="card-title">4B 小模型怎么追平 70B？FrogNano 的「在线任务合成」标定细节与硬对比</h2>
+              <p class="card-excerpt">微软 Froggy Team 的 4B coding agent，不蒸馏、只靠 RL 在在线合成的任务上训练，把 SWE-bench Verified 做到 61.5%。往里钻两层：TaskPilot 怎么贴着能力前沿合任务，以及和 SWE-RL、Agent-RLVR 的硬对比。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/deepseek-engram-lpddr/">
+            <img class="cover" src="assets/images/posts/deepseek-engram-lpddr/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-11">2026 年 9 月 11 日</time>
+              <h2 class="card-title">用 LPDDR 取代 HBM：DeepSeek 4.1 Flash 架构里被所有人忽略的关键细节</h2>
+              <p class="card-excerpt">舆论都在看跑分，硬件分析师 GDP 指出真正的主角：约 196B 参数的 Engram 嵌入驻留主机内存 LPDDR5，把最贵的 HBM 省了下来。这是中国大模型实验室集体转向的新方向。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/sparse-attention-extrapolation/">
+            <img class="cover" src="assets/images/posts/sparse-attention-extrapolation/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-11">2026 年 9 月 11 日</time>
+              <h2 class="card-title">训练 64 个 token，外推 1000 倍仍拿 95 分：ICLR 2026 找到了长文本的病根</h2>
+              <p class="card-excerpt">softmax 必须给每个 token 分一点概率，序列越长越「弥散」；α-entmax 能把无关 token 精确清零。只训 64 长度的模型外推 1000 倍仍拿 95.3%，softmax 跌到 3%。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/epiplexity/">
+            <img class="cover" src="assets/images/posts/epiplexity/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-10">2026 年 9 月 10 日</time>
+              <h2 class="card-title">模型越大，偏见越强：一场颠覆直觉的 AI 基础理论演讲讲了什么</h2>
+              <p class="card-excerpt">Andrew Gordon Wilson 一个多小时的演讲，开场就让全场 70% 的人选错。Epiplexity（认知复杂度）解释了为什么模型越大越该「挑食」：只啃难而有规律的数据，而不是对所有数据都认真学。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/prompt-caching/">
+            <img class="cover" src="assets/images/posts/prompt-caching/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-08">2026 年 9 月 8 日</time>
+              <h2 class="card-title">你的 AI Agent 正在偷偷烧钱？搞懂「提示词缓存」，费用直接降 90%</h2>
+              <p class="card-excerpt">你以为每次提问都要为 5 万 token 的上下文全价买单？其实只要用对缓存：命中部分按一折计费，写对缓存边界、避开动态内容，成本能砍到接近零。</p>
+            </div>
+          </a>
+
+          <a class="editorial-card" href="blog/frontier-dsh-plugin/">
+            <img class="cover" src="assets/images/posts/frontier-dsh-plugin/cover.svg" alt="" loading="lazy">
+            <div class="card-body">
+              <time datetime="2026-09-03">2026 年 9 月 3 日</time>
+              <h2 class="card-title">我把 FrontierAgent 做成了 DSH 的插件：零额外密钥 + 8 个踩坑实录</h2>
+              <p class="card-excerpt">上一篇把 FrontierAgent 装上了 Mac，但它一直是座孤岛。这篇记录把它做成 DSH 插件的全过程——对话框里一条 /frontier 派活，复用当前模型跑完，结果自动回到对话；「能跑」和「跑得对」之间隔着 8 个坑。</p>
+            </div>
+          </a>
+
           <a class="editorial-card" href="blog/embedding-attention/">
-            <img class="cover" src="assets/images/posts/embedding-attention/cover.svg" alt="" loading="eager" fetchpriority="high">
+            <img class="cover" src="assets/images/posts/embedding-attention/cover.svg" alt="" loading="lazy">
             <div class="card-body">
               <time datetime="2026-08-31">2026 年 8 月 31 日</time>
               <h2 class="card-title">「忘记密码」和「登录信息忘了」，大模型为什么知道是一回事？</h2>

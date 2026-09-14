@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>11 · 成本优化实战：autoscaling、spot 实例、智能路由、预算门控 - Agent's Photolog</title>
+  <meta name="description" content="推理是持续燃烧的成本。这一篇讲怎么把每美元花出最大价值：从单 token 成本到集群级的弹性扩缩、spot 实例、请求路由、缓存策略，以及花真金白银前的预算门控纪律。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/cost-optimization/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="11 · 成本优化实战：autoscaling、spot 实例、智能路由、预算门控">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/cost-optimization/">
+  <meta property="og:description" content="推理是持续燃烧的成本。这一篇讲怎么把每美元花出最大价值：从单 token 成本到集群级的弹性扩缩、spot 实例、请求路由、缓存策略，以及花真金白银前的预算门控纪律。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/cost-optimization/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">11 · 成本优化实战：autoscaling、spot 实例、智能路由、预算门控</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">推理是持续燃烧的成本。这一篇讲怎么把每美元花出最大价值：从单 token 成本到集群级的弹性扩缩、spot 实例、请求路由、缓存策略，以及花真金白银前的预算门控纪律。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>推理是持续燃烧的成本。这一篇讲怎么把每美元花出最大价值：从单 token 成本到集群级的弹性扩缩、spot 实例、请求路由、缓存策略，以及花真金白银前的预算门控纪律。</p>
+</blockquote>
+<hr />
+<h2>一、推理成本的拆解</h2>
+<p>先把成本拆成可优化的部件：</p>
+<pre><code>单请求成本 ≈ (GPU 租金 + 网络带宽 + 存储 + 运维) / 单位时间处理的 token 数
+           ≈ GPU 成本主导（推理是 GPU 密集）
+
+单 token 成本 = GPU $/秒 ÷ 系统吞吐 (token/秒)
+</code></pre>
+<p>优化方向：</p>
+<ol>
+<li><strong>降单 GPU $/秒</strong>：spot/preemptible 实例、 Reserved 容量、自建 vs 托管。</li>
+<li><strong>提吞吐</strong>：batching、量化、cache（同样 GPU 跑更多 token）。</li>
+<li><strong>路由</strong>：简单请求走便宜小模型，复杂走大模型。</li>
+<li><strong>缓存</strong>：相同请求不重复算。</li>
+<li><strong>弹性</strong>：按负载扩缩，闲时不浪费。</li>
+</ol>
+<hr />
+<h2>二、Autoscaling：按负载弹性扩缩</h2>
+<h3>2.1 为什么推理 autoscaling 比 Web 难</h3>
+<p>Web 服务按 QPS 扩缩，响应快。推理服务：</p>
+<ul>
+<li>单请求慢（秒级到分钟级），扩容来不及救已经在排队的请求。</li>
+<li>冷启动重（加载几 GB-几十 GB 权重 + 模型 init 几十秒到几分钟），新副本上线慢。</li>
+<li>GPU 实例稀缺，扩容不一定抢得到。</li>
+</ul>
+<p>所以推理 autoscaling 要<strong>提前扩</strong>（看队列趋势），且冷启动成本要算进扩容决策。</p>
+<h3>2.2 扩缩信号</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>信号</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPU/GPU 利用率</td>
+<td>简单</td>
+<td>滞后，到瓶颈才扩</td>
+</tr>
+<tr>
+<td>请求队列长度</td>
+<td>直接反映积压</td>
+<td>要有队列监控</td>
+</tr>
+<tr>
+<td>TTFT P99</td>
+<td>用户体验直接信号</td>
+<td>滞后</td>
+</tr>
+<tr>
+<td>预测式（按历史模式）</td>
+<td>提前扩</td>
+<td>要历史数据 + 准确预测</td>
+</tr>
+</tbody>
+</table></div>
+<p>实践组合：队列长度（主）+ GPU 利用率（辅）+ 预测（高峰前预热副本）。</p>
+<h3>2.3 冷启动优化</h3>
+<ul>
+<li><strong>常驻 warm pool</strong>：保留少量 warm 副本，扩容时从 warm 池取（已加载模型）。</li>
+<li><strong>模型预热</strong>：副本启动后先跑 dummy 请求热身（编译 kernel、填 cache）。</li>
+<li><strong>镜像优化</strong>：权重打进镜像或挂载共享存储，避免每次下载。</li>
+</ul>
+<h3>2.4 KPA/KEDA 示例</h3>
+<p>Kubernetes 上常用 KEDA（事件驱动 autoscaler）按自定义 metric（队列长度）扩 vLLM 副本：</p>
+<pre><code># KEDA ScaledObject，按队列消息数扩缩
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+spec:
+  scaleTargetRef: { name: vllm-deployment }
+  minReplicaCount: 2          <span class="tok-c"># warm pool</span>
+  maxReplicaCount: 20
+  triggers:
+  - type: rabbitmq            <span class="tok-c"># 或 redis-stream / prometheus</span>
+    metadata:
+      queueLength: <span class="tok-s">&quot;8&quot;</span>         <span class="tok-c"># 每副本处理的并发</span>
+      mode: AverageThreshold
+</code></pre>
+<hr />
+<h2>三、Spot / Preemptible 实例：省 60-90% 但有风险</h2>
+<h3>3.1 收益与风险</h3>
+<ul>
+<li>收益：spot 实例价格是按需的 1/3 到 1/10。</li>
+<li>风险：随时被回收（通知 30s-2min），要能优雅降级。</li>
+</ul>
+<h3>3.2 推理用 spot 的策略</h3>
+<ol>
+<li><strong>混合策略</strong>：一部分 on-demand 保底（处理必须完成的），一部分 spot 拉吞吐。spot 回收时流量降级到 on-demand。</li>
+<li><strong>优雅终止</strong>：收到回收通知，停止接新请求，把在跑请求跑完或迁移（KV cache 迁移复杂，常直接重新 prefill）。</li>
+<li><strong>checkpoint 复用</strong>：副本被回收前把 prefix cache 状态持久化（如 vLLM 的 KV cache 落盘），新副本恢复。</li>
+<li><strong>多 AZ/region 容量池</strong>：单 AZ spot 抢不到时切换。</li>
+</ol>
+<h3>3.3 不适合 spot 的场景</h3>
+<ul>
+<li>长会话、强一致（agent 多轮、KV cache 强依赖）：回收中断体验差。</li>
+<li>SLA 极严：宁可花钱要稳定。</li>
+<li>批处理离线推理：最适合 spot（可重试）。</li>
+</ul>
+<hr />
+<h2>四、智能路由：让便宜模型干简单活</h2>
+<h3>4.1 分级路由</h3>
+<pre><code>请求进来
+  │
+  ├─ 简单分类/抽取/格式化 → 小模型（便宜快）
+  ├─ 中等复杂度 → 中模型
+  └─ 复杂推理/长生成 → 大模型
+</code></pre>
+<p>用一个轻量分类器（甚至小 LLM）判断请求复杂度，路由到不同规模模型。简单请求占多数时，整体成本大降。</p>
+<h3>4.2 质量门控路由</h3>
+<p>Inference Lab 的 GLM 文章给了一个干净的路由范式：<strong>质量先做 gate，再按目标排名。</strong> 它比较 GLM-5.3（快但贵）和 Flash（慢但便宜）：</p>
+<pre><code>两个模型都通过 4/4 质量门后：
+- 若目标是 correct cases/min（吞吐）→ 选 GLM-5.3
+- 若目标是 correct cases/$（成本效率）→ 选 Flash
+</code></pre>
+<p>Flash 的成本效率是 GLM-5.3 的 11.9-18.4 倍（不同 workload）。<strong>"最快"和"最便宜"回答不同问题。</strong> 路由器要按你的实际目标（延迟 vs 成本）决定。</p>
+<h3>4.3 关键：质量是 gate 不是 score</h3>
+<p>不要把质量、延迟、成本压成一个分数。Inference Lab 的教训：压缩成一个分数会让"决策消失，结果看着果断其实丢了目标"。正确：质量做 gate（过了才进排名），然后选一个明确目标（吞吐 or 成本）排名。</p>
+<hr />
+<h2>五、缓存策略：相同请求不重算</h2>
+<h3>5.1 Prefix caching（第 3 篇讲的）</h3>
+<p>system prompt、few-shot、RAG 文档、对话历史复用。这是最大的"免费午餐"——命中率高的场景 TTFT 大降、成本大降。</p>
+<h3>5.2 响应缓存（语义缓存）</h3>
+<p>对相同/相似请求直接返回缓存结果。适合：</p>
+<ul>
+<li>FAQ / 知识问答（重复问法多）。</li>
+<li>确定性请求（temperature=0 + 固定 prompt）。</li>
+</ul>
+<p>实现：用 embedding 做语义匹配，相似度高的命中。注意：</p>
+<ul>
+<li>缓存命中率要带 provenance（命中≠正确）。</li>
+<li>语义相似但意图不同的要谨慎（"今天天气"vs"今天天气如何"语义近但可能是不同上下文）。</li>
+</ul>
+<h3>5.3 缓存对成本的影响量化</h3>
+<pre><code>prefix cache 命中率 50% → prefill 计算减半 → TTFT 成本部分降
+（注意：cache 命中要和 TTFT 改善对照，别只信命中率数字）
+</code></pre>
+<hr />
+<h2>六、预算门控：花真金白银前的纪律</h2>
+<p>Inference Lab 的 GLM 文章展示了一套值得学的预算纪律。<strong>在花托管 API 的钱之前</strong>：</p>
+<h3>6.1 dry-run 计划</h3>
+<pre><code>authorized lifetime cap: $5.00        ← 授权总上限
+planned ceiling: $0.07453260          ← 保守计划上限
+final usage-block cost: $0.00615262  ← 实际花费
+remaining authorization: $4.99384738
+</code></pre>
+<p>流程：</p>
+<ol>
+<li>先在本地做 dry-run，写请求计划（不读 credential、不联网）。</li>
+<li>用保守上限（按最坏 token 数 × 最坏价格）预算。</li>
+<li>跑完后逐条核对 provider usage block 的实际 cost。</li>
+<li>账户余额 delta 作为旁证（账户端可能 lag、含其他活动，不是主真相）。</li>
+</ol>
+<h3>6.2 一个重要的诚实声明</h3>
+<p>Inference Lab 老实写明：<strong>本地预算门控不是绝对的 provider 计费上限。</strong> 一个能删改 ledger 和 anchor 文件的恶意操作者能绕过；只有 provider 侧限制或外部单调服务能真正封死。所以它叫"bounded local spend control"。</p>
+<blockquote>
+<p>实践：花公司的钱跑实验，永远先 dry-run 计划 + 预留最坏预算 + 跑完逐条核对。这是成年人心态。别"先跑跑看花了多少"。</p>
+</blockquote>
+<hr />
+<h2>七、成本优化的常见反模式</h2>
+<ol>
+<li><strong>只看 GPU 利用率高就觉得省</strong>：利用率高但 batch 小、单 token 慢，其实贵。要看单 token 成本。</li>
+<li><strong>无脑堆 GPU 解延迟</strong>：延迟问题可能是调度/带宽，加卡边际收益递减。先定位瓶颈再加卡。</li>
+<li><strong>spot 全用</strong>：回收中断体验差，长会话/强 SLA 场景翻车。混合策略。</li>
+<li><strong>路由只看延迟不看质量</strong>：便宜模型快但答错，correct cases/$ 反而低。质量做 gate。</li>
+<li><strong>缓存命中率当唯一指标</strong>：命中≠真的省了计算（第 3、10 篇讲过），要对照 TTFT。</li>
+<li><strong>不量化排除项</strong>：把不同契约的数字放一张表比，得出错误"最便宜"结论。</li>
+</ol>
+<hr />
+<h2>八、实践 checklist：成本优化</h2>
+<ul>
+<li>[ ] 拆解单 token成本，找最大项再优化</li>
+<li>[ ] autoscaling 按队列长度+预测，保留 warm pool</li>
+<li>[ ] 冷启动优化（镜像/预热/warm pool）</li>
+<li>[ ] spot 混合 on-demand，长会话慎用 spot</li>
+<li>[ ] 智能路由：质量做 gate，再按延迟/成本目标排名</li>
+<li>[ ] prefix caching + 语义缓存，命中率对照 TTFT</li>
+<li>[ ] 跑托管实验先 dry-run + 预留最坏预算 + 逐条核对</li>
+<li>[ ] 看单 token 成本不只看 GPU 利用率</li>
+<li>[ ] 量化排除项，别把不可比放一张表</li>
+</ul>
+<h2>九、原书补强：LoRA-aware 路由与 scale-to-zero 立场（Kiely §7.2.3/§7.2.4）</h2>
+<blockquote>
+<p>精读原书后补两条与成本直接相关的路由/弹性决策。</p>
+</blockquote>
+<p><strong>1. LoRA-aware routing。</strong> 智能 routing 不止 KV-cache-aware 一种：还有 <strong>LoRA-aware routing</strong>——把请求发到<strong>已把目标 LoRA 权重载入内存</strong>的副本，免去重复加载/切换。多 LoRA 服务时它与 KV-cache 路由并列，都是“用副本状态信息做请求级路由”。router（请求级：“这请求该去哪”）与 load balancer（系统级：“均匀分摊”）是两件事，复杂系统里两者多层交错。</p>
+<p><strong>2. scale-to-zero 的诚实立场。</strong> 缩容到零能省钱，但原书明确：它<strong>只适合</strong>三类——开发/测试（突发、首请求延迟无所谓）、周期性流量（如只在工作时段被调用的 agent、日批处理）、离线系统。<strong>不适合</strong>延迟敏感 + 轻量 + 无规律流量：那说明你的应用还没到该上专属基础设施的规模，<strong>先用 pay-per-token API 直到上量</strong>，别靠 scale-to-zero 硬省。冷启动速度与队列健壮性是 scale-to-zero 的两个前置条件，缺一不可。</p>
+<p>下一篇：<strong>生产部署</strong>——SLO、负载测试、故障模式、灰度与回滚。</p>
+        <p><a class="back-link" href="../observability-benchmarks/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../production-slo/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

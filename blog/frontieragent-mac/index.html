@@ -61,6 +61,7 @@
 <blockquote>
 <p>不需要 GPU，不需要 Docker Desktop，一台普通 Mac 就能跑起来。但"能装上"和"装得顺"之间，隔着 7 个坑。这篇文章把每一个坑的现象、根因和解法都记录下来，照着做可以少走两小时弯路。</p>
 </blockquote>
+<figure><p><img alt="题图：一台普通笔记本扛起完整 Agent，坑藏在脚下" src="../../assets/images/posts/frontieragent-mac/01.avif"  loading="lazy" /></p><figcaption>题图：一台普通笔记本扛起完整 Agent，坑藏在脚下</figcaption></figure>
 <hr />
 <h2>一、FrontierAgent 是什么？</h2>
 <p><a href="https://github.com/ApodexAI/FrontierAgent">FrontierAgent</a> 是 ApodexAI 开源的<strong>终端原生 Agent 工作流客户端</strong>，核心卖点有两个：</p>
@@ -157,6 +158,7 @@ docker info          <span class="tok-c"># 能打印 Server 信息即成功</spa
 </code></pre>
 <p>💡 教训很简单但容易忘：换了 Docker Desktop → OrbStack 之后，排查问题的第一反应要从"重启 Docker 服务"变成"App 启动了没有"。</p>
 <h3>坑 2：清华镜像源超时，uv sync 半路夭折</h3>
+<figure><p><img alt="镜像源抽风，官方源就在隔壁" src="../../assets/images/posts/frontieragent-mac/02.avif"  loading="lazy" /></p><figcaption>镜像源抽风，官方源就在隔壁</figcaption></figure>
 <p><strong>现象</strong>：<code>uv sync --python 3.12</code> 在解析完 163 个包之后，下载构建依赖 <code>editables==0.6</code> 时连重试 3 次全部超时：</p>
 <pre><code>× Failed to download editables==0.6
 ├─▶ https://pypi.tuna.tsinghua.edu.cn/packages/...
@@ -174,6 +176,7 @@ docker info          <span class="tok-c"># 能打印 Server 信息即成功</spa
 <p>⚠️ <strong>附带伤害</strong>：第一次失败的 sync 已经把 <code>uv.lock</code> 里的下载 URL 全部改写成了清华源地址（<code>git diff</code> 一看 4586 行变动，全是 registry URL 替换）。用 <code>git checkout -- uv.lock</code> 还原即可，否则以后 <code>git pull</code> 会遇到无谓冲突。</p>
 <p>💡 <strong>教训</strong>：全局镜像源是"平时加速、故障时背锅"的典型配置。遇到 uv/pip 大面积超时，先用 <code>UV_DEFAULT_INDEX</code> / <code>PIP_INDEX_URL</code> 临时覆盖验证是不是源的问题，别急着怀疑项目本身。</p>
 <h3>坑 3：GHCR 官方镜像拉不动？读完源码发现根本不用拉</h3>
+<figure><p><img alt="unauthorized 是假坑，门一直开着" src="../../assets/images/posts/frontieragent-mac/03.avif"  loading="lazy" /></p><figcaption>unauthorized 是假坑，门一直开着</figcaption></figure>
 <p><strong>现象</strong>：按 compose.yaml 里的默认配置预拉镜像：</p>
 <pre><code>docker pull ghcr.io/apodexai/frontieragent:latest
 # Error response from daemon: error from registry: unauthorized
@@ -191,6 +194,7 @@ def run_in_container(...):
 <p><strong>结论</strong>：默认镜像 <code>apodex:local</code> 从设计上就是<strong>从本地 checkout 构建</strong>的，GHCR 那个 tag 只服务于自定义镜像名的场景。unauthorized 报错完全不影响正常使用，属于"不看源码会被吓到"的假坑。</p>
 <p>💡 <strong>教训</strong>：开源项目的 compose 文件里写的镜像名 ≠ 你必须去拉的镜像。花五分钟读一下启动代码，比对着报错瞎猜十分钟划算。</p>
 <h3>坑 4：容器内构建，30 秒超时的连环坑</h3>
+<figure><p><img alt="30 秒沙漏 vs 龟速大箱子" src="../../assets/images/posts/frontieragent-mac/04.avif"  loading="lazy" /></p><figcaption>30 秒沙漏 vs 龟速大箱子</figcaption></figure>
 <p>真正的时间黑洞在这里。<code>docker build -t apodex:local .</code> 连续失败两次，都倒在同一步：</p>
 <pre><code>RUN uv sync --frozen --extra eval --extra sandbox --extra document-readers
 ├─▶ I/O operation failed during extraction
@@ -263,6 +267,7 @@ docker builder prune -af
 - The active model is empty.
 </code></pre>
 <h3>坑 7：最隐蔽的一个 —— pipefail + grep -q 的 SIGPIPE 误判</h3>
+<figure><p><img alt="脚本报&quot;失败&quot;，进程其实活着" src="../../assets/images/posts/frontieragent-mac/05.avif"  loading="lazy" /></p><figcaption>脚本报&quot;失败&quot;，进程其实活着</figcaption></figure>
 <p>这个坑出现在我为它写的一键启停脚本里，值得单独讲。</p>
 <p><strong>现象</strong>：<code>start.sh</code> 明明成功拉起了 Agent（进程活着、会话存在），脚本却输出"❌ 启动失败"。而同样的检查逻辑在另一个脚本里又工作正常。</p>
 <p><strong>根因</strong>：脚本头部有 <code>set -euo pipefail</code>，存活检查写的是：</p>

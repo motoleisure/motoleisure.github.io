@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>用 LPDDR 取代 HBM：DeepSeek 4.1 Flash 架构里被所有人忽略的关键细节 - Agent's Photolog</title>
+  <meta name="description" content="舆论都在看跑分，硬件分析师 GDP 指出真正的主角：约 196B 参数的 Engram 嵌入驻留主机内存 LPDDR5，把最贵的 HBM 省了下来。这是中国大模型实验室集体转向的新方向。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/deepseek-engram-lpddr/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="用 LPDDR 取代 HBM：DeepSeek 4.1 Flash 架构里被所有人忽略的关键细节">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/deepseek-engram-lpddr/">
+  <meta property="og:description" content="舆论都在看跑分，硬件分析师 GDP 指出真正的主角：约 196B 参数的 Engram 嵌入驻留主机内存 LPDDR5，把最贵的 HBM 省了下来。这是中国大模型实验室集体转向的新方向。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/deepseek-engram-lpddr/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">用 LPDDR 取代 HBM：DeepSeek 4.1 Flash 架构里被所有人忽略的关键细节</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-11">发布于 2026 年 9 月 11 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">舆论都在看跑分，硬件分析师 GDP 指出真正的主角：约 196B 参数的 Engram 嵌入驻留主机内存 LPDDR5，把最贵的 HBM 省了下来。这是中国大模型实验室集体转向的新方向。</p>
+
+        <div class="prose">
+<blockquote>
+<p><strong>编译整理</strong>｜原作者：GDP（@bookwormengr）· 2026-09-10 · <a href="https://x.com/bookwormengr/status/2097975577886257184">原文链接</a>
+调研与补充：结合 DeepSeek 官方技术报告、Engram 论文（arXiv:2601.07372）及美团 LongCat-2.0、阿里 Qwen3.8-Flash-Next 模型卡</p>
+</blockquote>
+<p>9 月 10 日，DeepSeek 发布 <strong>V4.1 Flash</strong>。舆论焦点都放在了它的跑分上，但硬件分析师 GDP（@bookwormengr）指出：这代架构里最重要、却几乎被所有人忽略的细节是——<strong>它正在用主机内存（LPDDR5）取代昂贵的 HBM</strong>。这是中国大模型实验室集体转向的新方向，而背后的关键技术，叫 <strong>Engram</strong>。</p>
+<figure><p><img alt="图｜DeepSeek 4.1 Flash 架构示意：骨干（attention + MoE）驻留 HBM，Engram 嵌入驻留主机内存（LPDDR）（引自原帖）" src="../../assets/images/posts/deepseek-engram-lpddr/01.avif"  loading="lazy" /></p><figcaption>图｜DeepSeek 4.1 Flash 架构示意：骨干（attention + MoE）驻留 HBM，Engram 嵌入驻留主机内存（LPDDR）（引自原帖）</figcaption></figure>
+<h2>一、被忽略的关键细节：一大块参数住进了"便宜"的内存</h2>
+<p>DeepSeek 4.1 Flash 最被忽视的架构事实是：<strong>逾四分之一（约 196B）的参数——即 Engram 嵌入——并不在 GPU 的 HBM 上，而是驻留在主机内存（LPDDR5）里</strong>。这一设计直接省下两样最贵的东西：</p>
+<ul>
+<li><strong>HBM 用量</strong>——HBM 极其昂贵且供应紧张；</li>
+<li><strong>FLOPs 用量</strong>——预填（prefill）阶段原本需要密集算力。</li>
+</ul>
+<p>模型的骨干参数（attention、MoE 专家）仍然在 HBM 上，但大多以 <strong>4-bit（FP4）</strong> 低精度存放；而 Engram 嵌入这块被"搬"到了主机内存里。</p>
+<blockquote>
+<p>📌 作者观点：他在 2026 年 5 月就预测过，<strong>"Engram 是中国实验室新的扩展方向"</strong>，今天 DeepSeek 4.1 Flash 印证了这一点。近期美团 <strong>LongCat 2</strong>、阿里 <strong>Qwen-3.8-Flash-Next</strong> 也都走了同一条路。</p>
+</blockquote>
+<figure><p><img alt="图｜架构与参数对比（引自原帖）" src="../../assets/images/posts/deepseek-engram-lpddr/02.avif"  loading="lazy" /></p><figcaption>图｜架构与参数对比（引自原帖）</figcaption></figure>
+<figure><p><img alt="图｜相关数据与对比（引自原帖）" src="../../assets/images/posts/deepseek-engram-lpddr/03.avif"  loading="lazy" /></p><figcaption>图｜相关数据与对比（引自原帖）</figcaption></figure>
+<h2>二、什么是 Engram？——一句话能说清</h2>
+<p>用最简单的话讲：<strong>嵌入（embedding）存储的是"token 的含义"。</strong></p>
+<p>但很多概念需要多个 token 才能表达——"亚历山大大帝"不是咖啡师亚历山大。传统 Transformer 的低层，都在努力从零碎的 token 序列里重新"拼出"这些含义。这是一种<strong>浪费的计算</strong>：一旦你在序列里遇到"亚历山大大帝"，你本就应该知道这一组 token 代表什么。</p>
+<figure><p><img alt="图｜核心思想：把多 token 序列的含义（如&quot;亚历山大大帝&quot;）存入记忆，用更少参数获得更高智能" src="../../assets/images/posts/deepseek-engram-lpddr/04.avif"  loading="lazy" /></p><figcaption>图｜核心思想：把多 token 序列的含义（如&quot;亚历山大大帝&quot;）存入记忆，用更少参数获得更高智能</figcaption></figure>
+<p>Engram 的思路是：<strong>把序列的含义（2 个一组的 token、3 个一组的 token）预先存成嵌入，在运行时直接检索回来</strong>。一旦你为这些涉及 2-3 个 token 的复杂概念建好了"记忆条目（engram）"，就能省下大量计算和骨干参数，并把这些含义/嵌入放到主机内存（LPDDR）里。</p>
+<blockquote>
+<p><strong>结论：用更低的参数量，获得更高（或相当）的智能。</strong></p>
+</blockquote>
+<h2>三、来自原始论文的精确机制</h2>
+<p>Engram 来自 DeepSeek 团队 2026 年 1 月发表的论文《<em>Conditional Memory via Scalable Lookup: A New Axis of Sparsity for Large Language Models</em>》（arXiv:2601.07372，第一作者 Cheng Xin 等，DeepSeek 团队）。它的核心论断是：</p>
+<p>语言建模本质上包含<strong>两类性质截然不同的子任务</strong>：</p>
+<p>① <strong>组合推理（compositional reasoning）</strong>——需要深层、动态的计算；
+② <strong>知识检索（knowledge retrieval）</strong>——大量文本（命名实体、固定搭配、模板化句式）是<strong>局部的、静态的、高度刻板</strong>的。</p>
+<p>标准 Transformer 缺少原生的"知识查表"原语，被迫<strong>用计算去模拟检索</strong>——解析一个常见的多 token 实体，要消耗好几层 attention 和 FFN，本质上是"在运行时昂贵地重建一张静态查表"。这把宝贵的序列深度浪费在了琐碎操作上。</p>
+<p>论文因此提出一个新的稀疏轴：<strong>条件记忆（conditional memory）</strong>。如果说 MoE 是"条件计算"（稀疏激活参数来处理动态逻辑），那么 Engram 就是"条件记忆"——用 <strong>O(1) 的查表</strong>来检索静态嵌入。它的几个关键设计：</p>
+<h3>1. 分词器压缩（Tokenizer Compression）</h3>
+<p>标准子词分词器优先"无损重建"，常给语义等价的词分配不同 ID（如 Apple 与 ␣apple）。Engram 加一层词表投影，按 NFKC 规范化、小写化把原始 ID 折叠成规范 ID，对 128k 词表<strong>实际有效词表压缩约 23%</strong>，提升语义密度。</p>
+<h3>2. 多头哈希（Multi-Head Hashing）</h3>
+<p>直接给所有 N-gram 组合空间参数化是不现实的。Engram 为每个 N-gram 阶用 <strong>H 个独立哈希头</strong>，每个头用一个轻量的<strong>乘法-XOR 哈希</strong>把压缩后的上下文映射到一张素数大小的嵌入表里，再拼接成最终记忆向量——以极低碰撞率实现 O(1) 检索。</p>
+<h3>3. 上下文门控 + 多分支融合</h3>
+<p>在多分支骨干里，Engram 共享一张稀疏嵌入表与 Value 投影矩阵，用若干个不同的 Key 投影实现分支特异性门控；这些线性投影可<strong>融合为单次 FP8 稠密矩阵乘</strong>，最大化 GPU 算力利用率。</p>
+<h2>四、核心机制：计算与存储解耦，预取-重叠</h2>
+<p>这是整件事能在工程上跑通的关键，也是"用 LPDDR 取代 HBM"成立的原因。</p>
+<p>关键区别在于<strong>寻址的可预测性</strong>：MoE 的路由依赖<strong>运行时的隐状态</strong>（必须先算出 hidden state 才知道激活哪个专家，所以专家参数必须在 HBM 里）；而 <strong>Engram 的检索索引只取决于输入 token 序列</strong>——在 forward 之前就完全已知。这种确定性，让"存储"和"算力"可以被彻底解耦：</p>
+<ul>
+<li><strong>训练</strong>：把大嵌入表按行切分（shard）到多张 GPU 上，用 All-to-All 通信在前向取出活跃行、反向分发梯度，记忆容量随加速器数量<strong>线性扩展</strong>；</li>
+<li><strong>推理</strong>：既然索引提前已知，系统就能经 PCIe <strong>从主机内存异步预取</strong>嵌入；把 Engram 放在骨干的特定层，让前面几层的计算"打底"，把取回延迟<strong>完全藏起来</strong>（overlap），GPU 不必空转。</li>
+</ul>
+<figure><p><img alt="图｜Engram 预取-重叠（prefetch-and-overlap）时序示意：GPU 计算与主机内存取回并行进行（作者补图）" src="../../assets/images/posts/deepseek-engram-lpddr/05.avif"  loading="lazy" /></p><figcaption>图｜Engram 预取-重叠（prefetch-and-overlap）时序示意：GPU 计算与主机内存取回并行进行（作者补图）</figcaption></figure>
+<figure><p><img alt="图｜Engram 系统效率：确定性寻址使存储与计算解耦，可从主机内存经 PCIe 异步预取（引自论文 Figure 2）" src="../../assets/images/posts/deepseek-engram-lpddr/06.avif"  loading="lazy" /></p><figcaption>图｜Engram 系统效率：确定性寻址使存储与计算解耦，可从主机内存经 PCIe 异步预取（引自论文 Figure 2）</figcaption></figure>
+<p>论文还给出一个硬件-算法协同的权衡：把 Engram 放得越深，能藏延迟的"计算窗口"越大；但消融实验显示，<strong>建模性能更偏好早期介入</strong>以卸载局部模式的重建。最优位置要同时满足"建模"和"系统延迟"两个约束。</p>
+<p>此外，自然语言 N-gram 天然服从<strong>齐普夫分布</strong>——少量模式占绝大多数访问。Engram 据此设计<strong>多级缓存层次</strong>：高频嵌入缓存到 HBM 或主机 DRAM，长尾的罕见模式放 NVMe SSD。这让记忆容量可扩展到极大，而对有效延迟的影响极小。</p>
+<h2>五、U 型缩放律：MoE 和 Engram 的最优配比</h2>
+<p>论文把"在固定总参数预算下，MoE 专家和 Engram 嵌入槽该怎么分"形式化为<strong>稀疏分配（Sparsity Allocation）问题</strong>，并发现一条 <strong>U 型缩放律</strong>：</p>
+<ul>
+<li><strong>MoE 主导</strong>（Engram 占比低）：模型缺静态记忆，被迫用深度和算力重建模式，效率低；</li>
+<li><strong>Engram 主导</strong>（Engram 占比高）：损失条件计算能力，伤害需要动态推理的任务——记忆无法替代计算；</li>
+<li><strong>中间最优</strong>：把一部分稀疏预算重分配给 Engram，性能最好。该最优点的位置在不同规模下都<strong>稳定</strong>。</li>
+</ul>
+<p>更妙的是"无限记忆"实验：固定 MoE 骨干，只扩大 Engram 槽数（最多加数十亿参数），验证损失随记忆规模呈<strong>严格的幂律</strong>（对数空间线性）下降——也就是说 Engram 提供了一个<strong>可预测的扩展旋钮：加更多记忆持续受益，却几乎不增加计算</strong>。</p>
+<h2>六、DeepSeek V4.1 Flash 的真实架构数据</h2>
+<p>结合 DeepSeek 官方技术报告，V4.1 Flash 的关键数字如下：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>项目</th>
+<th>数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>骨干参数（attention + MoE）</td>
+<td><strong>552B</strong>，驻留 HBM，多为 4-bit</td>
+</tr>
+<tr>
+<td>Engram 参数（条件记忆）</td>
+<td><strong>196B</strong>，均匀分到两个 N-gram 模块，驻留主机内存（LPDDR）</td>
+</tr>
+<tr>
+<td>每 token 激活参数</td>
+<td>预填 <strong>8B</strong> / 解码 <strong>16B</strong></td>
+</tr>
+<tr>
+<td>上下文长度</td>
+<td>最高 <strong>1M</strong> token</td>
+</tr>
+<tr>
+<td>架构</td>
+<td>CED（因果 Encoder-Decoder）+ CSA2 稀疏注意力 + FP4 KV 缓存</td>
+</tr>
+<tr>
+<td>HBM 全局 KV 占用</td>
+<td>每 token 仅约 <strong>890 字节</strong>（始终在 HBM）</td>
+</tr>
+<tr>
+<td>训练规模</td>
+<td>45T token；稀疏注意力从 64K 序列从头训，无稠密预热</td>
+</tr>
+<tr>
+<td>对比 V4-Pro-Base</td>
+<td>held-out 评测<strong>提升 5%–10%</strong>，总参数仅为其 1/3、激活参数仅 1/4</td>
+</tr>
+<tr>
+<td>代表跑分</td>
+<td>GPQA Diamond <strong>90.9</strong>；Terminal-Bench 2.1 <strong>90.6</strong></td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>💡 DeepSeek 官方公告称：经充分测试，V4.1 Flash 在性能、成本、速度和总耗时上<strong>全面超越 V4 Pro</strong>，将于北京时间 9 月 14 日 12:00 起把 V4 Pro 的请求路由到 V4.1 Flash 并按 Flash 价计费——V4 Pro 有序退场。</p>
+</blockquote>
+<p>可以看到，DeepSeek 把论文里的 Engram（报告中引为 Cheng et al., 2026b）、预取-重叠、分片嵌入表、推理 kernel 融合一并落地到了产品级系统里。</p>
+<h2>七、这不是孤例：美团、阿里都在跟进</h2>
+<p>作者判断"Engram 是中国实验室集体方向"，并非孤证。模型卡证实，另外两家头部实验室同代模型都采用了同源思路：</p>
+<h3>美团 LongCat-2.0</h3>
+<p>1.6T 总参数、每 token 激活约 48B 的大规模 MoE，全程跑在<strong>"AI ASIC 超算集群"</strong>上，预训练 35T token、支持 1M 上下文。它在 Key Features 里明确列出 <strong>"N-gram Embedding"</strong>，含 <strong>135B 的 N-gram 嵌入参数</strong>（继承自 LongCat-Flash-Lite），并给出与论文同构的扩展原则：</p>
+<blockquote>
+<p>"MoE 的稀疏度已经越过甜点；N-gram 嵌入的比例被约束在最优区间内"——这两条原则保证 N-gram 嵌起相对同等规模的纯 MoE 的稳健优势。</p>
+</blockquote>
+<h3>阿里 Qwen3.8-Flash-Next</h3>
+<p>官方称为<strong>"支撑未来 Qwen4 的架构"的实验预览</strong>，亮点包含 QSA（Qwen 稀疏注意力）、Gated Residual，以及关键的 <strong>N-gram Embedding</strong>。模型卡原话：</p>
+<blockquote>
+<p>"N-gram Embedding 提供了一条独特的参数扩展轴，所需计算更少、且比 MoE 更<strong>易于卸载（offload）</strong>……对<strong>内存受限的加速器</strong>，这种方式在不牺牲质量的前提下让参数扩展极为高效。"</p>
+</blockquote>
+<p>"易于卸载"+"内存受限的加速器"——这两句话，几乎就是在直白解释为什么要用 LPDDR 取代 HBM。NVIDIA 还发布了它的 NVFP4 量化版本，呼应"骨干低精度"的整体趋势。</p>
+<h2>八、为什么是中国实验室？——HBM 短缺下的必然</h2>
+<p>作者早在 2026 年 5 月就指出：DeepSeek 会大举押注 Engram，因为 DeepSeek/华为系<strong>受限于 HBM 供应</strong>，而国内其他实验室习惯跟随 DeepSeek 的路线。如今三家同代旗舰不约而同采用"N-gram 嵌入/Engram + 主机内存卸载"，说明这已是行业共识。</p>
+<p>背后的逻辑链条很清晰：</p>
+<ol>
+<li>受出口管制与产能限制，国产算力 <strong>HBM 紧缺</strong>；</li>
+<li>Engram 的<strong>确定性寻址</strong>让大量参数可安全地放到便宜的主机内存（LPDDR/DRAM）甚至 SSD；</li>
+<li>用"查表"替代"重建"，<strong>省算力、省 HBM、还能更强</strong>；</li>
+<li>长尾齐普夫分布 + 多级缓存，让大容量记忆对延迟几乎无感。</li>
+</ol>
+<p>于是"用 LPDDR 取代 HBM"不再是个别实验室的权宜之计，而是一条结构性、可规模化、且已被三家头部模型验证的技术路线。</p>
+<h2>九、对行业的启示</h2>
+<ul>
+<li><strong>稀疏有了第二个轴</strong>：过去是 MoE"条件计算"一轴，现在多了"条件记忆"一轴，二者呈 U 型最优配比；</li>
+<li><strong>记忆是可扩展旋钮</strong>：加记忆持续受益、几乎不增算力，且服从幂律；</li>
+<li><strong>存储与算力解耦</strong>：可预测寻址 = 可预取 = 可卸载到主机内存，HBM 不再是硬瓶颈；</li>
+<li><strong>低精度骨干 + 大容量记忆</strong>成为新范式：骨干 4-bit/FP4 在 HBM，Engram 在 LPDDR/SSD；</li>
+<li><strong>国产算力的出路</strong>：在 HBM 受限前提下，用架构创新换等价或更强智能——DeepSeek、美团、阿里已给出示范。</li>
+</ul>
+<hr />
+<h3>原文与参考资料</h3>
+<ul>
+<li>原帖：GDP（@bookwormengr），X 帖文，2026-09-10，<a href="https://x.com/bookwormengr/status/2097975577886257184">x.com/bookwormengr/status/2097975577886257184</a></li>
+<li>Engram 论文：Cheng et al., <em>Conditional Memory via Scalable Lookup: A New Axis of Sparsity for LLMs</em>, arXiv:2601.07372（2026-01-12），<a href="https://arxiv.org/abs/2601.07372">arxiv.org/abs/2601.07372</a>；官方实现：<a href="https://github.com/deepseek-ai/Engram">github.com/deepseek-ai/Engram</a></li>
+<li>DeepSeek V4.1-Flash 官方技术报告（HuggingFace），<a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash">huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash</a>；模型介绍：<a href="https://api-docs.deepseek.com/news/deepseek-v4-1-flash">api-docs.deepseek.com</a></li>
+<li>美团 LongCat-2.0 模型卡，<a href="https://huggingface.co/meituan-longcat/LongCat-2.0">huggingface.co/meituan-longcat/LongCat-2.0</a>；技术博客：longcat.chat/blog/longcat-2.0</li>
+<li>阿里 Qwen3.8-Flash-Next 模型卡，<a href="https://huggingface.co/Qwen/Qwen3.8-Flash-Next">huggingface.co/Qwen/Qwen3.8-Flash-Next</a></li>
+</ul>
+<blockquote>
+<p>注：本文在原帖基础上做了编译整理与技术补充，所有参数数字均来自 DeepSeek 官方技术报告与各模型卡；作者 2026 年 5 月的预测原文未能在线检索获取，相关表述以原帖自述为准。图片引自原帖与论文，版权归原作者所有。</p>
+</blockquote>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

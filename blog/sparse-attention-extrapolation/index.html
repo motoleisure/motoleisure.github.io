@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>训练 64 个 token，外推 1000 倍仍拿 95 分：ICLR 2026 找到了长文本的病根 - Agent's Photolog</title>
+  <meta name="description" content="softmax 必须给每个 token 分一点概率，序列越长越「弥散」；α-entmax 能把无关 token 精确清零。只训 64 长度的模型外推 1000 倍仍拿 95.3%，softmax 跌到 3%。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/sparse-attention-extrapolation/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="训练 64 个 token，外推 1000 倍仍拿 95 分：ICLR 2026 找到了长文本的病根">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/sparse-attention-extrapolation/">
+  <meta property="og:description" content="softmax 必须给每个 token 分一点概率，序列越长越「弥散」；α-entmax 能把无关 token 精确清零。只训 64 长度的模型外推 1000 倍仍拿 95.3%，softmax 跌到 3%。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/sparse-attention-extrapolation/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">训练 64 个 token，外推 1000 倍仍拿 95 分：ICLR 2026 找到了长文本的病根</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-11">发布于 2026 年 9 月 11 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">softmax 必须给每个 token 分一点概率，序列越长越「弥散」；α-entmax 能把无关 token 精确清零。只训 64 长度的模型外推 1000 倍仍拿 95.3%，softmax 跌到 3%。</p>
+
+        <div class="prose">
+<blockquote>
+<p><strong>论文</strong>：Long-Context Generalization with Sparse Attention
+<strong>会议</strong>：ICLR 2026（已录用为会议论文）
+<strong>作者</strong>：Pavlo Vasylenko、Hugo Pitorro、André F. T. Martins、Marcos Treviso
+<strong>机构</strong>：Instituto Superior Técnico（里斯本大学）、Instituto de Telecomunicações、TransPerfect、ELLIS Unit Lisbon
+<strong>arXiv</strong>：2506.16640v4 · 代码：<a href="https://github.com/deep-spin/asentmax">github.com/deep-spin/asentmax</a></p>
+</blockquote>
+<figure><p><img alt="题图：softmax 必须给每个 token 分一点概率，序列越长越&quot;弥散&quot;；α-entmax 能把无关 token 精确清零，注意力始终聚焦——同一个 query，两种命运" src="../../assets/images/posts/sparse-attention-extrapolation/01.avif"  loading="lazy" /></p><figcaption>题图：softmax 必须给每个 token 分一点概率，序列越长越&quot;弥散&quot;；α-entmax 能把无关 token 精确清零，注意力始终聚焦——同一个 query，两种命运</figcaption></figure>
+<p>一个只见过 <strong>64 个 token</strong> 的小模型，被丢进 <strong>6.5 万 token</strong> 的序列里做关联检索——准确率还有 <strong>95.3%</strong>。</p>
+<p>这不是数据拟合，是 1024 倍的长度外推。换作今天所有大模型都在用的 softmax 注意力，同样的设置在 1000 倍长度上只剩 <strong>3%</strong>，基本等于瞎猜。</p>
+<p>这篇被 ICLR 2026 录用的论文给出了一个反直觉的诊断：<strong>长文本做不好的病根，不在位置编码、不在上下文窗口，而在 softmax 本身。</strong> 而解药，是一个能把"无关 token"的注意力精确清零的老朋友——稀疏注意力。</p>
+<p>更妙的是，这篇论文的作者之一 André Martins，正是十年前发明 sparsemax 的同一拨人。<strong>这等于造病的人，回来亲手把它治了。</strong></p>
+<hr />
+<h2>一、先看结果：1000 倍外推是怎么发生的</h2>
+<p>把惊艳的数字先摆出来，后面再讲它为什么成立。</p>
+<p>论文做了两层验证：<strong>合成任务</strong>（精确可控地测试"模型到底学没学到能外推的算法"）和<strong>真实语言建模</strong>。</p>
+<h3>合成任务：只训 64，外推到 6.5 万</h3>
+<p>下图是多 token 关联检索任务（MQMTAR）上的结果。模型训练长度只有 64，然后直接拿去测 2×、4×……一直到 1024×（65536）的序列：</p>
+<figure><p><img alt="MQMTAR：训练长度 64，ASEntmax 在 1024×（65K）仍达 95.3%，softmax 跌到 3.0%" src="../../assets/images/posts/sparse-attention-extrapolation/02.avif"  loading="lazy" /></p><figcaption>MQMTAR：训练长度 64，ASEntmax 在 1024×（65K）仍达 95.3%，softmax 跌到 3.0%</figcaption></figure>
+<p>到 1024 倍长度时，差距是断崖式的：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>方法</th>
+<th>1024×（65K）准确率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Softmax</td>
+<td><strong>3.0%</strong></td>
+</tr>
+<tr>
+<td>Top-K（硬稀疏）</td>
+<td>0.0%</td>
+</tr>
+<tr>
+<td>SSMax（可缩放 softmax）</td>
+<td>26.7%</td>
+</tr>
+<tr>
+<td>α-entmax（固定温度）</td>
+<td>9.3%</td>
+</tr>
+<tr>
+<td><strong>ASEntmax（本文）</strong></td>
+<td><strong>95.3%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<figure><p><img alt="只训了 64 个 token 的小模型，被丢进 6.5 万 token 的长卷里，依然精准命中目标——1000 倍长度外推" src="../../assets/images/posts/sparse-attention-extrapolation/03.avif"  loading="lazy" /></p><figcaption>只训了 64 个 token 的小模型，被丢进 6.5 万 token 的长卷里，依然精准命中目标——1000 倍长度外推</figcaption></figure>
+<blockquote>
+<p>💡 <strong>关键观察</strong>：同样是"稀疏"，Top-K 在长序列上直接归零、α-entmax 固定温度也撑不住——只有 ASEntmax 这种"会自适应"的稀疏，才能在极端长度上保住注意力。</p>
+</blockquote>
+<h3>真实语言模型：训 2K 上下文，检索到 16K</h3>
+<p>合成任务漂亮，真实模型呢？论文训了一个 4.2 亿参数、LLaMA-3 架构的模型，上下文只设 <strong>2048</strong>，然后在 RULER"大海捞针"任务上外推：</p>
+<figure><p><img alt="RULER S-NIAH-1：训练上下文 2K，ASEntmax 在 8×（16K）检索准确率 97.4%，softmax 仅 0.8%" src="../../assets/images/posts/sparse-attention-extrapolation/04.avif"  loading="lazy" /></p><figcaption>RULER S-NIAH-1：训练上下文 2K，ASEntmax 在 8×（16K）检索准确率 97.4%，softmax 仅 0.8%</figcaption></figure>
+<p>在 16K（8 倍训练长度）的大海捞针上，ASEntmax 拿到 <strong>97.4%</strong>，softmax 只剩 <strong>0.8%</strong>。长上下文困惑度上也是同样的故事——softmax 越长越差，ASEntmax 一路下降：</p>
+<figure><p><img alt="PubMed 长上下文困惑度：softmax 在 16K 反弹到 18.2，ASEntmax 降到 12.9" src="../../assets/images/posts/sparse-attention-extrapolation/05.avif"  loading="lazy" /></p><figcaption>PubMed 长上下文困惑度：softmax 在 16K 反弹到 18.2，ASEntmax 降到 12.9</figcaption></figure>
+<p>而最关键的一点：<strong>这些长文本上的暴涨，没有牺牲短文本能力。</strong> 在 Lambada、HellaSwag 等短上下文基准上，ASEntmax 与 softmax 持平甚至更好（Lambada 困惑度还从 52.4 降到 41.6）。</p>
+<p>也就是说，这不是用短文本换长文本，是<strong>白捡的</strong>。</p>
+<hr />
+<h2>二、诊断：长文本有三种"病"</h2>
+<p>要理解为什么换一个函数就能治，得先看清 softmax 在长序列上得了什么病。论文把病灶归纳成三个，而且<strong>它们是同一个根因的不同症状</strong>。</p>
+<h3>病一：注意力弥散（Dispersion）</h3>
+<p>softmax 有个铁律：<strong>它必须给每个 token 分一点概率，一个都不能是零。</strong></p>
+<p>序列一短，这无所谓。但序列越长，非相关的 token 越堆越多，它们每个都"合法地"分走一点点注意力。结果就是：那个你真正该关注的 token，分到的份额被无限稀释。</p>
+<p>形式上，softmax 注意力分布的归一化熵会逼近最大值 Θ(log n)——n 是序列长度。<strong>长度趋近无穷，注意力分布趋近均匀分布</strong>。等于一个手电筒被逼着照亮整间屋子，屋子越大，你要照的那个角落越暗。</p>
+<h3>病二：表征坍缩（Representational Collapse）</h3>
+<p>注意力一弥散，连锁反应就来了：经过若干层之后，不同位置的 token 表示会<strong>互相趋同</strong>，最后谁都认不出谁。Barbero et al. (2024) 已经证明，softmax 注意力下，‖v_n − v*_{n+1}‖₁ 随长度趋于 0——加一个 token，整个序列的表示就被"抹平"一次。</p>
+<h3>病三：梯度过压缩（Over-squashing）</h3>
+<p>梯度沿着注意力图反向回流。softmax 是全连接的稠密图，梯度路径数量随深度按 <strong>O(n^L)</strong> 增长（n 是长度，L 是层数）。路径爆炸式增多，每条分到的信号就指数级变细。<strong>长距离的梯度，还没流到位就蒸发完了。</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>病症</th>
+<th>表现</th>
+<th>根因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>注意力弥散</td>
+<td>熵 → log n，逼近均匀</td>
+<td>softmax 禁止任何 token 拿 0</td>
+</tr>
+<tr>
+<td>表征坍缩</td>
+<td>token 表示趋同、不可区分</td>
+<td>弥散导致信息被反复平均</td>
+</tr>
+<tr>
+<td>梯度过压缩</td>
+<td>长距离梯度蒸发</td>
+<td>稠密图，路径数 O(n^L)</td>
+</tr>
+</tbody>
+</table></div>
+<p>三条病，一条根：<strong>softmax 不允许注意力说"不"。</strong></p>
+<hr />
+<h2>三、病根：Softmax 太"民主"了</h2>
+<p>softmax 为什么必须给每个 token 分一点？看它的定义就明白：</p>
+<blockquote>
+<p>softmax(z)_j = exp(z_j) / Σ exp(z_k)</p>
+</blockquote>
+<p>指数函数永远是正的，分母又是所有项之和。所以<strong>哪怕某个 token 的分数再低，它分到的注意力也永远大于零</strong>。这是数学结构决定的，不是调参能修的。</p>
+<p>近年有几条改进路线想绕开它：</p>
+<ul>
+<li><strong>ALiBi、RoPE</strong> 等位置编码——治标，缓解位置偏置，但 softmax 该弥散还是弥散；</li>
+<li><strong>Scalable-Softmax（SSMax）</strong>——按序列长度缩放 logits，治了"弥散"的一半，但注意力依然稠密；</li>
+<li><strong>Adaptive Temperature</strong>——学一个温度控制 softmax 锐度，但温度再怎么调，分布底部那堆小到看不见的概率依然存在。</li>
+</ul>
+<p>这些方案都在 softmax 框架内打补丁。论文的态度很直接：<strong>与其给病根打补丁，不如换个不生这个病的函数。</strong></p>
+<hr />
+<h2>四、解药：让注意力有权说"零"</h2>
+<p>论文换上的，是 <strong>α-entmax</strong>：</p>
+<blockquote>
+<p>α-entmax(z)<em>i = [ (α−1)·z_i − τ(z) ]</em>+^(1/(α−1))</p>
+</blockquote>
+<p>方括号里的 <code>·_+ := max(0, ·)</code> 是关键——<strong>分数低于阈值 τ(z) 的 token，注意力被精确清零</strong>。不是"很小"，是<strong>恰好等于零</strong>。</p>
+<p>这一个性质，治住了三种病的根：</p>
+<ul>
+<li>不再被迫给无关 token 分概率 → <strong>弥散消失</strong>；</li>
+<li>注意力只落在少数相关 token 上 → 表征不再被无关项反复平均 → <strong>坍缩缓解</strong>；</li>
+<li>注意力图从全连接稠密图变成稀疏图，梯度路径数从 O(n^L) 降到 <strong>O(s^L)</strong>（s 是非零 token 数，s ≪ n）→ <strong>过压缩减轻</strong>。</li>
+</ul>
+<p>α 还是一个连续的旋钮，控制稀疏到什么程度：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>α 值</th>
+<th>对应</th>
+<th>性质</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>α → 1⁺</td>
+<td>softmax</td>
+<td>稠密，不允许零</td>
+</tr>
+<tr>
+<td>α = 1.5</td>
+<td>（本文默认）</td>
+<td>中等稀疏</td>
+</tr>
+<tr>
+<td>α = 2</td>
+<td>sparsemax</td>
+<td>线性稀疏，最"硬"</td>
+</tr>
+</tbody>
+</table></div>
+<figure><p><img alt="α-entmax 的阈值机制：分数低于阈值 τ(z) 的 token 被精确清零——不是&quot;很小&quot;，是恰好为零" src="../../assets/images/posts/sparse-attention-extrapolation/06.avif"  loading="lazy" /></p><figcaption>α-entmax 的阈值机制：分数低于阈值 τ(z) 的 token 被精确清零——不是&quot;很小&quot;，是恰好为零</figcaption></figure>
+<blockquote>
+<p>📌 <strong>一个有意思的轮回</strong>：sparsemax（α=2）是 André Martins 本人在 2016 年提出的，α-entmax 是其推广。十年后，同一拨人回来证明：这个当年为机器翻译做的稀疏注意力，恰恰是长文本时代 transformer 的解药。</p>
+</blockquote>
+<hr />
+<h2>五、理论保证：为什么稀疏扛得住长度</h2>
+<p>光说"能清零"不够，论文给了三条理论结果，解释<strong>为什么</strong>稀疏能扛住任意长度。</p>
+<h3>性质一：注意力不再被长度稀释</h3>
+<blockquote>
+<p><strong>引理 1（非消失性）</strong>：往序列里加一个新 token，softmax 一定会<strong>严格</strong>降低已有 token 的注意力；而 α-entmax 可以做到——<strong>已有 token 的注意力一个都不变</strong>。</p>
+</blockquote>
+<p>原因正是清零：新加的 token 如果分数够低，它直接被分到 0，根本不参与分母，自然不影响别人。<strong>softmax 是"进来一个就分走一点"，α-entmax 是"不够格的，进来也没你的份"。</strong></p>
+<h3>性质二：熵被钉死，不再随长度爆炸</h3>
+<blockquote>
+<p><strong>命题 1</strong>：softmax 的归一化熵随长度趋近 1（完全弥散）；α-entmax 只要非零支撑集 s 增长得比 n 慢（|S|=O(n^β)，β&lt;1），熵就被钉在 <strong>O(log s) ≤ β &lt; 1</strong>。</p>
+</blockquote>
+<p>翻译成人话：<strong>只要模型真正在意的 token 数量 s 远小于总长度，注意力熵就不会随长度失控。</strong> 序列拉到再长，注意力还是只聚焦在那 s 个 token 上。</p>
+<h3>性质三：梯度路径从 O(n^L) 降到 O(s^L)</h3>
+<blockquote>
+<p><strong>命题 2</strong>：每层注意力分布的支撑集不超过 s（s ≪ n）时，梯度有效路径数按 <strong>O(s^L)</strong> 增长，而非 softmax 的 O(n^L)。</p>
+</blockquote>
+<p>这是个指数级的差距——n=65536、s=8、L=8 时，路径数从天文数字缩到可控量级。论文还做了对照实验：8 层网络的复制任务里，α-entmax 的梯度范数跨深度跨长度都稳得住，softmax 则随长度急剧衰减。在表征坍缩的一探针实验里，softmax 的 L1 差距随长度奔向 0，α-entmax 一直到 12.8 万 token 都保住非零边界。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Softmax</th>
+<th>α-entmax</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>注意力熵</td>
+<td>→ log n（弥散）</td>
+<td>O(log s)（聚焦）</td>
+</tr>
+<tr>
+<td>加 token 对已有注意力</td>
+<td>严格降低</td>
+<td>可保持不变</td>
+</tr>
+<tr>
+<td>表征</td>
+<td>随长度坍缩</td>
+<td>可保持可区分</td>
+</tr>
+<tr>
+<td>梯度路径</td>
+<td>O(n^L)</td>
+<td>O(s^L)，s ≪ n</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2>六、ASEntmax：会"自适应"的稀疏</h2>
+<p>到这里，一个自然的疑问冒出来：</p>
+<blockquote>
+<p>α-entmax 这么好，为什么直接用固定 α 还不够？上图里固定温度的 Entmax 在 1024× 上也只有 9.3%。</p>
+</blockquote>
+<p>因为<strong>固定 α 在极端长度下会"矫枉过正"</strong>。</p>
+<h3>固定稀疏的困境</h3>
+<p>问题出在 logits 的<strong>取值范围会随长度增长</strong>。对独立同分布的高斯 logits，期望极差 ∆_n ≈ √(2σ²·log n)——序列越长，最高分和最低分的差距越大。</p>
+<p>温度固定时，这个越来越大的 ∆ 会让 α-entmax 越来越"尖"：到极端长度上，注意力全砸到一个 token 上，<strong>该关注的多个相关 token 反而被清零了</strong>。稀疏过头，变成了瞎。</p>
+<h3>解法：给每个注意力头一个可学的温度</h3>
+<p>ASEntmax 给 logits 乘一个<strong>随长度、随内容、逐头学习</strong>的缩放：</p>
+<blockquote>
+<p>ASEntmax(z) = α-entmax( (δ + β·(log n)^γ) · z )</p>
+</blockquote>
+<p>其中 β、γ、δ 是每个注意力头<strong>单独</strong>的、可学习的参数，由 query 的投影算出。三个旋钮各有分工：</p>
+<ul>
+<li><strong>γ 控制"稀疏随长度怎么变"</strong>：γ=−0.5 时，恰好抵消 ∆_n 的增长（推导见下），让注意力在长序列上不至于过尖；</li>
+<li><strong>β 控制缩放强度</strong>，每个头学自己的；</li>
+<li><strong>δ 是基准偏置</strong>，论文取 δ=1。</li>
+</ul>
+<blockquote>
+<p>📌 <strong>关键的小数学</strong>：当 γ=−0.5，β·(log n)^{−0.5}·∆_n = β·(log n)^{−0.5}·√(2σ²·log n) = β·√(2σ²)，<strong>与 n 无关</strong>。这一步把"随长度爆炸的取值范围"按住，注意力锐度从此不再随长度失控。</p>
+</blockquote>
+<figure><p><img alt="序列越长，ASEntmax 逐头调节温度旋钮，让注意力在极端长度上既不过尖也不过散" src="../../assets/images/posts/sparse-attention-extrapolation/07.avif"  loading="lazy" /></p><figcaption>序列越长，ASEntmax 逐头调节温度旋钮，让注意力在极端长度上既不过尖也不过散</figcaption></figure>
+<h3>为什么必须逐头</h3>
+<p>论文在 1.2 亿参数、FineWeb 上训了 50 亿 token 的模型上观察各头学到的缩放曲线，结论很清楚：<strong>不同头的稀疏模式差异巨大</strong>，简单 log 缩放（SSMax 那种）对很多头拟合很差，加上 γ 次方后拟合显著变好。一个全局参数照顾不了所有头。</p>
+<p>而且这套缩放只动 logits，<strong>底层直接复用 α-entmax 的快速 kernel（AdaSplash），无需改算子</strong>——工程上很干净。</p>
+<hr />
+<h2>七、NAPE：位置编码也得配合</h2>
+<p>稀疏变换不只是重新分配权重，它<strong>改变了注意力图里哪些边存在</strong>。这让位置编码的选择变得很微妙。论文对比了三种：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>位置编码</th>
+<th>配 α-entmax 的效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>NoPE</strong>（不加位置）</td>
+<td>纯靠内容，语义检索强，但无位置先验、长度迁移弱</td>
+</tr>
+<tr>
+<td><strong>ALiBi</strong>（线性距离偏置）</td>
+<td>产生清晰"截断窗口"，距离够远的 token 直接清零，局部性强</td>
+</tr>
+<tr>
+<td><strong>RoPE</strong>（旋转）</td>
+<td>频率依赖，易出现周期性"死区"，支撑更破碎</td>
+</tr>
+</tbody>
+</table></div>
+<p>论文的取舍叫 <strong>NAPE</strong>（NoPE + ALiBi）：<strong>一半的头用 ALiBi（管局部、给截断），一半用 NoPE（管远程、靠内容检索）</strong>。这样既有稳健的局部感受野，又保留了需要时跳到远处取证据的能力。ASEntmax 再配合着随长度调锐度，防止稀疏在极端长度上过激或过散。</p>
+<blockquote>
+<p>论文强调 NAPE 只是"实用默认值"，不算贡献——而且<strong>所有注意力方法（含 softmax）配 NAPE 都最好</strong>，所以它是个公平的底盘，不是为稀疏量身定做的偏袒。</p>
+</blockquote>
+<hr />
+<h2>八、实验全景：合成 + 真实双线验证</h2>
+<h3>合成任务：四种任务一张表</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>任务</th>
+<th>极端外推长度</th>
+<th>Softmax</th>
+<th>ASEntmax</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MQMTAR（关联检索）</td>
+<td>1024×（65K）</td>
+<td>3.0%</td>
+<td><strong>95.3%</strong></td>
+</tr>
+<tr>
+<td>Reverse（倒序）</td>
+<td>8×</td>
+<td>0%</td>
+<td><strong>56.7%</strong></td>
+</tr>
+<tr>
+<td>Copy（复制）</td>
+<td>64×</td>
+<td>85.5%</td>
+<td>86.6%</td>
+</tr>
+<tr>
+<td>Sort（排序）</td>
+<td>8×</td>
+<td>0%</td>
+<td>0%</td>
+</tr>
+</tbody>
+</table></div>
+<p>读这张表有几个层次：</p>
+<ol>
+<li><strong>需要全局精确排序的任务更难</strong>——Sort 到 8× 时所有方法都归零（ASEntmax 在 4× 还能撑到 79.7%，但再外推也崩），说明长度外推有任务类型的天花板，稀疏注意力不是万能药；</li>
+<li><strong>检索类任务（MQMTAR、Max Retrieval）受益最大</strong>——这正对应"在长上下文里精确聚焦固定模式"的场景，也是稀疏注意力的甜区；</li>
+<li><strong>ASEntmax 全面优于固定 α-entmax</strong>——证明自适应缩放在极端长度上不是锦上添花，是必需品。</li>
+</ol>
+<h3>真实语言模型：长短两不误</h3>
+<p>420M、LLaMA-3 架构、DCLM-Edu 数据、训 70 亿 token、上下文 2048：</p>
+<ul>
+<li><strong>短文本</strong>：Lambada 困惑度 41.6（softmax 52.4）、HellaSwag 33.4（softmax 33.1），其余持平——<strong>没掉链子</strong>；</li>
+<li><strong>长文本困惑度</strong>：PubMed 16K 上 12.9（softmax 18.2），ArXiv 16K 上 10.0（softmax 12.7），且<strong>仍呈下降趋势</strong>；</li>
+<li><strong>检索（RULER）</strong>：S-NIAH-1 简单版在 8K（4×）仍 99.8%、16K（8×）还有 97.4%；难版（S-NIAH-2）在 2×、4× 外推上也是最佳。</li>
+</ul>
+<hr />
+<h2>九、这对行业意味着什么</h2>
+<h3>1. 长上下文的瓶颈，可能不在"给更长窗口"，而在"换注意力"</h3>
+<p>业界这两年的主流打法是<strong>把上下文窗口越拉越大</strong>——从 32K、128K 到百万 token，配合各种位置编码插值。但这条路的前提是 softmax。论文指出，softmax 在长上下文上的三种病是<strong>数学结构决定的</strong>，窗口再大，弥散、坍缩、过压缩照样发作。<strong>与其无限扩窗，不如换掉那个让窗口失效的函数。</strong></p>
+<h3>2. 稀疏注意力的"第二春"，且这次是可学的</h3>
+<p>α-entmax / sparsemax 不是新概念，十年前就为机器翻译提过。但它一直没成为主流——稠密 softmax + FlashAttention 的生态太成熟。这篇论文的贡献是把它<strong>接回长上下文时代</strong>，并用可学的逐头温度（ASEntmax）解决了"固定稀疏在极端长度上过尖"的老问题，让它在合成任务上做出 1000 倍外推。</p>
+<h3>3. 训练长度 vs 推理长度的解耦</h3>
+<p>最实际的意义：<strong>你不必为了支持长上下文就训超长序列</strong>。训 2K、推理 16K 还能大海捞针拿 97.4%——长上下文能力的获取成本，可能比想象低得多。对算力有限的团队，这是个值得复现的方向。</p>
+<h3>4. 它和现有的高效推理栈正交</h3>
+<p>ASEntmax 直接复用 AdaSplash 的 α-entmax kernel，不改算子；论文还指出，那些推理期的动态稀疏方案（注意力 sink、块稀疏预填加速等）和它是<strong>正交</strong>的，可以叠加以加速推理、同时保留理论好处。不是非此即彼。</p>
+<blockquote>
+<p>⚠️ <strong>理性看待</strong>：论文用的是 120M / 420M 的小到中等模型，合成任务上也是浅层小网。这套机制在千亿参数、超长上下文的真实大模型上效果如何、训练稳定性如何、稀疏 kernel 在超大规模上的效率如何，都还需更大规模的验证。Sort 这类需要全局精确排序的任务上，所有方法都外推失败，也说明稀疏注意力并非万能——它最擅长的是"长上下文里精确聚焦固定模式"，而不是"需要全局重排的算法"。</p>
+</blockquote>
+<hr />
+<h2>收尾：六个要点</h2>
+<ol>
+<li><strong>病根是 softmax</strong>：它的数学结构禁止任何 token 拿零，长序列上必然弥散。</li>
+<li><strong>解药是 α-entmax</strong>：能精确清零无关 token，从根上治弥散、坍缩、过压缩。</li>
+<li><strong>理论钉死了</strong>：熵从 Θ(log n) 降到 O(log s)，梯度路径从 O(n^L) 降到 O(s^L)。</li>
+<li><strong>自适应是必需品</strong>：固定 α 在极端长度会过尖，ASEntmax 用可学逐头温度按住 logits 范围的爆炸。</li>
+<li><strong>结果亮眼</strong>：合成任务 1000 倍外推仍 95.3%；420M 模型训 2K、检索到 16K 拿 97.4%，且不损短文本。</li>
+<li><strong>造病的人回来治了病</strong>：作者 André Martins 即 sparsemax 的提出者，十年后把自家发明接回长上下文时代。</li>
+</ol>
+<p>一句话总结这篇论文的逻辑链：</p>
+<blockquote>
+<p><strong>长文本做不好 → 是 softmax 的锅 → 它不允许注意力说"不" → 换成能说"不"的 α-entmax → 再让它学会随长度自适应地"说不" → 1000 倍外推。</strong></p>
+</blockquote>
+<p>最朴素的工程直觉，往往就藏在一个被默认了十年的函数里。</p>
+<hr />
+<h3>参考资料与延伸阅读</h3>
+<ul>
+<li>论文：Vasylenko et al., <em>Long-Context Generalization with Sparse Attention</em>, ICLR 2026，arXiv:2506.16640v4，<a href="https://arxiv.org/abs/2506.16640">arxiv.org/abs/2506.16640</a></li>
+<li>代码：<a href="https://github.com/deep-spin/asentmax">github.com/deep-spin/asentmax</a></li>
+<li>α-entmax：Peters et al. (2019)</li>
+<li>sparsemax（α=2 特例）：Martins &amp; Astudillo (2016)——本文作者 André Martins 的工作</li>
+<li>相关长上下文 softmax 诊断：Barbero et al. (2024)《Transformers need glasses!》（过压缩、表征坍缩）；Veličković et al. (2025)（弥散与自适应温度）；Nakanishi (2025)（Scalable-Softmax）</li>
+<li>高效 α-entmax kernel：AdaSplash，Gonçalves et al. (2025)</li>
+</ul>
+<blockquote>
+<p>注：本文为论文精读整理，所有实验数字均来自论文正文与表格。数据图表（00–03）为依据论文数据复现；概念插图（illo 系列，小象吉祥物）由 illo 技能（gpt-image-2 + storybook-plush 风格）生成，意在直观呈现核心思想。具体数值以原文为准。</p>
+</blockquote>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

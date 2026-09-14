@@ -9,6 +9,7 @@ Writes:  blog/<slug>/index.html
          assets/images/posts/<slug>/cover.svg  (1200x630 generated cover)
 """
 
+import glob
 import html as html_mod
 import os
 import re
@@ -71,6 +72,42 @@ ARTICLES = [
     ("15-词嵌入与注意力机制-公众号文章-v1.md", "embedding-attention",
      "「忘记密码」和「登录信息忘了」，大模型为什么知道是一回事？", "2026-08-31",
      "两句话没有一个词相同，意思却一样——大模型靠的是词嵌入和注意力。用四张图讲清：意义怎么变成向量，注意力怎么打分。", "深度长文"),
+    ("16-FrontierAgent接入DSH插件实录-公众号文章-v1.md", "frontier-dsh-plugin",
+     "我把 FrontierAgent 做成了 DSH 的插件：零额外密钥 + 8 个踩坑实录", "2026-09-03",
+     "上一篇把 FrontierAgent 装上了 Mac，但它一直是座孤岛。这篇记录把它做成 DSH 插件的全过程——对话框里一条 /frontier 派活，复用当前模型跑完，结果自动回到对话；「能跑」和「跑得对」之间隔着 8 个坑。", "开发实录"),
+    ("17-prompt_caching_公众号文章.md", "prompt-caching",
+     "你的 AI Agent 正在偷偷烧钱？搞懂「提示词缓存」，费用直接降 90%", "2026-09-08",
+     "你以为每次提问都要为 5 万 token 的上下文全价买单？其实只要用对缓存：命中部分按一折计费，写对缓存边界、避开动态内容，成本能砍到接近零。", "深度长文"),
+    ("18-Epiplexity认知复杂度-Wilson演讲精读-公众号文章-v2.md", "epiplexity",
+     "模型越大，偏见越强：一场颠覆直觉的 AI 基础理论演讲讲了什么", "2026-09-10",
+     "Andrew Gordon Wilson 一个多小时的演讲，开场就让全场 70% 的人选错。Epiplexity（认知复杂度）解释了为什么模型越大越该「挑食」：只啃难而有规律的数据，而不是对所有数据都认真学。", "深度长文"),
+    ("19-DeepSeek-V4.1-Flash-Engram-LPDDR-公众号文章-v1.md", "deepseek-engram-lpddr",
+     "用 LPDDR 取代 HBM：DeepSeek 4.1 Flash 架构里被所有人忽略的关键细节", "2026-09-11",
+     "舆论都在看跑分，硬件分析师 GDP 指出真正的主角：约 196B 参数的 Engram 嵌入驻留主机内存 LPDDR5，把最贵的 HBM 省了下来。这是中国大模型实验室集体转向的新方向。", "深度长文"),
+    ("20-稀疏注意力长度外推-ICLR2026精读-公众号文章-v1.md", "sparse-attention-extrapolation",
+     "训练 64 个 token，外推 1000 倍仍拿 95 分：ICLR 2026 找到了长文本的病根", "2026-09-11",
+     "softmax 必须给每个 token 分一点概率，序列越长越「弥散」；α-entmax 能把无关 token 精确清零。只训 64 长度的模型外推 1000 倍仍拿 95.3%，softmax 跌到 3%。", "深度长文"),
+    ("21-软件工厂开源为什么不卖钱-ColeMurray精读-公众号文章-v1.md", "software-factory-opensource",
+     "他开源了「软件工厂」却不卖钱：一个反共识选择背后的算盘", "2026-09-12",
+     "当所有人都在把 AI coding agent 卖成 SaaS、按席位收费、token 加价转卖，前亚马逊工程师 Cole Murray 偏说这条路走不通，把整套软件工厂开源白送——价值在组织流程，不在基建。", "深度长文"),
+    ("22-GPT-Live-1精读-官方vs推断-公众号文章-v1.md", "gpt-live-1-reverse",
+     "他用 0.05 美元/分钟，反推出 OpenAI 语音模型的整套架构", "2026-09-12",
+     "OpenAI 发了全双工语音模型 GPT-Live-1，官方没公布任何架构细节。一个 NVIDIA 语音研究员只看 API、定价和第三方评测，就把内部结构推了个八九不离十——再用官方原文逐条核验。", "深度长文"),
+    ("23-语音agent评测框架-CRAWL-WALK-RUN与τ-Voice精读-公众号文章-v1.md", "voice-agent-eval",
+     "语音 agent 为什么比文本 agent 难测 10 倍？CRAWL-WALK-RUN 评测框架全拆解", "2026-09-12",
+     "OpenAI 给 GPT-Live-1 配了开源评测框架，把语音 agent 评估拆成「爬行—行走—奔跑」三档；τ-Voice 论文用 278 个真实任务测出：全双工语音 agent 只保留了文本能力的 30%–45%。", "深度长文"),
+    ("24-谁该拥有你的学习闭环-Presence的Codex循环vs开源自建-公众号文章-v1.md", "learning-loop-presence",
+     "谁该拥有你的学习闭环：OpenAI 用 Codex 10 天降了 15% 转接率，但有个更深的押注", "2026-09-12",
+     "生产会话暴露缺口→Codex 提议修复→团队测试批准→上线：这套闭环和 Cole Murray 开源的 OpenInspect 是同一种架构，区别只在——你租用闭环，还是拥有闭环。", "深度长文"),
+    ("25-GPT-Live-1架构图解教程-从全双工音频到工具调用全流程-公众号文章-v1.md", "gpt-live-1-architecture",
+     "GPT-Live-1 架构图解教程：从全双工音频流到工具调用全流程", "2026-09-12",
+     "用 10 张图逐步拆解 GPT-Live-1 的完整实现架构：音频怎么流进流出、委托怎么发生、工具怎么执行、结果怎么确认说回用户——每一张图对应一个架构层，看完就能动手搭。", "深度长文"),
+    ("26-FrogNano精读-在线任务合成标定与SWE-RL横向对比-公众号文章-v1.md", "frognano",
+     "4B 小模型怎么追平 70B？FrogNano 的「在线任务合成」标定细节与硬对比", "2026-09-12",
+     "微软 Froggy Team 的 4B coding agent，不蒸馏、只靠 RL 在在线合成的任务上训练，把 SWE-bench Verified 做到 61.5%。往里钻两层：TaskPilot 怎么贴着能力前沿合任务，以及和 SWE-RL、Agent-RLVR 的硬对比。", "深度长文"),
+    ("27-GPT-Live-1活样本-HeyGen-LiveAvatar集成逐行拆解-公众号文章-v1.md", "liveavatar-gpt-live",
+     "把 GPT-Live-1 跑通的最小活样本：HeyGen 仓库逐行拆解", "2026-09-13",
+     "HeyGen 的 liveavatar-gpt-live-demos（MIT）用 GPT-Live-1 驱动实时数字人，开箱是日语家教。clone 下来逐文件精读源码：架构图里的每一根线，在真实代码里长什么样。", "开发实录"),
 ]
 
 GITHUB_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>'
@@ -82,7 +119,19 @@ def read_article(path):
     text = open(path, encoding="utf-8").read()
     # strip WeChat layout comments
     text = re.sub(r"<!--.*?-->", "", text, flags=re.S)
-    return text
+    # pipe tables need a blank line before the header row, or python-markdown
+    # renders them as plain text (part 20 of the inference series)
+    out, fence = [], False
+    for ln in text.split("\n"):
+        if ln.lstrip().startswith("```"):
+            fence = not fence
+            out.append(ln)
+            continue
+        if (not fence and ln.lstrip().startswith("|") and out
+                and out[-1].strip() and not out[-1].lstrip().startswith("|")):
+            out.append("")
+        out.append(ln)
+    return "\n".join(out)
 
 
 def convert_images(md_text, src_dir, src_md_path, slug, used_files):
@@ -107,6 +156,22 @@ def convert_images(md_text, src_dir, src_md_path, slug, used_files):
                 os.path.join(src_dir, stem, rel))
             if os.path.exists(alt_src):
                 src = alt_src
+        if not os.path.exists(src):
+            # last resort: search sibling illustration folders by filename,
+            # preferring a folder numbered like the article (17-prompt_caching
+            # references "assets/prompt-caching-illustrations/..." which only
+            # exists on disk as "17-prompt-caching-illustrations/...")
+            hits = glob.glob(os.path.join(src_dir, "*",
+                                          os.path.basename(rel)))
+            if len(hits) > 1:
+                m = re.match(r"\d+", os.path.basename(src_md_path))
+                if m:
+                    pref = [h for h in hits if os.path.basename(
+                        os.path.dirname(h)).startswith(m.group(0) + "-")]
+                    if pref:
+                        hits = pref
+            if len(hits) == 1:
+                src = hits[0]
         if not os.path.exists(src):
             print(f"  !! missing image: {rel}", file=sys.stderr)
             return f"!!missing {rel}!!"
@@ -165,6 +230,7 @@ def make_cover(slug, title, tag):
     out = os.path.join(POSTS_IMG_DIR, slug, "cover.svg")
     if os.path.exists(out):
         return out
+    os.makedirs(os.path.dirname(out), exist_ok=True)
     # pick accent hue by hash of slug for variety within the palette
     accents = ["#4f46e5", "#2563eb", "#0d9488", "#b45309", "#be185d"]
     accent = accents[sum(ord(c) for c in slug) % len(accents)]
@@ -198,7 +264,7 @@ PAGE_TMPL = '''<!DOCTYPE html>
   <meta name="description" content="{desc}">
   <meta name="author" content="Tim Chan">
   <link rel="canonical" href="https://motoleisure.github.io/blog/{slug}/">
-  <link rel="icon" href="../../assets/images/favicon.ico">
+  <link rel="icon" href="{pfx}assets/images/favicon.ico">
   <meta property="og:type" content="article">
   <meta property="og:title" content="{title}">
   <meta property="og:url" content="https://motoleisure.github.io/blog/{slug}/">
@@ -206,14 +272,14 @@ PAGE_TMPL = '''<!DOCTYPE html>
   <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/{slug}/cover.svg">
   <meta name="twitter:card" content="summary_large_image">
   <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
-  <link rel="stylesheet" href="../../assets/css/style.css">
+  <link rel="stylesheet" href="{pfx}assets/css/style.css">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
 
   <header class="site-header">
     <div class="container container--wide header-inner">
-      <a class="wordmark" href="../../">
+      <a class="wordmark" href="{pfx}">
         <span class="wordmark-dot" aria-hidden="true"></span>
         Agent's Photolog
       </a>
@@ -222,11 +288,11 @@ PAGE_TMPL = '''<!DOCTYPE html>
           {github_svg}
         </a>
         <span class="header-divider" aria-hidden="true"></span>
-        <a class="nav-link" href="../../">博客</a>
+        <a class="nav-link" href="{pfx}">博客</a>
         <span class="header-divider" aria-hidden="true"></span>
-        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <a class="nav-link" href="{pfx}pelican/">鹈鹕测试</a>
         <span class="header-divider" aria-hidden="true"></span>
-        <a class="nav-link" href="../../books/">书架</a>
+        <a class="nav-link" href="{pfx}books/">书架</a>
       </nav>
     </div>
   </header>
@@ -234,12 +300,12 @@ PAGE_TMPL = '''<!DOCTYPE html>
   <main id="main">
     <div class="container container--narrow">
       <article class="article-wrap">
-        <a class="back-link" href="../../">← 全部文章</a>
+        <a class="back-link" href="{pfx}">← 全部文章</a>
 
         <h1 class="article-title">{title}</h1>
 
         <div class="article-meta">
-          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <img class="avatar" src="{pfx}assets/images/avatar.avif" alt="Tim Chan 的头像">
           <div class="who">
             <span class="name">Tim Chan</span>
             <time class="date" datetime="{date}">发布于 {date_cn}</time>
@@ -305,7 +371,7 @@ def build_one(src_file, slug, title, date, excerpt, tag):
         (re.search(r'alt="([^"]*)"', m.group(0)).group(1)) + '</figcaption></figure>',
         html)
     # images inside blockquote etc. keep their place, just get lazy loading
-    html = re.sub(r'<img(?![^>]*class="avatar")[^>]*/>',
+    html = re.sub(r'<img(?![^>]*class="avatar")(?![^>]*loading=)[^>]*/>',
                   lambda m: m.group(0).replace('/>', ' loading="lazy" />'), html)
 
     # wide tables get a horizontal-scroll wrapper
@@ -328,7 +394,8 @@ def build_one(src_file, slug, title, date, excerpt, tag):
     cover = make_cover(slug, title, tag)
 
     page = PAGE_TMPL.format(
-        title=html_mod.escape(title), slug=slug, desc=html_mod.escape(excerpt),
+        pfx="../../", title=html_mod.escape(title), slug=slug,
+        desc=html_mod.escape(excerpt),
         date=date, date_cn=date_cn, lead=html_mod.escape(excerpt),
         body=html,
         github_svg=GITHUB_SVG, mail_svg=MAIL_SVG, x_svg=X_SVG,
@@ -355,6 +422,148 @@ def main():
         print(" ", c[1])
 
 
+# ------------------------------------------------------------------
+# 28-llm-inference-series: a 20-part series published as one hub page
+# + 20 part pages, so the homepage gets a single card instead of 20.
+# Parts live at blog/<hub>/<part>/, one level deeper than normal posts
+# (hence the ../../../ asset prefix).
+
+SERIES_DIR = os.path.join(SRC_DIR, "28-llm-inference-series")
+SERIES = {
+    "slug": "llm-inference-series",
+    "title": "成为 LLM Inference Engineer 全景指南（20 篇系列）",
+    "date": "2026-09-14",
+    "tag": "深度长文",
+    "excerpt": "从推理生命周期原理讲到生产部署、成本优化与证据体系，再用 34 项技术全图查漏补缺——20 篇讲透 LLM 推理工程的岗位、原理与实战。",
+    "parts": [
+        ("01-序章-为什么需要inference-engineer.md", "why-inference-engineer"),
+        ("02-推理基础原理-prefill-decode生命周期.md", "prefill-decode-lifecycle"),
+        ("03-KV-Cache深度解析-PagedAttention命中率真相.md", "kv-cache-pagedattention"),
+        ("04-量化全景-精度延迟成本三角.md", "quantization-triangle"),
+        ("05-推理框架横评-vLLM-SGLang-TensorRT-llama-MLX.md", "inference-frameworks"),
+        ("06-连续批处理与调度-iteration-level-batching抢占优先级.md", "continuous-batching"),
+        ("07-Attention算子优化-FlashAttention-PagedAttention-RingAttention.md", "attention-kernels"),
+        ("08-投机解码-Speculative-Decoding-draft-model-EAGLE-Medusa.md", "speculative-decoding"),
+        ("09-硬件与显存预算-GPU层级-Apple统一内存-多卡并行.md", "hardware-memory-budget"),
+        ("10-可观测性与基准测试-TTFT-TPOT-Inference-Lab实证.md", "observability-benchmarks"),
+        ("11-成本优化实战-autoscaling-spot-路由-预算门控.md", "cost-optimization"),
+        ("12-生产部署-SLO-负载测试-故障模式-灰度回滚.md", "production-slo"),
+        ("13-前沿技术-Disaggregated-PrefixCaching进阶-ChunkedPrefill-MoE服务.md", "frontier-techniques"),
+        ("14-证据体系-可信推理评估流水线-Inference-Lab方法论.md", "evidence-pipeline"),
+        ("15-学习路径与资源地图-从入门到精通-职业市场.md", "learning-path"),
+        ("16-长上下文注意力变体-稀疏滑动膨胀-低秩潜空间-MLA-YOCO.md", "long-context-attention"),
+        ("17-缓存感知路由与KV分层存储-GPU-HBM-RAM-SSD-tier.md", "cache-aware-routing"),
+        ("18-算子融合与kernel选型-torch.compile-CUDA-graphs-autotuning.md", "kernel-fusion"),
+        ("19-训练侧边界认知-QAT-activation-ckpt-sequence-packing-mixed-precision-DDP-ZeRO-流水线调度.md", "training-side-boundary"),
+        ("20-Atlas交叉导航表-业务压力到技术与文章映射.md", "atlas-navigation"),
+    ],
+}
+
+
+def clean_lead(text):
+    """Strip markdown emphasis/links so an excerpt reads as plain text."""
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)
+    text = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", text)
+    return text.replace("`", "").strip()
+
+
+def series_part_meta(path):
+    """(h1 title, lead from first blockquote line) of a series part."""
+    title, lead = None, None
+    for ln in open(path, encoding="utf-8").read().split("\n"):
+        if title is None and ln.startswith("# "):
+            title = ln[2:].strip()
+        if lead is None and ln.startswith(">"):
+            lead = clean_lead(ln.lstrip("> ").strip())
+        if title and lead:
+            break
+    return title or "", lead or ""
+
+
+def render_md(md, src_dir, src_md_path, slug):
+    """Shared markdown -> html pipeline (images, code, tables, title strip)."""
+    if "![" in md:
+        used = set()
+        md = convert_images(md, src_dir, src_md_path, slug, used)
+    md, stash = highlight_code(md)
+    html = markdown.markdown(
+        md, extensions=["tables", "fenced_code", "sane_lists"])
+    html = restore_codeblocks(html, stash)
+    html = re.sub(
+        r'<p><img(?![^>]*class="avatar")[^>]*/></p>',
+        lambda m: '<figure>' + m.group(0).replace('/>', ' loading="lazy" />') + '<figcaption>' +
+        (re.search(r'alt="([^"]*)"', m.group(0)).group(1)) + '</figcaption></figure>',
+        html)
+    html = re.sub(r'<img(?![^>]*class="avatar")(?![^>]*loading=)[^>]*/>',
+                  lambda m: m.group(0).replace('/>', ' loading="lazy" />'), html)
+    html = html.replace('<table>', '<div class="table-wrap"><table>')
+    html = html.replace('</table>', '</table></div>')
+    html = re.sub(r'<p>@@CODE(\d+)@@</p>', r'@@CODE\1@@', html)
+    html = re.sub(r'<p>(<pre><code>.*?</code></pre>)</p>', r'\1', html, flags=re.S)
+    html = re.sub(r"<h1>.*?</h1>", "", html, count=1, flags=re.S)
+    return html
+
+
+def build_series():
+    hub = SERIES["slug"]
+    hub_dir = os.path.join(SITE_DIR, "blog", hub)
+    os.makedirs(hub_dir, exist_ok=True)
+    cover = make_cover(hub, SERIES["title"], SERIES["tag"])
+    date_cn = (f"{SERIES['date'][:4]} 年 {int(SERIES['date'][5:7])} 月 "
+               f"{int(SERIES['date'][8:10])} 日")
+
+    toc, metas = [], []
+    for fname, slug in SERIES["parts"]:
+        title, lead = series_part_meta(os.path.join(SERIES_DIR, fname))
+        metas.append((fname, slug, title, lead))
+        num, sep, rest = title.partition(" · ")
+        label = rest if sep else title
+        toc.append(f'      <li><a href="{slug}/">{html_mod.escape(label)}</a></li>')
+
+    hub_body = (
+        "<p>整个系列共 <strong>20 篇</strong>：01–15 是核心一圈，从推理生命周期原理"
+        "一路讲到生产部署、成本优化、证据体系；16–20 依 34 项技术全图查漏补缺，"
+        "以交叉导航表收官。按顺序读即可，每篇末尾有上下篇导航。</p>\n"
+        "        <h2>系列目录</h2>\n        <ol>\n" + "\n".join(toc) +
+        "\n        </ol>")
+
+    page = PAGE_TMPL.format(
+        pfx="../../", title=html_mod.escape(SERIES["title"]), slug=hub,
+        desc=html_mod.escape(SERIES["excerpt"]), date=SERIES["date"],
+        date_cn=date_cn, lead=html_mod.escape(SERIES["excerpt"]),
+        body=hub_body,
+        github_svg=GITHUB_SVG, mail_svg=MAIL_SVG, x_svg=X_SVG,
+    )
+    with open(os.path.join(hub_dir, "index.html"), "w", encoding="utf-8") as f:
+        f.write(page)
+    print(f"  built blog/{hub}/index.html (series hub)")
+
+    for i, (fname, slug, title, lead) in enumerate(metas):
+        md = read_article(os.path.join(SERIES_DIR, fname))
+        body = render_md(md, SERIES_DIR, os.path.join(SERIES_DIR, fname),
+                         f"{hub}-{slug}")
+        nav = ['<a class="back-link" href="../">系列目录</a>']
+        if i > 0:
+            nav.insert(0, f'<a class="back-link" href="../{metas[i-1][1]}/">← 上一篇</a>')
+        if i < len(metas) - 1:
+            nav.append(f'<a class="back-link" href="../{metas[i+1][1]}/">下一篇 →</a>')
+        body += '\n        <p>' + "　·　".join(nav) + "</p>"
+
+        page = PAGE_TMPL.format(
+            pfx="../../../", title=html_mod.escape(title), slug=f"{hub}/{slug}",
+            desc=html_mod.escape(lead), date=SERIES["date"],
+            date_cn=date_cn, lead=html_mod.escape(lead),
+            body=body,
+            github_svg=GITHUB_SVG, mail_svg=MAIL_SVG, x_svg=X_SVG,
+        )
+        pdir = os.path.join(hub_dir, slug)
+        os.makedirs(pdir, exist_ok=True)
+        with open(os.path.join(pdir, "index.html"), "w", encoding="utf-8") as f:
+            f.write(page)
+    print(f"  built {len(metas)} series part pages")
+    return cover
+
+
 # All posts for the homepage grid: 16 generated from ARTICLES + 2 hand-written.
 # cover is the SVG path (posts/<slug>/cover.svg, except the two hand-written
 # ones which live at assets/images/cover-*.svg).
@@ -371,10 +580,13 @@ HANDWRITTEN = [
 
 
 def all_posts():
-    """ARTICLES converted to dicts + hand-written posts, in display order."""
+    """ARTICLES converted to dicts + series hub + hand-written posts."""
     posts = [{"slug": slug, "title": title, "date": date, "excerpt": excerpt,
               "cover": f"assets/images/posts/{slug}/cover.svg"}
              for _src, slug, title, date, excerpt, _tag in ARTICLES]
+    posts.append({"slug": SERIES["slug"], "title": SERIES["title"],
+                  "date": SERIES["date"], "excerpt": SERIES["excerpt"],
+                  "cover": f"assets/images/posts/{SERIES['slug']}/cover.svg"})
     posts.extend(HANDWRITTEN)
     posts.sort(key=lambda p: p["date"], reverse=True)
     return posts
@@ -418,4 +630,5 @@ def render_homepage():
 
 if __name__ == "__main__":
     main()
+    build_series()
     render_homepage()

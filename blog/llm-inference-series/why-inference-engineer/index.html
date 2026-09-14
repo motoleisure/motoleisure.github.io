@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>01 · 序章：为什么这个岗位正在爆发，Inference Engineer 到底做什么 - Agent's Photolog</title>
+  <meta name="description" content="这是《成为 LLM Inference Engineer 全景指南》系列的第一篇。整个系列共 20 篇：先从推理生命周期原理一路讲到生产部署、成本优化、证据体系（01-15 的核心一圈），再据 Inference Technique Atlas 的 34 项技术全图查漏补缺、补出长上下文注意力变体、缓存感知路由、算子融合、训练侧边界认知，最后以交叉导航表收官（16-20 的 Atlas 补强篇）——34/34 全覆盖。本篇回答三个问题：这个岗位为什么存在？它和 ML Engineer、MLOps、平台工程师到底有什么不同？这 20 篇该怎么读？">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/why-inference-engineer/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="01 · 序章：为什么这个岗位正在爆发，Inference Engineer 到底做什么">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/why-inference-engineer/">
+  <meta property="og:description" content="这是《成为 LLM Inference Engineer 全景指南》系列的第一篇。整个系列共 20 篇：先从推理生命周期原理一路讲到生产部署、成本优化、证据体系（01-15 的核心一圈），再据 Inference Technique Atlas 的 34 项技术全图查漏补缺、补出长上下文注意力变体、缓存感知路由、算子融合、训练侧边界认知，最后以交叉导航表收官（16-20 的 Atlas 补强篇）——34/34 全覆盖。本篇回答三个问题：这个岗位为什么存在？它和 ML Engineer、MLOps、平台工程师到底有什么不同？这 20 篇该怎么读？">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/why-inference-engineer/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">01 · 序章：为什么这个岗位正在爆发，Inference Engineer 到底做什么</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">这是《成为 LLM Inference Engineer 全景指南》系列的第一篇。整个系列共 20 篇：先从推理生命周期原理一路讲到生产部署、成本优化、证据体系（01-15 的核心一圈），再据 Inference Technique Atlas 的 34 项技术全图查漏补缺、补出长上下文注意力变体、缓存感知路由、算子融合、训练侧边界认知，最后以交叉导航表收官（16-20 的 Atlas 补强篇）——34/34 全覆盖。本篇回答三个问题：这个岗位为什么存在？它和 ML Engineer、MLOps、平台工程师到底有什么不同？这 20 篇该怎么读？</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>这是《成为 LLM Inference Engineer 全景指南》系列的第一篇。整个系列共 <strong>20 篇</strong>：先从推理生命周期原理一路讲到生产部署、成本优化、证据体系（01-15 的核心一圈），再据 <strong>Inference Technique Atlas 的 34 项技术全图</strong>查漏补缺、补出长上下文注意力变体、缓存感知路由、算子融合、训练侧边界认知，最后以交叉导航表收官（16-20 的 Atlas 补强篇）——<strong>34/34 全覆盖</strong>。本篇回答三个问题：<strong>这个岗位为什么存在？它和 ML Engineer、MLOps、平台工程师到底有什么不同？这 20 篇该怎么读？</strong></p>
+</blockquote>
+<hr />
+<h2>一、先厘清一个中文歧义：Inference ≠ "推理"</h2>
+<p>中文里"推理"有两个完全不同的含义：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>含义</th>
+<th>英文对应</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>模型的逻辑推理能力（思维链、多步规划）</td>
+<td>reasoning</td>
+<td>关心模型"会不会想"</td>
+</tr>
+<tr>
+<td>模型的运行时推理（拿到权重，跑一次前向，吐出 token）</td>
+<td><strong>inference</strong></td>
+<td>关心"跑得快不快、贵不贵、稳不稳"</td>
+</tr>
+</tbody>
+</table></div>
+<p>Inference Lab 系列文章标题里的 <strong>inference</strong>，以及本系列所有"inference engineer"里的 inference，<strong>全部指第二种——运行时推理</strong>。它对应的是模型权重已训练完成、部署上线后，把一个 prompt 变成一串 output token 的那个阶段。</p>
+<p>把这两个概念搞混，会得出荒谬的结论。比如你会看到"GLM-5.3 的推理速度比 Flash 快"——这里说的是 <strong>generation latency</strong>（吐字快慢），不是模型更聪明。本文以及全系列，"推理"二字若未特别说明，一律指 <strong>inference（运行时推理）</strong>。</p>
+<hr />
+<h2>二、为什么这个岗位在 2024-2026 年爆发</h2>
+<h3>2.1 训练和推理的成本天平已经翻转</h3>
+<p>训练一个前沿大模型要花几千万到上亿美元，这笔钱花一次就过去了。但模型一旦上线，<strong>每天服务几百万次请求的推理成本是持续燃烧的</strong>。</p>
+<p>行业里有个被反复引用的经验数字：在大规模部署的生命周期里，<strong>推理总成本往往超过训练成本一个数量级以上</strong>。OpenAI、Anthropic、Google 这些公司在 GPU 上的花费，大头不是训练，是推理。</p>
+<p>这带来了一个直接的后果：<strong>谁能把单次推理的延迟降 10%、成本降 10%，谁就在每月省下数百万美元。</strong> 这个杠杆效应让"懂推理系统的人"变得极度值钱。</p>
+<h3>2.2 推理正在从 compute-bound 走向 memory-bound</h3>
+<p>早期小模型推理，瓶颈在算力（FLOPS）。但随着模型变大（7B → 70B → 405B → MoE 万亿参数），以及批处理的成熟，<strong>瓶颈转移到了显存带宽</strong>。</p>
+<p>一个直观例子：生成一个 token，GPU 要把整个模型的权重从 HBM 读一遍。70B 模型 FP16 是 140 GB 权重，A100 的 HBM 带宽是 2 TB/s，光读权重就要 70 ms——这还是完全不算计算的理想值。而 decode 阶段每次只生成一个 token，GPU 大部分时间在"等权重从显存搬过来"，计算单元在空转。</p>
+<p><strong>这意味着推理优化的主战场，从"怎么算得快"变成了"怎么搬得少、怎么复用搬过的数据"。</strong> KV Cache 复用、量化压缩权重、prefix caching，全都是在打"带宽战"。这是为什么后面几篇会花大量篇幅在显存和带宽上。</p>
+<h3>2.3 开源生态把推理工程师的工具箱武装到了牙齿</h3>
+<p>2023 年，你要服务一个开源模型，基本只能自己写调度。现在你有一整排成熟工具：</p>
+<ul>
+<li><strong>vLLM</strong>：PagedAttention + continuous batching，几乎成了开源推理的事实标准</li>
+<li><strong>SGLang</strong>：RadixAttention + 结构化生成加速，在 agentic/结构化场景表现抢眼</li>
+<li><strong>TensorRT-LLM</strong>：NVIDIA 官方，把 kernel 优化做到极致</li>
+<li><strong>llama.cpp</strong>：CPU/边缘/Apple Silicon 的王者，GGUF 量化生态</li>
+<li><strong>MLX / mlx-lm</strong>：Apple Silicon 原生，统一内存模型</li>
+</ul>
+<p>工具越多，"选哪个、怎么配、怎么调"的决策就越复杂——这正是 inference engineer 的价值所在。不是会调一个参数，是能在众多工具和参数之间做出<strong>有证据支撑的权衡</strong>。</p>
+<h3>2.4 架构在分化，"一套配置通吃"彻底失效</h3>
+<p>还有个 2025-2026 的新变化值得单列：模型架构本身在快速分化。<strong>MHA / GQA / MQA / MLA（Multi-head Latent Attention）/ 跨层共享（YOCO）/ 稀疏注意力</strong>，每种架构的 KV cache 大小、显存预算、适配的框架/quantization 都不一样。一个 DeepSeek-R1（MLA）和一个 Llama-3（GQA），KV 显存能差几倍——你不能再"照搬上次的配置"。</p>
+<p>这把 inference engineer 的门槛又抬高了一截：你得<strong>会读模型架构</strong>，至少能判断"这个 checkpoint 是哪种 attention，KV 预算该按什么公式算"。这也是本系列第 16 篇专门讲长上下文注意力变体菜单、第 19 篇讲训练侧边界认知的原因——不是让你去改架构，是让你<strong>看得懂、会评估、不乱改权重</strong>。</p>
+<hr />
+<h2>三、Inference Engineer 到底做什么：一天的真实工作</h2>
+<p>很多人以为 inference engineer 就是"跑跑 vLLM，调调 batch size"。那是部署，不是工程。真实工作更像下面这样：</p>
+<h3>一个典型的推理优化任务循环</h3>
+<pre><code>1. 理解 SLA 约束
+   用户要什么？TTFT &lt; 500ms？吞吐 &gt; 2000 tok/s？99 分位延迟 &lt; 2s？
+   成本预算是多少？每天多少请求？峰值多少 QPS？
+
+2. 选型与容量规划
+   用哪个模型？哪个 attention 架构（MHA/GQA/MLA）？哪个量化？哪个框架？
+   要几张卡？什么型号？张量并行几路？
+   先做 back-of-envelope 显存预算，别等 OOM 了才知道放不下
+
+3. 基准测量（这一步最容易被做错）
+   TTFT 到底从哪个点算起？客户端观测 vs 供应商上报，差几百毫秒
+   输出是否完整？半截 stream 算不算成功？
+   量化后的精度掉了吗？掉多少算可接受？
+
+4. 瓶颈定位
+   是 prefill 慢（prompt 太长）还是 decode 慢（输出太长）？
+   是显存带宽瓶颈还是算力瓶颈？
+   是调度问题（请求在排队）还是 kernel 问题（计算慢）？
+   用 profiler 看 GPU trace，按 PID 归因，别把无关进程算进去
+
+5. 迭代优化
+   开 prefix caching？换量化方案？上 speculative decoding？
+   调 batch size？上 chunked prefill？做 prefill/decode 分离？
+   每改一个，都要重新测量、对照、确认改进是真实的不是噪声
+
+6. 上线与守护
+   灰度发布，监控 SLO
+   设 autoscaling 策略、限流、降级
+   持续回归：新版本模型/框架有没有把性能搞回去
+</code></pre>
+<p>注意第 3 步和第 4 步——<strong>测量和归因</strong>。这是这个岗位最容易被低估、也最容易出大错的地方。后面的可观测性篇会用大量实证说明：一个 TTFT 数字，可能因为 HTTP 客户端缓冲就测错了 185ms；一个 GPU trace，可能 36.5%–57.5% 的内容根本不是你的负载。<strong>测错了，后面所有优化都在优化一个幻觉。</strong></p>
+<h3>用 Atlas 的话说：每项技术都对应一个业务压力 + 一个责任人</h3>
+<p>本系列收官的 Atlas 交叉导航表（第 20 篇）给了一个很漂亮的组织视角：<strong>推理工程不是 34 个孤立的技巧，而是 34 个"业务压力 → 技术选择 → 谁负责"的三元组。</strong> 比如：</p>
+<ul>
+<li>"多轮对话每轮落不同 worker，TTFT 高"（业务压力：重复上下文）→ <strong>cache-aware routing</strong>（技术 #10）→ <strong>Serving-platform engineer</strong> 负责（第 17 篇）。</li>
+<li>"decode 太慢，单请求"（业务压力：生成慢）→ <strong>speculative decoding / EAGLE / lookahead</strong>（技术 #14/15/16）→ <strong>Inference engineer</strong> 负责（第 08 篇）。</li>
+<li>"加卡反而 hang"（业务压力：多设备上限）→ <strong>通信原语 all-reduce/reduce-scatter</strong>（技术 #30）→ <strong>Distributed-systems engineer</strong> 负责（第 09 篇补强节）。</li>
+</ul>
+<p>这个"痛点 → 技术 → 谁负责"的串联，正是判断"这事归不归我管"的最直接标尺。Atlas 把 34 项分到 4 个工作阶段（Serving / Model design / Training / Shared），其中 <strong>Serving 24 + Shared 2 = 26 项是 inference engineer 的核心职责圈</strong>，Model design 5 项要"看得懂会评估"，Training 9 项只要"边界认知"——能和训练团队对话即可。本系列就是按这个职责圈展开的。</p>
+<h3>Inference Engineer 不是什么</h3>
+<p>为了划清边界，先说几个它<strong>不是</strong>的角色：</p>
+<ul>
+<li><strong>不是 ML Researcher</strong>：你不发明新架构，你把别人发明的架构跑得又快又省。</li>
+<li><strong>不是纯 MLOps</strong>：MLOps 关心训练流水线、特征存储、模型注册、CI/CD。你关心的是<strong>推理时的延迟、吞吐、显存、成本</strong>。MLOps 把模型训练出来并注册；你把它服务好。</li>
+<li><strong>不是纯 Infra/SRE</strong>：SRE 关心集群、网络、存储、通用可观测性。你关心的是 <strong>GPU 上的推理特性</strong>——KV cache、batching、量化、kernel。但你要会 SRE 那套（监控、SLO、故障处理），因为推理是生产服务。</li>
+</ul>
+<p>它是一个<strong>复合岗位</strong>：深度学习基础 + 系统工程 + 性能工程 + 一点 SRE。</p>
+<hr />
+<h2>四、岗位画像：理想的 Inference Engineer 长什么样</h2>
+<p>基于行业 JD（职位描述）的归纳和 Inference Lab 文章体现的真实工作，一个合格的 inference engineer 应具备：</p>
+<h3>4.1 知识域</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>域</th>
+<th>你需要懂到什么程度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>深度学习基础</td>
+<td>Transformer 前向、attention 机制、KV cache 是什么、为什么 autoregressive 解码慢</td>
+</tr>
+<tr>
+<td>模型架构菜单</td>
+<td>MHA/GQA/MQA/MLA 的区别、稀疏/低秩/跨层共享注意力，<strong>会读不会乱改权重</strong>（第 16 篇）</td>
+</tr>
+<tr>
+<td>GPU/硬件</td>
+<td>HBM 带宽、SM/Tensor Core、显存层级、FLOPS、为何 decode 是 memory-bound</td>
+</tr>
+<tr>
+<td>推理优化</td>
+<td>PagedAttention、continuous batching、quantization、speculative decoding、prefix caching、算子融合（第 18 篇）</td>
+</tr>
+<tr>
+<td>推理框架</td>
+<td>vLLM/SGLang/TensorRT-LLM/llama.cpp 各自擅长什么、怎么配、坑在哪</td>
+</tr>
+<tr>
+<td>性能工程</td>
+<td>profiling、nsight/compute profiler、火焰图、瓶颈归因（compute vs memory）</td>
+</tr>
+<tr>
+<td>可观测性</td>
+<td>TTFT/TPOT/吞吐的正确定义与测量、客户端 vs 供应商证据的分离、证据链</td>
+</tr>
+<tr>
+<td>成本与路由</td>
+<td>单 token 成本、autoscaling、spot 实例、缓存命中率对成本的影响、cache-aware routing（第 17 篇）</td>
+</tr>
+<tr>
+<td>生产</td>
+<td>SLO、负载测试、故障模式、灰度发布、限流降级</td>
+</tr>
+<tr>
+<td>训练侧边界</td>
+<td>QAT/ZeRO/activation ckpt/sequence packing 等——<strong>不必会训练，要能跨团队对话</strong>（第 19 篇）</td>
+</tr>
+</tbody>
+</table></div>
+<h3>4.2 能力特质</h3>
+<p>Inference Lab 的 8 篇文章，与其说是技术教程，不如说是<strong>这个岗位思维方式的示范</strong>。它体现了几种关键能力特质：</p>
+<ol>
+<li>
+<p><strong>对边界的执念</strong>。"缓存命中"不等于"真的跳过了计算"。"权重放得下"不等于"推理跑得动"。"trace 总数"不等于"你的负载数"。每一步都要问：这个数字到底测的是什么？</p>
+</li>
+<li>
+<p><strong>把"这不证明什么"写出来</strong>。每篇文章都有显式的 "What this does not prove" 段。这不是谦虚，是工程严谨。一个不写边界的研究者，迟早会用过度声明把团队带沟里。</p>
+</li>
+<li>
+<p><strong>独立 oracle 校验</strong>。引擎说自己缓存命中了？用另一个独立计算核对。解析器说有 400 个 dispatch？用已知 dispatch 数核对。<strong>永远不要只信系统自己的报告。</strong></p>
+</li>
+<li>
+<p><strong>证据可复现</strong>。精确到 commit hash + SHA-256 包，任何人能 clone 出来重跑。这不是论文洁癖，是工程纪律——只有可复现，才能回归。</p>
+</li>
+<li>
+<p><strong>预算纪律</strong>。花真金白银跑托管 API 前，先在本地做 dry-run 计划，预留最坏情况预算，跑完逐条核对 usage。这是"花公司的钱"的成年人心态。</p>
+</li>
+</ol>
+<blockquote>
+<p>有趣的是，Atlas（一套独立于 Inference Lab 的材料）的 "Important corrections and limits" 几乎是同一套话术——"保持 baseline、只改一个变量"、"测量质量<strong>和服务结果一起</strong>"、"别喊 4×/8× 通用加速比"、"训练期路由 ≠ 服务期放置"。<strong>两套独立材料指向同一种证据纪律</strong>，这恰恰说明这套思维方式不是某作者的偏好，而是这个岗位的真实要求。本系列第 14 篇会把这条方法论单独成章。</p>
+</blockquote>
+<hr />
+<h2>五、本系列怎么读</h2>
+<p>20 篇，分<strong>五大块</strong>：</p>
+<p><strong>第一块·原理（02-04）</strong>：推理生命周期、KV Cache、量化。这是地基，不懂这些后面所有优化都是黑盒。</p>
+<p><strong>第二块·系统（05-08）</strong>：框架横评、连续批处理与调度、Attention 算子优化、投机解码。这是你日常配置和调优的主体。</p>
+<p><strong>第三块·工程（09-12）</strong>：硬件与显存预算、可观测性与基准测试、成本优化、生产部署。这是把模型从"能跑"变成"能上线"的部分。</p>
+<p><strong>第四块·进阶（13-15）</strong>：前沿技术（Disaggregated Inference / Chunked Prefill / MoE 服务）、证据体系（从 Inference Lab 8 篇提炼的方法论）、学习路径与资源地图。</p>
+<p><strong>第五块·Atlas 补强篇（16-20）</strong>：完成核心一圈后，据 <strong>Inference Technique Atlas 的 34 项技术全图</strong>做查漏补缺——长上下文注意力变体菜单（MLA/YOCO/稀疏/低秩）、缓存感知路由与 KV 分层存储、算子融合与 kernel 选型、训练侧边界认知，最后以 Atlas 交叉导航表收官。<strong>34/34 全覆盖。</strong></p>
+<p>每篇都尽量给到：<strong>原理图解 + 真实命令/配置 + 具体数字 + 实践 checklist</strong>。不是 API 文档的复读，是"如果是我上手，我会怎么做"的决策视角。</p>
+<h3>两条组织轴，缺一不可</h3>
+<p>本系列有<strong>两条组织轴</strong>，互补：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>按技能域（01-19）</th>
+<th>按业务压力（第 20 篇）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>适合</td>
+<td>系统学、建立心智</td>
+<td>出问题现场查、定位技术</td>
+</tr>
+<tr>
+<td>组织</td>
+<td>原理→系统→工程→进阶→补强</td>
+<td>长输入/显存/多设备/性价比/重复上下文/生成慢/流量排队/训练预算</td>
+</tr>
+<tr>
+<td>视角</td>
+<td>inference engineer 的能力地图</td>
+<td>业务方的痛点地图</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>想系统学，从第 02 篇顺着读到第 19 篇；现场出了问题要查，直接翻第 20 篇的交叉导航表，从"业务压力"一跳到对应技术 + 该看第几篇。</strong> 两张轴覆盖 Atlas 34 项全图。</p>
+<h3>一个建议的读法</h3>
+<ul>
+<li><strong>完全新手</strong>：01 → 02 → 03 → 04，先把原理地基打牢，再挑 05/09 看框架和硬件，最后按需深入。</li>
+<li><strong>已会 vLLM 想进阶</strong>：直接看 06（调度）/07（attention）/08（投机解码）/10（可观测性），再回头看 14（证据体系）建立方法论。</li>
+<li><strong>现场救火</strong>：翻第 20 篇交叉导航表，按"业务压力"定位技术 + 文章号，直奔那一篇的 checklist。</li>
+<li><strong>要和训练团队对话</strong>：第 19 篇（训练侧边界认知）一站到位。</li>
+</ul>
+<blockquote>
+<p>一句话总结这个岗位的本质：<strong>Inference Engineer 是那个把"模型很强"变成"模型又快又省又稳地服务百万用户"的人。</strong> 本系列就是这条路的地图——20 篇，34 项技术全覆盖，既给"怎么学"，也给"出事怎么查"。</p>
+</blockquote>
+<p>下一篇，我们从最底层的原理开始：一个 prompt 进来，到底在 GPU 上发生了什么。</p>
+<hr />
+<p><em>本系列参考了 Siddhant Khare 的 Inference Lab 8 篇文章（siddhantkhare.com/writing）作为方法论与实证范本；Inference Engineering — The Technique Atlas（inference-technique-atlas.danialh.chatgpt.site，34 项技术）作为查漏补缺的考纲；以及 vLLM/SGLang/llama.cpp/MLX 的官方文档与作者的实际工程经验。</em></p>
+<p><em>参考的 Inference Lab 8 篇：kv-cache-truth-auditor / vllm-compilation-break-even / benchmark-evidence-lineage / glm-latency-cost-tradeoff / xctrace-xml-references / llm-unified-memory-oom / apple-gpu-trace-attribution / ttft-http-client</em></p>
+        <p><a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../prefill-decode-lifecycle/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

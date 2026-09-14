@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>09 · 硬件与显存预算：GPU 显存层级、Apple Silicon 统一内存、多卡并行 - Agent's Photolog</title>
+  <meta name="description" content="推理工程师必须懂硬件，不是&quot;会买卡&quot;，而是&quot;会算账&quot;。这一篇讲 GPU 显存的物理现实、为什么&quot;放得下&quot;不等于&quot;跑得动&quot;、Apple Silicon 统一内存的陷阱、以及多卡并行怎么规划容量。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/hardware-memory-budget/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="09 · 硬件与显存预算：GPU 显存层级、Apple Silicon 统一内存、多卡并行">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/hardware-memory-budget/">
+  <meta property="og:description" content="推理工程师必须懂硬件，不是&quot;会买卡&quot;，而是&quot;会算账&quot;。这一篇讲 GPU 显存的物理现实、为什么&quot;放得下&quot;不等于&quot;跑得动&quot;、Apple Silicon 统一内存的陷阱、以及多卡并行怎么规划容量。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/hardware-memory-budget/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">09 · 硬件与显存预算：GPU 显存层级、Apple Silicon 统一内存、多卡并行</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">推理工程师必须懂硬件，不是&quot;会买卡&quot;，而是&quot;会算账&quot;。这一篇讲 GPU 显存的物理现实、为什么&quot;放得下&quot;不等于&quot;跑得动&quot;、Apple Silicon 统一内存的陷阱、以及多卡并行怎么规划容量。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>推理工程师必须懂硬件，不是"会买卡"，而是"会算账"。这一篇讲 GPU 显存的物理现实、为什么"放得下"不等于"跑得动"、Apple Silicon 统一内存的陷阱、以及多卡并行怎么规划容量。</p>
+</blockquote>
+<hr />
+<h2>一、GPU 显存层级：你必须知道的三层</h2>
+<h3>1.1 三层存储</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>层</th>
+<th>位置</th>
+<th>容量</th>
+<th>带宽</th>
+<th>延迟</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>寄存器 / SRAM</strong>（shared memory）</td>
+<td>片上</td>
+<td>KB-MB 级</td>
+<td>几十 TB/s</td>
+<td>几 ns</td>
+</tr>
+<tr>
+<td><strong>HBM</strong>（显存）</td>
+<td>板载</td>
+<td>几十-几百 GB</td>
+<td>1-8 TB/s</td>
+<td>几百 ns-μs</td>
+</tr>
+<tr>
+<td><strong>主机内存 / NVLink 互联</strong></td>
+<td>板间</td>
+<td>TB 级</td>
+<td>几十-几百 GB/s</td>
+<td>μs-ms</td>
+</tr>
+</tbody>
+</table></div>
+<p>推理的关键现实：<strong>权重和 KV cache 在 HBM，每次计算要搬到 SRAM。</strong> decode 阶段瓶颈就是 HBM→SRAM 这条搬运（带宽）。理解这点，所有优化都通了。</p>
+<h3>1.2 各代 GPU 的关键数字</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>GPU</th>
+<th>架构</th>
+<th>HBM 容量</th>
+<th>HBM 带宽</th>
+<th>FP16 算力</th>
+<th>特性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A100 80G</td>
+<td>Ampere</td>
+<td>80 GB</td>
+<td>2.0 TB/s</td>
+<td>312 TFLOPS</td>
+<td>主流，FP16 好</td>
+</tr>
+<tr>
+<td>H100 80G</td>
+<td>Hopper</td>
+<td>80 GB</td>
+<td>3.35 TB/s</td>
+<td>989 TFLOPS</td>
+<td><strong>FP8 原生</strong>，TMA</td>
+</tr>
+<tr>
+<td>H200</td>
+<td>Hopper</td>
+<td>141 GB</td>
+<td>4.8 TB/s</td>
+<td>989 TFLOPS</td>
+<td>大显存+高带宽</td>
+</tr>
+<tr>
+<td>B200</td>
+<td>Blackwell</td>
+<td>192 GB</td>
+<td>8.0 TB/s</td>
+<td>2250 TFLOPS</td>
+<td>FP4，超大规模</td>
+</tr>
+<tr>
+<td>RTX 4090</td>
+<td>Ada</td>
+<td>24 GB</td>
+<td>1.0 TB/s</td>
+<td>165 TFLOPS</td>
+<td>消费级，性价比</td>
+</tr>
+<tr>
+<td>L40S</td>
+<td>Ada</td>
+<td>48 GB</td>
+<td>1.0 TB/s</td>
+<td>121 TFLOPS</td>
+<td>数据中心消费级</td>
+</tr>
+</tbody>
+</table></div>
+<p>观察：<strong>带宽代际增长慢于算力。</strong> 这就是为什么 decode（memory-bound）越来越成为瓶颈，以及为什么量化（减带宽需求）越来越重要。</p>
+<hr />
+<h2>二、显存预算：上线前必做的账</h2>
+<p>这是 inference engineer 最该养成习惯的练习。<strong>别等 OOM 才算，上线前就要算。</strong></p>
+<h3>2.1 预算公式</h3>
+<pre><code>推理峰值显存 ≈ 权重 + KV cache 池 + 激活/临时 + 框架/CUDA 开销
+</code></pre>
+<p>各项怎么估：</p>
+<p><strong>权重</strong>：参数量 × 位宽。</p>
+<pre><code>70B FP16 = 70e9 × 2 = 140 GB
+70B INT4  = 70e9 × 0.5 = 35 GB
+8B FP16   = 8e9 × 2 = 16 GB
+</code></pre>
+<p><strong>KV cache 池</strong>：上一篇的公式，乘以目标并发。</p>
+<pre><code>单请求 cache = 2 × layers × (in_len + out_len) × hidden × dtype × (kv_heads / heads)
+池 = 单请求 cache × 目标并发
+</code></pre>
+<p><strong>激活/临时</strong>：prefill 时中间张量。粗估权重的 10-20%，prefill 块大时更多。</p>
+<p><strong>框架/CUDA 开销</strong>：留 1-4 GB 给 CUDA context、PyTorch、kv cache block table 等。</p>
+<h3>2.2 一个完整估算示例</h3>
+<p>场景：Llama-3-70B（80 层，hidden 8192，GQA 8 kv heads of 64），AWQ INT4，A100 80G × 2（TP=2），目标并发 32，平均 in=2048 + out=512。</p>
+<pre><code>权重 INT4: 70B × 0.5 / 2(分到2卡) = 17.5 GB/卡
+
+单请求 cache (FP16):
+  2 × 80 × (2048+512) × 8192 × 2 × (8/64) 
+  = 2 × 80 × 2560 × 8192 × 2 × 0.125
+  = 2 × 80 × 2560 × 8192 × 0.25
+  ≈ 838 MB/请求
+
+池: 838 MB × 32 = 26.8 GB/卡
+（注意 GQA 把 cache 除以 8，否则会大 8 倍）
+
+激活/临时: ~17.5 × 0.15 ≈ 2.6 GB/卡
+框架开销: ~2 GB/卡
+
+单卡总: 17.5 + 26.8 + 2.6 + 2 ≈ 48.9 GB
+A100 80G 余量 31 GB → 富余，并发还能加
+</code></pre>
+<p>这就是"先算账再上线"。如果算出来超了，要么降并发、要么换更大卡、要么更激进量化。</p>
+<h3>2.3 这正是 Inference Lab OOM 文章的核心教训</h3>
+<p>Inference Lab 的 OOM 文章实测：16 GB 权重的 27B 模型，24 GiB M5 Pro，clean boot 79% 空闲内存，256 token prompt 就 OOM。文章的教训：</p>
+<blockquote>
+<p><strong>文件字节 ≠ 内存预算。</strong> "16 GB &lt; 24 GB 所以放得下" 是错的，因为：
+- 可用显存 ≠ 物理内存（系统、其他进程占走）
+- 推理峰值 = 权重 + KV cache + 激活 + 临时 + 框架
+- MLX active/cache/peak、RSS、swap 是四套账本，不能加成一个数</p>
+</blockquote>
+<p><strong>四套账本不可加</strong>——这是 Apple Silicon / MLX 用户特别要记的：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>计数器</th>
+<th>是什么</th>
+<th>不是什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MLX active</td>
+<td>allocator 活跃 buffer</td>
+<td>不是全部进程内存</td>
+</tr>
+<tr>
+<td>MLX cache</td>
+<td>可复用 freed buffer</td>
+<td>不是活跃状态</td>
+</tr>
+<tr>
+<td>MLX peak</td>
+<td>高水位线</td>
+<td>不是当前值</td>
+</tr>
+<tr>
+<td>RSS</td>
+<td>OS 看的进程驻留</td>
+<td>不是 MLX-only</td>
+</tr>
+<tr>
+<td>swap</td>
+<td>系统级换页</td>
+<td>不是进程独有</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>它们不能叠加成"总内存"。</strong> 看一个数（比如 active）就够判断趋势，不要把五个加起来。</p>
+<hr />
+<h2>三、Apple Silicon 统一内存：优势和陷阱</h2>
+<h3>3.1 优势</h3>
+<p>Apple Silicon（M1-M5）的统一内存：CPU 和 GPU 共享同一池物理内存。MLX 的文档强调：不需要 CPU↔GPU 拷贝（传统 GPU 要 cudaMemcpy）。这让在小机器上跑大模型异常方便——一台 M5 Max 128G 能本地跑 70B 量化。</p>
+<h3>3.2 陷阱</h3>
+<p>但"统一"不等于"无限"。Inference Lab 实测踩的坑：</p>
+<ol>
+<li><strong>可用显存 ≠ 牄理内存</strong>。M5 Pro 24 GiB，clean boot 只有 79% free（系统占走 21%）。<code>recommendedMaxWorkingSetSize</code>（Apple 的"不影响性能的分配上限"）是个<strong>近似值，不是精确空闲量</strong>。</li>
+<li><strong>峰值比权重大</strong>。27B INT4 权重 16 GB，但 prefill 时 active 涨到 18.7 GB，peak 18.9 GB——超出可用就 OOM。</li>
+<li><strong>lazy evaluation 的延迟压力</strong>。MLX 惰性求值，Python 写完计算图不立即算，访问时才触发。压力可能在你以为"已经过危险区"之后才出现。</li>
+</ol>
+<h3>3.3 Apple Silicon 的容量规划建议</h3>
+<pre><code>实际可用 GPU 内存 ≈ 物理内存 × 0.6-0.75（系统占用 + 安全余量）
+能跑的模型权重 ≈ 实际可用 × 0.5-0.6（留 KV cache + 激活）
+  即 24G → 可跑 ~7-9 GB 权重 → 7B INT4 (3.5G) 安全，13B INT4 (6.5G) 紧张
+  即 128G → 可跑 ~38-46 GB → 70B INT4 (35G) 紧张但可行
+</code></pre>
+<blockquote>
+<p>实践：Apple Silicon 跑大模型，别信"16G 权重 &lt; 24G 内存所以能跑"。按上面公式留足余量，且<strong>短 prompt 先试</strong>（KV cache 小），长 prompt 要单独测。</p>
+</blockquote>
+<hr />
+<h2>四、多卡并行：TP / PP / DP / EP</h2>
+<h3>4.1 张量并行（Tensor Parallel, TP）</h3>
+<p>每层权重切到多卡，每卡算一部分，all-reduce 合并。最常见。</p>
+<ul>
+<li>适合：单层放不下 / 想加速单层计算。</li>
+<li>代价：每层 all-reduce 通信。度数 ≤ 8（再大通信反噬）。</li>
+<li>配置：vLLM <code>--tensor-parallel-size N</code>。</li>
+</ul>
+<h3>4.2 流水线并行（Pipeline Parallel, PP）</h3>
+<p>把不同层切到不同卡，请求像流水线一样流过各卡。</p>
+<ul>
+<li>适合：层多，TP 度数到顶还不够。</li>
+<li>代价：bubble（流水线气泡），效率不如 TP。要 micro-batching 缓解。</li>
+<li>较少单独用，常和 TP 组合。</li>
+</ul>
+<h3>4.3 数据并行（Data Parallel, DP）</h3>
+<p>多个完整模型副本，各服务不同请求。</p>
+<ul>
+<li>适合：单卡能放下整个模型，要扩吞吐。</li>
+<li>代价：副本间不共享 cache（除非有分布式 cache）。</li>
+<li>简单扩容，但要前面有负载均衡。</li>
+</ul>
+<h3>4.4 专家并行（Expert Parallel, EP）</h3>
+<p>MoE 模型专属：不同 expert 放不同卡，按路由分发。</p>
+<ul>
+<li>适合：MoE 大模型（DeepSeek、Mixtral 等万亿级）。</li>
+<li>代价：路由 + all-to-all 通信复杂。</li>
+<li>前沿，配 vLLM/SGLang 的 MoE 支持。</li>
+</ul>
+<h3>4.5 组合实践</h3>
+<pre><code>单卡放不下 → TP（首选）→ TP 到顶不够加 PP
+单卡放得下要扩吞吐 → DP
+MoE 大模型 → TP × EP × DP 组合
+多机 → NCCL 互联，节点内 TP，节点间 DP/EP
+</code></pre>
+<hr />
+<h2>五、网络与互联：别只看卡，看互联</h2>
+<p>多卡多机，互联带宽决定通信开销：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>互联</th>
+<th>带宽</th>
+<th>场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NVLink</td>
+<td>300-900 GB/s</td>
+<td>节点内 GPU，TP/PP 首选</td>
+</tr>
+<tr>
+<td>NVSwitch</td>
+<td>更高</td>
+<td>多 GPU 全互联</td>
+</tr>
+<tr>
+<td>PCIe 4/5</td>
+<td>32-64 GB/s</td>
+<td>消费级，慢</td>
+</tr>
+<tr>
+<td>InfiniBand</td>
+<td>200-400 Gbps</td>
+<td>节点间，大规模</td>
+</tr>
+<tr>
+<td>以太网 RoCE</td>
+<td>100-400 Gbps</td>
+<td>节点间替代</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>TP 强依赖 NVLink</strong>。消费级多卡（PCIe 互联）跑 TP 通信开销大，往往不如单卡。所以"两张 4090 不如一张更好的卡"在推理里常常成立。</p>
+<hr />
+<h2>六、硬件选型的实践决策</h2>
+<h3>6.1 按场景</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>个人/原型</td>
+<td>消费级单卡（4090/5090）或 Apple Silicon</td>
+</tr>
+<tr>
+<td>小团队生产</td>
+<td>A100/H100 单卡或 2-4 卡 TP</td>
+</tr>
+<tr>
+<td>中大规模生产</td>
+<td>H100/H200 集群，NVLink + IB</td>
+</tr>
+<tr>
+<td>极致大规模</td>
+<td>B200 NVL72，或 H100/H200 大集群</td>
+</tr>
+<tr>
+<td>边缘/CPU</td>
+<td>llama.cpp，GGUF 量化</td>
+</tr>
+</tbody>
+</table></div>
+<h3>6.2 性价比直觉</h3>
+<ul>
+<li>消费级（4090）：$每 GB 显存贵，但带宽尚可，原型友好。24G 是硬上限。</li>
+<li>A100 80G：成熟稳定，FP16 好，性价比基准。</li>
+<li>H100/H200：贵但 FP8 + 高带宽，大规模划算。</li>
+<li>B200：超大规模才回本，单卡贵。</li>
+<li>Apple Silicon：本地/原型无敌，不能扩成集群。</li>
+</ul>
+<hr />
+<h2>七、分布式通信原语：all-reduce / reduce-scatter / all-gather（Atlas #30 补强）</h2>
+<blockquote>
+<p>前面讲了 TP/PP/DP/EP「切什么」，但「切了之后卡之间怎么同步」靠的是<strong>通信原语</strong>。这一节补 Atlas #30：三个核心 collective、ring vs tree 拓扑、NVLink/IB 带宽差异，以及它们怎么决定 TP/CP/EP 的真实开销。理解了才能看懂「为什么 TP 度数 ≤8、为什么 CP 用环状、为什么 EP 要 all-to-all」。</p>
+</blockquote>
+<h3>7.1 三个核心 collective</h3>
+<p>Atlas 原图的要点：<strong>reduction（约简，把多值合成一个）和 gathering（拼接，把分片拼全）是不同操作。</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>原语</th>
+<th>干什么</th>
+<th>结果在哪</th>
+<th>谁用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>all-reduce</strong></td>
+<td>所有 rank 的值约简（如求和），结果广播到每卡</td>
+<td>每卡都有全量结果</td>
+<td>TP（每层）、DDP（梯度）、CP（环状）</td>
+</tr>
+<tr>
+<td><strong>reduce-scatter</strong></td>
+<td>约简后<strong>分片</strong>给各 rank，每卡拿一块</td>
+<td>每卡拿约简结果的一块</td>
+<td>ZeRO、大梯度同步（RS+AG 组合实现 all-reduce）</td>
+</tr>
+<tr>
+<td><strong>all-gather</strong></td>
+<td>各 rank 的分片拼接成全量，广播到每卡</td>
+<td>每卡都有全量</td>
+<td>ZeRO 参数重组、TP 的 K/V 收集</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>关键：<strong>reduce-scatter + all-gather 组合 ≈ all-reduce</strong>——只是把「全量约简」拆成「分片约简 + 再拼全」，通信量一样但能和计算重叠。这是 ZeRO/Zero-bubble 能藏通信的根。</p>
+</blockquote>
+<h3>7.2 ring vs tree 拓扑</h3>
+<ul>
+<li><strong>ring（环）</strong>：数据沿环传递，每跳约简/拼接一段。通信量 = (n-1)/n × 数据量（恒定，不随卡数爆炸）。<strong>适合大消息</strong>（如梯度、TP 的激活）。TP/CP 常用 ring。</li>
+<li><strong>tree（树）</strong>：层次化约简/广播，延迟 = O(log n)。<strong>适合小消息 + 对延迟敏感</strong>。NCCL 会自动选或混合。</li>
+<li>NCCL 的 <code>all-reduce</code> 默认根据消息大小在 ring/tree 间切。</li>
+</ul>
+<h3>7.3 NVLink / IB 拓扑：域内快、跨域慢</h3>
+<ul>
+<li><strong>NVLink 域内</strong>（单机 8 卡）：带宽 ~300-900 GB/s，all-reduce 几乎免费。</li>
+<li><strong>跨节点</strong>（IB/Ethernet）：带宽 ~50-100 GB/s（甚至更低），延迟高。<strong>跨节点的 all-reduce 是延迟/带宽杀手</strong>。</li>
+<li>这就是为什么 <strong>TP 度数建议 ≤8（单机 NVLink 域）</strong>：TP 每层都要 all-reduce，跨节点 TP 会被通信拖垮。跨节点该用 PP/DP（通信频率低）。</li>
+<li><strong>CP（Context Parallel）用环状 all-reduce</strong>：环正好和「序列分段沿 ring 传」匹配。</li>
+<li><strong>EP（Expert Parallel）用 all-to-all</strong>：token 发往对应 expert 所在的卡，是 all-to-all 模式，对网络拓扑更敏感——跨节点 EP 要高带宽。</li>
+</ul>
+<h3>7.4 对各并行的影响汇总</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>并行</th>
+<th>核心 collective</th>
+<th>通信频率</th>
+<th>跨节点可行性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TP</td>
+<td>每层 all-reduce</td>
+<td>极高</td>
+<td>差（≤8 卡/单机）</td>
+</tr>
+<tr>
+<td>CP</td>
+<td>环状 all-reduce</td>
+<td>高</td>
+<td>中（要 NVLink/IB）</td>
+</tr>
+<tr>
+<td>EP</td>
+<td>all-to-all</td>
+<td>中</td>
+<td>中（要高带宽）</td>
+</tr>
+<tr>
+<td>PP</td>
+<td>点对点 send/recv</td>
+<td>低（层边界）</td>
+<td>好（跨节点首选）</td>
+</tr>
+<tr>
+<td>DP（推理）</td>
+<td>无（不同步）</td>
+<td>零</td>
+<td>极好</td>
+</tr>
+</tbody>
+</table></div>
+<h3>7.5 实操：怎么诊断通信瓶颈</h3>
+<ul>
+<li><strong>NCCL debug</strong>：<code>NCCL_DEBUG=INFO</code> 看每个 collective 的带宽利用率。</li>
+<li><strong>profiler</strong>：看通信占总时间多少。TP 度数 8 且通信 &gt;20% → 考虑 PP/DP 替代。</li>
+<li><strong>拓扑感知</strong>：部署时把 TP/CP 卡放同一 NVLink 域，PP/DP 可跨节点。</li>
+</ul>
+<h3>7.6 tradeoff 与 Atlas 告诫</h3>
+<ul>
+<li>通信不是「免费」：加卡 ≠ 线性提速，<strong>通信开销随并行度上升</strong>，Amdahl 定律决定上限。</li>
+<li>Atlas：「Every participant must use compatible shapes, types」——shape/类型不一致会让 collective hang（这是「加卡反而卡死」的常见原因）。</li>
+<li><strong>训练 DDP 的 all-reduce ≠ 推理 DP</strong>：推理 DP 不同步（无梯度），所以推理扩副本几乎无通信——别把训练的通信成本套到推理扩容上（第 19 篇边界认知）。</li>
+</ul>
+<hr />
+<h2>八、实践 checklist：硬件与显存</h2>
+<ul>
+<li>[ ] 上线前用预算公式算清权重+KV cache 池+激活+开销，留 10-20% 余量</li>
+<li>[ ] Apple Silicon 按物理内存 ×0.6-0.75 估可用，别顶满</li>
+<li>[ ] 多卡首选 NVLink 互联，消费级多卡慎用 TP</li>
+<li>[ ] TP 度数 ≤ 8，超了考虑 PP/DP 组合</li>
+<li>[ ] MoE 模型上 EP</li>
+<li>[ ] 选 GPU 时同时看 HBM 容量 <strong>和</strong> 带宽（decode 看带宽）</li>
+<li>[ ] 短 prompt 先测，长 prompt 单独验（KV cache 涨）</li>
+<li>[ ] 监控峰值显存，不只看平均（OOM 看峰值不看平均）</li>
+</ul>
+<h2>九、原书补强：装得下≠服务得动、多节点切法、Dynamo 定位（Kiely §5.4/§4.4）</h2>
+<blockquote>
+<p>精读原书后补三条多卡规划的关键事实。</p>
+</blockquote>
+<p><strong>1. 装得下权重 ≠ 服务得动。</strong> 以 DeepSeek-V3.1（671B 参数，FP8 约 1GB/1B 参数 → 权重≈671GB）为例：单张 B200（180GB）直接 OOM；<strong>4×B200 = 720GB 理论上能装下权重</strong>，但 KV cache 常占掉权重之外 80%+ 的剩余显存，4 张卡<strong>没有 KV 余量、无法服务任何合理序列或 batch</strong>——必须整节点 8×B200。<strong>估算最小 GPU 数 = 精度 × 参数量 × 预期 KV cache 分配，再向上取整到可用实例</strong>。这条比“权重装得下就行”严苛得多。</p>
+<p><strong>2. 多节点的 dense vs MoE 切法。</strong> 跨节点（InfiniBand，慢于 NVLink）时 TP 因同步开销过大不适用，两种标准切法：</p>
+<ul>
+<li><strong>Dense 模型 → 节点内 TP + 节点间 PP（TP8PP2）</strong>：更低单用户延迟。</li>
+<li><strong>MoE 模型 → EP16</strong>：更高系统吞吐（EP 的跨卡通信只在 token 传 expert 之间，不收每层结果，故比 TP 更适合多节点）。</li>
+</ul>
+<p><strong>3. NVIDIA Dynamo 的定位。</strong> Dynamo 不是又一个推理引擎，而是<strong>跑在 vLLM/SGLang/TensorRT-LLM 之上的编排层</strong>，提供分布式 KV 路由、解耦、多节点并行，并带一个<strong>SLA-based planner</strong>：按用户定义的 TTFT/TPS 约束实时扩缩 prefill/decode worker。<strong>Dynamo 是为规模造的</strong>（万亿参数级 Kimi 服务大量并发用户）；量不够时直接用引擎、上 Dynamo 是多余开销。</p>
+<p>下一篇：<strong>可观测性与基准测试</strong>——TTFT/TPOT/吞吐的正确测量，结合 Inference Lab 实证。</p>
+        <p><a class="back-link" href="../speculative-decoding/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../observability-benchmarks/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

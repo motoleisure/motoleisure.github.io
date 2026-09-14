@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4B 小模型怎么追平 70B？FrogNano 的「在线任务合成」标定细节与硬对比 - Agent's Photolog</title>
+  <meta name="description" content="微软 Froggy Team 的 4B coding agent，不蒸馏、只靠 RL 在在线合成的任务上训练，把 SWE-bench Verified 做到 61.5%。往里钻两层：TaskPilot 怎么贴着能力前沿合任务，以及和 SWE-RL、Agent-RLVR 的硬对比。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/frognano/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="4B 小模型怎么追平 70B？FrogNano 的「在线任务合成」标定细节与硬对比">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/frognano/">
+  <meta property="og:description" content="微软 Froggy Team 的 4B coding agent，不蒸馏、只靠 RL 在在线合成的任务上训练，把 SWE-bench Verified 做到 61.5%。往里钻两层：TaskPilot 怎么贴着能力前沿合任务，以及和 SWE-RL、Agent-RLVR 的硬对比。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/frognano/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">4B 小模型怎么追平 70B？FrogNano 的「在线任务合成」标定细节与硬对比</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-12">发布于 2026 年 9 月 12 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">微软 Froggy Team 的 4B coding agent，不蒸馏、只靠 RL 在在线合成的任务上训练，把 SWE-bench Verified 做到 61.5%。往里钻两层：TaskPilot 怎么贴着能力前沿合任务，以及和 SWE-RL、Agent-RLVR 的硬对比。</p>
+
+        <div class="prose">
+<blockquote>
+<p>FrogNano是微软Froggy Team(Microsoft Research Montréal)训练的一个4B参数coding agent——不蒸馏,只靠强化学习在在线合成的任务上训练,把SWE-bench Verified做到61.5%。这篇往里钻两层——(b)TaskPilot的标定到底怎么贴着能力前沿合任务;(c)和SWE-RL、Agent-RLVR这两条RL训agent的主线横向对比,看FrogNano的"赌注"到底不一样在哪。全文基于论文PDF(arXiv 2609.07925v2)+SWE-RL(arXiv 2502.18449)+Agent-RLVR(arXiv 2506.11425)三篇一手文本逐字核验。</p>
+</blockquote>
+<figure><p><img alt="4B无蒸馏,在线合成任务,五轮爬到61.5%" src="../../assets/images/posts/frognano/01.avif"  loading="lazy" /></p><figcaption>4B无蒸馏,在线合成任务,五轮爬到61.5%</figcaption></figure>
+<h2>一、先把核心数字摆出来,再回答两个问题</h2>
+<p>FrogNano的身份卡先摆出来,三件事复习:</p>
+<ul>
+<li><strong>4B参数、零蒸馏</strong>:基座是Qwen3.5-4B,后训练只用RL,不用SFT、不用更强模型的行为轨迹、推理链或补丁去模仿。</li>
+<li><strong>在线合成任务</strong>:约1500个真实SWE环境上,用TaskPilot在线合成任务,标定到当前模型"学得动"的边缘。</li>
+<li><strong>五轮迭代</strong>:SWE-bench Verified从43.0% → 49.1% → 53.1% → 56.9% → 59.1% → 61.5%;作为对照,用同样"4B学得动"准则筛出的约300个真实SWE-ReBench任务,只能做到48.0%。</li>
+</ul>
+<p>这意味着:<strong>在线合成、贴着能力前沿合成的任务,能追上精心筛过的真实数据。</strong> 这篇要回答两个问题:</p>
+<ol>
+<li><strong>(b)标定细节</strong>:这个"贴着能力前沿"到底是怎么算的?任务是怎么被改、被留、被丢的?</li>
+<li><strong>(c)横向对比</strong>:同样用RL训SWE agent,SWE-RL、Agent-RLVR、FrogNano三条路差在哪?FrogNano的赌注到底在哪?</li>
+</ol>
+<h2>二、(b)标定的核心:给每个候选任务估一个"当前模型能解几分"</h2>
+<p>TaskPilot标定的第一原则:<strong>任务的难度不是绝对的,是相对于当前模型(policy)的。</strong> 同一个任务,迭代1的模型解不动,迭代5的模型可能觉得太简单。所以标定信号永远是"当前这个checkpoint在上面解几分",而不是一个静态难度标签。</p>
+<p>它做的事是这样的:对一个候选任务,TaskPilot用当前4B Leaf checkpoint跑N条随机多轮轨迹(轨迹是完整的"拿到问题+仓库、但看不到gold补丁和隐藏测试"的多轮尝试),然后估当前策略的解决率:</p>
+<blockquote>
+<p>p̂_policy = (1/N) Σ R_j,其中R_j∈{0,1}表示第j条轨迹是否通过全部评分测试。</p>
+</blockquote>
+<p>论文定义了一个<strong>"宽泛可学区域"</strong>:0 &lt; p̂_policy &lt; 1,也就是当前模型在这个任务上既有成功也有失败。落在这一区的任务,既能提供成功轨迹又能提供失败轨迹,对RL最有用。但TaskPilot不会把整个宽泛区都收,而是用一个<strong>迭代特定的目标</strong>去筛:</p>
+<ul>
+<li><strong>迭代1–4</strong>:目标 p̂_policy = 0.5(一半成功一半失败,信号最强)。</li>
+<li>p̂_policy = 1 的任务"饱和"(太容易,所有人都解出来),丢;</li>
+<li>p̂_policy = 0 的任务"太难"(当前没人解得动),丢或细化;</li>
+<li>落在目标区间的,进入下一轮RL批次;落在外面的,可以<strong>细化(refine)</strong>后重新评估,或直接丢弃。</li>
+</ul>
+<figure><p><img alt="能力前沿甜区:太难·p̂=0 / 甜区·p̂≈0.5 / 太易·p̂=1" src="../../assets/images/posts/frognano/02.avif"  loading="lazy" /></p><figcaption>能力前沿甜区:太难·p̂=0 / 甜区·p̂≈0.5 / 太易·p̂=1</figcaption></figure>
+<p>关键在于:这个标准是<strong>经验性的、相对策略的信号</strong>,用来引导任务合成,不是对任务"内在难度"的估计。论文原文写得很清楚:"The criterion is therefore an empirical, policy-relative signal used to guide task synthesis rather than an estimate of intrinsic task difficulty."</p>
+<h2>三、(b)标定是一个闭环,不是一次过滤</h2>
+<p>很多人会以为标定就是"生成一批任务→筛掉太难太易的→收"。FrogNano不是。它是一个<strong>生成—评估—细化—再评估</strong>的循环:</p>
+<blockquote>
+<p>"This generate–evaluate–refine–re-evaluate loop may repeat for several rounds, allowing task synthesis to adapt to the current policy rather than simply filtering a fixed pool of candidates."</p>
+</blockquote>
+<p>也就是说,标定不是从一个固定池里挑,而是<strong>让任务合成去适应当前策略</strong>:一个候选太难?改问题陈述让它更可学;太容易(泄露了解法)?改掉让它别那么直白。改完再估p̂,循环几轮,直到它落进目标区间,或被丢弃。</p>
+<figure><p><img alt="TaskPilot标定闭环:生成→验证→估p̂→细化/丢弃→入RL批次" src="../../assets/images/posts/frognano/03.avif"  loading="lazy" /></p><figcaption>TaskPilot标定闭环:生成→验证→估p̂→细化/丢弃→入RL批次</figcaption></figure>
+<p>这和后面横向对比会看到的一个本质区别:SWE-RL和Agent-RLVR都是<strong>固定数据集</strong>训一遍;FrogNano是<strong>数据和模型一起迭代</strong>——每轮RL之后,checkpoint变了,下一轮任务合成就贴着新checkpoint再标定一次。论文用图3画了这个双相循环:任务生成&amp;标定(对着当前策略)↔ RL训练攀升(产出下一个策略),"策略塑任务,任务塑下一个策略",任务分布和政策一起演化。</p>
+<figure><p><img alt="双相循环:任务生成·标定 ↔ RL训练·攀升,策略塑任务" src="../../assets/images/posts/frognano/04.avif"  loading="lazy" /></p><figcaption>双相循环:任务生成·标定 ↔ RL训练·攀升,策略塑任务</figcaption></figure>
+<h2>四、(b)细化到底改什么:同一个仓库、同一份gold补丁、同一套测试,只改问题陈述</h2>
+<p>论文给了一个非常具体的例子(图5),把"细化"讲透了。对同一个可执行任务(仓库快照、gold参考补丁、评分测试都固定),只改问题陈述,会有三个变体:</p>
+<ul>
+<li><strong>欠指定(0%解决率,太难)</strong>:问题陈述把关键契约留白——比如不说明区间是闭区间、不定义宽度怎么算。当前模型一条都解不出来,全失败。</li>
+<li><strong>行为精确(50%解决率,想要的甜区)</strong>:问题陈述把行为契约说清楚——端点和零宽度语义都明确,但<strong>不泄露</strong>修复位置。当前模型一半成功一半失败,正是标定要的。</li>
+<li><strong>泄露解法(100%解决率,太容易)</strong>:问题陈述直接点名出错的类、方法、给失败输入、暴露异常——等于把答案位置告诉了模型,所有人都解出来,饱和。</li>
+</ul>
+<p>论文的结论是:<strong>细化调的是语义清晰度和"解题定位信息"的量,目的是把任务挪向当前准入目标,而不是单纯把prompt写长或写短。</strong> 这就是为什么同一个任务的三个变体能横跨0%→50%→100%——难度的旋钮在"问题陈述泄露多少",而不在任务本身的代码量。</p>
+<figure><p><img alt="三种问题陈述:欠指定0% / 行为精确50% / 泄露解法100%" src="../../assets/images/posts/frognano/05.avif"  loading="lazy" /></p><figcaption>三种问题陈述:欠指定0% / 行为精确50% / 泄露解法100%</figcaption></figure>
+<h2>五、(b)当学不动了就换挡:迭代5的标定重设</h2>
+<p>迭代1–4都用同一个生成机制(p̂≈0.5的目标、同一个任务生成模型),到了迭代5,增益开始变弱。FrogNano没有继续硬推,而是<strong>重设了标定</strong>:</p>
+<ul>
+<li><strong>更强的任务生成模型</strong>:换了一个更强的模型来出题(注意:出题的是更强模型,但它<strong>只出题,不出解</strong>——这保持"零蒸馏"的底线)。</li>
+<li><strong>更低的目标带</strong>:从p̂≈0.5降到(0, 0.5],也就是收一批当前模型解得更费劲的任务,把难度推高一档。</li>
+<li><strong>更广的任务混合</strong>:bug-fix占比从迭代1的85.2%一路降到迭代5的40.7%;feature request升到24.0%、refactor升到17.0%、性能优化12.4%——不再只是修bug。</li>
+<li><strong>更少脚手架、更高测试覆盖</strong>:显式列出的需求项从1.30降到0.04(几乎不列清单了),但"问题陈述/测试覆盖"反而升到最高的37.6%——任务陈述更短、更不啰嗦,但每条需求都更有测试兜着。</li>
+<li><strong>"更难不等于更大"</strong>:迭代5的问题陈述反而最短(116.6词,迭代4是227.0词),test-patch churn也从312.3行降到194.7行。</li>
+</ul>
+<figure><p><img alt="迭代5换挡:目标0.5→≤0.5、更广任务混合、更少脚手架" src="../../assets/images/posts/frognano/06.avif"  loading="lazy" /></p><figcaption>迭代5换挡:目标0.5→≤0.5、更广任务混合、更少脚手架</figcaption></figure>
+<p>这是一个很工程化的洞察:<strong>标定不是设一次就完事,是要跟着学习曲线一起调的。</strong> 当模型在某档难度上吃透了,就要主动把任务分布推难、推广、去脚手架,让学习曲线别停。论文也诚实地说,迭代5这批是一个"新的课程机制",统计上的突变正反映了课程重设——而TaskPilot始终用当前策略的rollout结果(不是任何静态描述)当标定信号。</p>
+<h2>六、(c)横向对比:三条RL训SWE agent的路</h2>
+<p>现在把FrogNano和它Related Work里点名的两条主线——SWE-RL(Meta,2025)和Agent-RLVR(Scale AI,2025)——放一起。三篇我都抓了一手文本逐字核验,下面这张表是核心:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>SWE-RL</th>
+<th>Agent-RLVR</th>
+<th><strong>FrogNano</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>论文</td>
+<td>2502.18449,NeurIPS 2025</td>
+<td>2506.11425,2025</td>
+<td><strong>2609.07925v2,2026.9</strong></td>
+</tr>
+<tr>
+<td>基座·规模</td>
+<td>Llama-3.3-70B-Instruct</td>
+<td>Qwen-2.5-72B-Instruct</td>
+<td><strong>Qwen3.5-4B</strong></td>
+</tr>
+<tr>
+<td>交互模式</td>
+<td>单响应补丁(非agent)</td>
+<td>简化Agentless脚手架(定位+修复两步)</td>
+<td><strong>全多轮agent(Leaf:read/write/edit/glob/bash五工具)</strong></td>
+</tr>
+<tr>
+<td>奖励信号</td>
+<td>oracle补丁<strong>相似度</strong>(difflib,0-1浮点)</td>
+<td>二元单元测试通过</td>
+<td><strong>二元测试通过(无密集奖励、无裁判)</strong></td>
+</tr>
+<tr>
+<td>数据</td>
+<td>真实PR数据(software evolution)</td>
+<td>真实817环境+agent生成轨迹</td>
+<td><strong>真实~1500环境+在线合成任务</strong></td>
+</tr>
+<tr>
+<td>任务生成</td>
+<td>无(固定seed数据)</td>
+<td>无(固定817环境)</td>
+<td><strong>有(TaskPilot在线合成,贴能力前沿)</strong></td>
+</tr>
+<tr>
+<td>蒸馏</td>
+<td>无(纯RL;有SFT对照但RL&gt;SFT)</td>
+<td><strong>有</strong>(外部LLM出guidance→SFT→offline DPO)</td>
+<td><strong>无(零蒸馏,强模型只出题不出解)</strong></td>
+</tr>
+<tr>
+<td>RL算法</td>
+<td>GRPO+KL</td>
+<td>offline DPO(迭代)</td>
+<td><strong>DPPO+async+非对称TIS+长度惩罚,无KL</strong></td>
+</tr>
+<tr>
+<td>SWE-bench Verified</td>
+<td>41.0%</td>
+<td>22.4%(+奖励模型→27.8%)</td>
+<td><strong>61.5%</strong></td>
+</tr>
+</tbody>
+</table></div>
+<figure><p><img alt="三条路线:SWE-RL·70B / Agent-RLVR·72B / FrogNano·4B" src="../../assets/images/posts/frognano/07.avif"  loading="lazy" /></p><figcaption>三条路线:SWE-RL·70B / Agent-RLVR·72B / FrogNano·4B</figcaption></figure>
+<h2>七、(c)三个最值得拆的轴</h2>
+<h3>轴一:奖励信号——浮点相似度 vs 二元通过</h3>
+<p>SWE-RL的奖励是一个浮点:用Python difflib.SequenceMatcher算预测补丁和oracle补丁的序列相似度(0-1),格式错了给-1。这是<strong>密集奖励</strong>——哪怕你没全对,改得"更像"gold也能拿到更高的分,梯度更平滑。</p>
+<p>Agent-RLVR和FrogNano都用<strong>二元单元测试通过/失败</strong>——要么过要么不过,没有部分分。FrogNano论文明确写"our reward is purely the binary test pass/failure and we don't use any other dense rewards"。二元奖励的问题是<strong>稀疏</strong>:模型大部分时候拿0分,梯度噪声大。Agent-RLVR正是因为这个才引入guidance(下一轴);FrogNano的解法不是改奖励,而是<strong>改数据</strong>——用在线合成保证每个任务都落在"有一半成功一半失败"的甜区,这样即使奖励是二元的,每组rollout里也有正负样本能算advantage。</p>
+<figure><p><img alt="奖励信号:相似度0-1浮点 vs 二元通过/失败" src="../../assets/images/posts/frognano/08.avif"  loading="lazy" /></p><figcaption>奖励信号:相似度0-1浮点 vs 二元通过/失败</figcaption></figure>
+<h3>轴二:谁教谁——纯RL vs 外师+蒸馏 vs 只出题不出解</h3>
+<p>这是三篇分歧最大的地方:</p>
+<ul>
+<li><strong>SWE-RL</strong>:纯RL,无老师。它还训了一个SFT基线(Llama3-SWE-SFT-70B)做对照,结论是RL&gt;SFT,而且RL在域外任务(函数编码、库使用、代码推理、数学、语言理解)上还能涨,SFT反而掉——"reasoning skills emerged"。</li>
+<li><strong>Agent-RLVR</strong>:<strong>有外师+有蒸馏</strong>。它用外部LLM(claude-3-7-sonnet)生成guidance(计划、环境反馈、环境交互三类线索),让agent带着guidance重试;然后正样本用来instruct-tuning(SFT,取20%数据),再用正负对做offline DPO。论文原话:"Positive trajectories are sampled for instruct-tuning, and trajectories are then used for RLVR to update the agent policy via offline DPO."——这是个<strong>老师带着学、再蒸馏</strong>的管线。</li>
+<li><strong>FrogNano</strong>:<strong>零蒸馏</strong>。论文写得很硬:"after the starting checkpoint, it uses RL without SFT or stronger-model-generated behavioral targets. Stronger models may author tasks, but do not provide solution trajectories, actions, reasoning traces, or patches for the policy to imitate."——更强模型可以<strong>出题</strong>(写问题陈述),但<strong>不出解</strong>(不给轨迹、动作、推理链、补丁)。这跟FailForge的teacher轨迹、SWE-MeM的强模型SFT监督、SWE-Lego/Orchard-SWE的蒸馏管线都明确划清了界限。</li>
+</ul>
+<figure><p><img alt="蒸馏谱系:纯RL无师 / 外师+SFT+DPO / 只出题不出解" src="../../assets/images/posts/frognano/09.avif"  loading="lazy" /></p><figcaption>蒸馏谱系:纯RL无师 / 外师+SFT+DPO / 只出题不出解</figcaption></figure>
+<p>这个区别为什么重要?因为蒸馏的代价是<strong>你的能力天花板被锁在老师身上</strong>。Agent-RLVR靠Claude出guidance,agent学到的"怎么解题"很大程度是从Claude的解题路径里蒸馏来的;FrogNano不让强模型出解,只让它出题,4B模型靠自己RL去摸出解法——这就是为什么它能在4B这么小的尺度上,靠"任务对齐能力前沿"把信号榨干,而不是靠抄大模型的作业。</p>
+<h3>轴三:交互模式——单响应 vs 简化脚手架 vs 全多轮agent</h3>
+<p>SWE-RL根本不是agent。它给模型"整个文件的完整上下文",让模型<strong>一次性</strong>生成补丁,没有工具调用循环——"conditions the model on the complete context of each file"。它学的是"读全文件→直接写出修复",本质是单响应代码生成,不是多轮交互。它的能力涌现(推理、OOD泛化)恰恰因为是在这个更简单的单响应设定上做RL。</p>
+<p>Agent-RLVR是agent,但是个<strong>简化版</strong>:用Agentless脚手架,只保留定位(localization)和修复(repair)两步,去掉了要跑测试生成和执行的那一步补丁选择——"so our scaffold is significantly simpler, faster, and less compute intensive than Agentless"。所以它是"两步agent",不是自由工具调用。</p>
+<p>FrogNano是<strong>全多轮agent</strong>:Leaf harness给五个有类型的工具(read/write/edit/glob/bash),模型自己决定调什么、调几次、什么时候停(不带工具调用的响应=终答)。这个差异对4B小模型是致命的——论文第二章标题就叫"Harness Design Matters for Compact Models":同一个4B模型,从R2E-Gym换到Leaf,SWE-bench Verified从8.3%跳到37.2%;而更大的MiniMax-M2.5换harness完全没变化(两个都66.5%)。<strong>小模型对交互接口的敏感度远高于大模型</strong>,这是FrogNano能跑起来的前提。</p>
+<h2>八、(c)最狠的一张图:4B最高,70B/72B反而更低</h2>
+<p>把三家的SWE-bench Verified摆一起:</p>
+<figure><p><img alt="4B·61.5% &gt; 70B·41.0% &gt; 72B·22.4%" src="../../assets/images/posts/frognano/10.avif"  loading="lazy" /></p><figcaption>4B·61.5% &gt; 70B·41.0% &gt; 72B·22.4%</figcaption></figure>
+<ul>
+<li>SWE-RL:70B,41.0%</li>
+<li>Agent-RLVR:72B,22.4%(+奖励模型test-time到27.8%)</li>
+<li>FrogNano:4B,61.5%</li>
+</ul>
+<p><strong>最小模型,最高分。</strong> 这不是"4B天生强",是三件事叠起来的:①给小模型一个它用得动的harness(Leaf);②在线合成贴能力前沿的任务,把二元奖励的稀疏信号榨干;③零蒸馏,4B自己RL摸出解法,不被老师天花板压住。论文还补了一句:在SWE-bench Pro上FrogNano和比自己大6–8倍的模型打平,而成本只有四分之一。</p>
+<p>当然要诚实:这三个数字不完全可比——SWE-RL是单响应+Agentless Mini评测管线,Agent-RLVR是简化脚手架,FrogNano是全多轮Leaf+标准eval(131K上下文、150步、3 seed平均)。评测管线不同会让绝对数字有偏移。但<strong>方向是清楚的</strong>:把harness、数据生成、RL三件事对齐了,4B能打到这个位置。</p>
+<h2>九、总结:FrogNano的赌注,和它没解决的问题</h2>
+<p>把(b)和(c)收在一起,FrogNano的赌注可以一句话说清:</p>
+<blockquote>
+<p><strong>别赌模型大,别赌老师强,赌"数据贴着当前能力前沿在线合成"——这件事自己转起来,4B也能追平70B。</strong></p>
+</blockquote>
+<p>这个赌注的三个支点:</p>
+<ol>
+<li><strong>标定是相对的、在线的</strong>:p̂_policy随checkpoint变,任务分布跟着学;学不动了就换挡(迭代5)。</li>
+<li><strong>零蒸馏</strong>:强模型只出题不出解,能力不被老师天花板压住。</li>
+<li><strong>harness对小模型是命门</strong>:Leaf这种Claude-Code式五工具接口,把4B从8.3%拉到37.2%——大模型对这个不敏感,小模型极其敏感。</li>
+</ol>
+<p>对比之下,SWE-RL赌的是"真实PR数据+浮点相似度奖励能让推理能力涌现"(它确实涌现了,但单响应设定、70B);Agent-RLVR赌的是"guidance能桥接稀疏奖励"(它确实桥接了,但靠Claude出guidance+蒸馏)。</p>
+<p>FrogNano自己也留了一个没解决的口子:<strong>早期迭代学到的一些行为会在后面的迭代里丢掉</strong>——所以它额外做了一个"巩固(consolidation)"实验:从迭代5收大部分轨迹、从历史策略收一部分,能把SWE-bench Verified再推0.8%到62.3%(pass@3到72.3%)。这说明迭代式重置任务分布是有代价的,需要额外手段捞回早期行为。论文最后还点了一个未来方向:<strong>让任务生成器和solver一起self-play地联合训练</strong>——也就是把"出题"这件事也从强模型手里拿过来,让4B自己出题自己学。如果这条路走通,FrogNano就真的闭环了。</p>
+<p>对我自己的研读判断:这篇值得读,不是因为它又刷了一个SWE-bench数字,而是它把"数据生成"这件事从"筛真实数据"升级成了"贴能力前沿的在线合成"——这是agent训练里一个还在早期的、值得押的方向。你做agent,不管用多大的模型,都该问自己一句:<strong>你的训练数据,是贴着你当前模型的能力前沿合的,还是一堆固定的旧任务?</strong></p>
+<hr />
+<p><strong>来源(均一手核验):</strong>
+- FrogNano论文:arXiv 2609.07925v2 [cs.AI],Froggy Team – Microsoft Research Montréal,2026年9月。PDF全文(37页)逐节精读,§2 Harness、§3.1-3.3 标定与细化、§4 RL配方、§5 实验/分析逐字引用;图3/4/5/6/7数据以正文与caption为准。
+- SWE-RL论文:arXiv 2502.18449v2 [cs.SE],Yuxiang Wei等(Meta AI/UIUC/CMU),NeurIPS 2025。PDF全文(102KB文本)精读,奖励公式R(o)=compare(patch_pred,patch_gt)(difflib.SequenceMatcher)、GRPO目标、Llama-3.3-70B-Instruct基座、41.0% SWE-bench Verified、SFT对照与OOD泛化均逐字核验。
+- Agent-RLVR论文:arXiv 2506.11425v2 [cs.CL],Jeff Da等(Scale AI),2025。PDF全文(55KB文本)精读,§2.2.4训练循环(外部LLM出guidance→20% instruct-tuning→offline DPO)、Qwen-2.5-72B-Instruct、817环境/8186轨迹、PASS@1 9.4%→22.4%→27.8%均逐字核验。
+- Froggy Team官方项目页:microsoft.github.io/debug-gym(FrogNano技术报告条目+debug-gym仓库307★ MIT)。
+- 边界提示:沙箱DNS对arxiv等域名劫持,web_fetch被拒;三篇PDF均经curl直连下载并pdftotext解析。论文内嵌图表(图3/4/5/6/7/10/11/12等)数据以正文文字与caption逐字引用,图本身未做视觉核验。</p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

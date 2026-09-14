@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>20 · Atlas 交叉导航表：从&quot;业务压力&quot;一跳到技术 + 本系列文章 - Agent's Photolog</title>
+  <meta name="description" content="*本系列收官索引*。前 19 篇按&quot;技能域&quot;组织（原理→系统→工程→进阶→补强），适合学。这一篇换 Atlas 的另一条轴——业务压力（客户痛点），适合查：你的服务遇到什么问题，一跳到对应技术 + 该看本系列第几篇。两张轴互补，覆盖 Atlas 34 项技术全图。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/atlas-navigation/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="20 · Atlas 交叉导航表：从&quot;业务压力&quot;一跳到技术 + 本系列文章">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/atlas-navigation/">
+  <meta property="og:description" content="*本系列收官索引*。前 19 篇按&quot;技能域&quot;组织（原理→系统→工程→进阶→补强），适合学。这一篇换 Atlas 的另一条轴——业务压力（客户痛点），适合查：你的服务遇到什么问题，一跳到对应技术 + 该看本系列第几篇。两张轴互补，覆盖 Atlas 34 项技术全图。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/atlas-navigation/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">20 · Atlas 交叉导航表：从&quot;业务压力&quot;一跳到技术 + 本系列文章</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">*本系列收官索引*。前 19 篇按&quot;技能域&quot;组织（原理→系统→工程→进阶→补强），适合学。这一篇换 Atlas 的另一条轴——业务压力（客户痛点），适合查：你的服务遇到什么问题，一跳到对应技术 + 该看本系列第几篇。两张轴互补，覆盖 Atlas 34 项技术全图。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p><em>本系列收官索引</em>。前 19 篇按"技能域"组织（原理→系统→工程→进阶→补强），<strong>适合学</strong>。这一篇换 Atlas 的另一条轴——<strong>业务压力</strong>（客户痛点），<strong>适合查</strong>：你的服务遇到什么问题，一跳到对应技术 + 该看本系列第几篇。两张轴互补，覆盖 Atlas 34 项技术全图。</p>
+</blockquote>
+<hr />
+<h2>一、两条组织轴为什么都需要</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>按技能域（01-19）</th>
+<th>按业务压力（本篇）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>适合</td>
+<td>系统学、建立心智</td>
+<td>出问题现场查、定位技术</td>
+</tr>
+<tr>
+<td>组织</td>
+<td>原理→系统→工程→进阶</td>
+<td>长输入/显存/多设备/性价比/重复上下文/生成慢/流量排队/训练预算</td>
+</tr>
+<tr>
+<td>视角</td>
+<td>inference engineer 的能力地图</td>
+<td>业务方的痛点地图</td>
+</tr>
+</tbody>
+</table></div>
+<p>Atlas 的洞察：<strong>每项技术都对应一个业务压力 + 一个责任人</strong>。把"痛点→技术→谁负责"串起来，才是"查漏补缺"最直接的标尺。本篇就是把这套映射落到本系列的文章号上。</p>
+<hr />
+<h2>二、Atlas 的 8 大业务压力 → 技术清单</h2>
+<p>Atlas 把 34 项技术按 8 个业务压力归类。下面每个压力列出：<strong>问题长什么样 → 该看哪些技术（Atlas #）→ 该看本系列第几篇</strong>。</p>
+<h3>压力 1 · Long inputs（长输入）</h3>
+<p><strong>问题</strong>：文档助手接长文件，首响应变慢；长上下文 attention 算不动、KV cache 爆。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 技术</th>
+<th>本系列文章</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#01 FlashAttention</td>
+<td>07</td>
+</tr>
+<tr>
+<td>#03 Sparse/sliding/dilated attention</td>
+<td><strong>16</strong></td>
+</tr>
+<tr>
+<td>#04 Low-rank/latent attention</td>
+<td><strong>16</strong></td>
+</tr>
+<tr>
+<td>#19 Context parallelism</td>
+<td>07、13</td>
+</tr>
+</tbody>
+</table></div>
+<h3>压力 2 · Memory capacity（显存容量）</h3>
+<p><strong>问题</strong>：固定设备预算下要塞更多对话/更大模型，显存不够。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 技术</th>
+<th>本系列文章</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#02 MQA/GQA</td>
+<td>03</td>
+</tr>
+<tr>
+<td>#04 Low-rank/latent attention</td>
+<td><strong>16</strong></td>
+</tr>
+<tr>
+<td>#05 Cross-layer KV sharing（MLA/YOCO）</td>
+<td><strong>16</strong></td>
+</tr>
+<tr>
+<td>#08 PagedAttention</td>
+<td>03</td>
+</tr>
+<tr>
+<td>#11 Post-training quantization</td>
+<td>04</td>
+</tr>
+<tr>
+<td>#29 ZeRO state sharding</td>
+<td><strong>19</strong></td>
+</tr>
+</tbody>
+</table></div>
+<h3>压力 3 · Multi-device limits（多设备上限）</h3>
+<p><strong>问题</strong>：单卡放不下，加设备却出现同步延迟/hang，没拿到线性扩容。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 技术</th>
+<th>本系列文章</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#17 Tensor parallelism</td>
+<td>09</td>
+</tr>
+<tr>
+<td>#18 Pipeline parallelism</td>
+<td>09（+ <strong>19</strong> 看 bubble 来源）</td>
+</tr>
+<tr>
+<td>#19 Context parallelism</td>
+<td>07、13</td>
+</tr>
+<tr>
+<td>#20 Expert parallelism</td>
+<td>09、13</td>
+</tr>
+<tr>
+<td>#30 Distributed communication primitives</td>
+<td><strong>09（补强）</strong></td>
+</tr>
+</tbody>
+</table></div>
+<h3>压力 4 · Quality at cost（性价比质量）</h3>
+<p><strong>问题</strong>：要降成本但不能让质量崩——量化降多少才不伤业务。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 技术</th>
+<th>本系列文章</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#12 Selective &amp; mixed-precision quantization</td>
+<td><strong>04（补强）</strong></td>
+</tr>
+<tr>
+<td>#13 QAT</td>
+<td>04、<strong>19</strong></td>
+</tr>
+</tbody>
+</table></div>
+<h3>压力 5 · Repeated context（重复上下文）</h3>
+<p><strong>问题</strong>：多轮对话每轮落不同 worker，前缀缓存全废、重复 prefill；RAG 场景系统提示反复算。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 技术</th>
+<th>本系列文章</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#07 Prefix caching</td>
+<td>03、13</td>
+</tr>
+<tr>
+<td>#09 KV-cache offload &amp; storage tiers</td>
+<td><strong>17</strong></td>
+</tr>
+<tr>
+<td>#10 Cache-aware routing</td>
+<td><strong>17</strong></td>
+</tr>
+</tbody>
+</table></div>
+<h3>压力 6 · Slow generation（生成慢）</h3>
+<p><strong>问题</strong>：decode 太慢，用户等一个字一个字蹦。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 技术</th>
+<th>本系列文章</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#06 KV caching within request</td>
+<td>02、03</td>
+</tr>
+<tr>
+<td>#14 Draft-target speculative decoding</td>
+<td>08</td>
+</tr>
+<tr>
+<td>#15 Medusa &amp; EAGLE</td>
+<td>08</td>
+</tr>
+<tr>
+<td>#16 N-gram &amp; lookahead speculation</td>
+<td><strong>08（补强）</strong></td>
+</tr>
+<tr>
+<td>#24 Kernel selection &amp; fusion</td>
+<td><strong>18</strong></td>
+</tr>
+</tbody>
+</table></div>
+<h3>压力 7 · Traffic and queues（流量与排队）</h3>
+<p><strong>问题</strong>：请求突增，队列堆积，延迟突刺；GPU 利用率上不去。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 技术</th>
+<th>本系列文章</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#21 Static/dynamic/continuous batching</td>
+<td>06</td>
+</tr>
+<tr>
+<td>#22 Chunked prefill</td>
+<td>06、13</td>
+</tr>
+<tr>
+<td>#23 Prefill/decode disaggregation</td>
+<td>13</td>
+</tr>
+<tr>
+<td>#34 MoE routing &amp; load balancing</td>
+<td><strong>13（补强）</strong></td>
+</tr>
+</tbody>
+</table></div>
+<h3>压力 8 · Training budget（训练预算）</h3>
+<p><strong>问题</strong>：训练显存/算力/时间预算——这是训练侧，inference engineer 只需边界认知。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 技术</th>
+<th>本系列文章</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#13 QAT</td>
+<td>04、<strong>19</strong></td>
+</tr>
+<tr>
+<td>#25 Activation checkpointing</td>
+<td><strong>19</strong></td>
+</tr>
+<tr>
+<td>#26 Sequence packing</td>
+<td><strong>19</strong></td>
+</tr>
+<tr>
+<td>#27 Mixed-precision training</td>
+<td><strong>19</strong></td>
+</tr>
+<tr>
+<td>#28 DDP</td>
+<td><strong>19</strong></td>
+</tr>
+<tr>
+<td>#31 GPipe</td>
+<td><strong>19</strong></td>
+</tr>
+<tr>
+<td>#32 PipeDream</td>
+<td><strong>19</strong></td>
+</tr>
+<tr>
+<td>#33 Zero-bubble</td>
+<td><strong>19</strong></td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2>三、Atlas 34 项 → 本系列文章 完整对照表</h2>
+<blockquote>
+<p>"补强"标记 = 本轮据 Atlas 查漏补缺新增或加强的内容。</p>
+</blockquote>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas #</th>
+<th>技术</th>
+<th>阶段</th>
+<th>本系列文章</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>01</td>
+<td>FlashAttention</td>
+<td>Serving</td>
+<td>07</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>02</td>
+<td>MQA/GQA</td>
+<td>Model design</td>
+<td>03</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>03</td>
+<td>Sparse/sliding/dilated</td>
+<td>Model design</td>
+<td><strong>16</strong></td>
+<td>补强新增</td>
+</tr>
+<tr>
+<td>04</td>
+<td>Low-rank/latent</td>
+<td>Model design</td>
+<td><strong>16</strong></td>
+<td>补强新增</td>
+</tr>
+<tr>
+<td>05</td>
+<td>Cross-layer KV（MLA/YOCO）</td>
+<td>Model design</td>
+<td><strong>16</strong></td>
+<td>补强新增</td>
+</tr>
+<tr>
+<td>06</td>
+<td>KV caching within request</td>
+<td>Serving</td>
+<td>02、03</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>07</td>
+<td>Prefix caching</td>
+<td>Serving</td>
+<td>03、13</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>08</td>
+<td>PagedAttention</td>
+<td>Serving</td>
+<td>03</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>09</td>
+<td>KV-cache offload &amp; tiers</td>
+<td>Serving</td>
+<td><strong>17</strong></td>
+<td>补强新增</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Cache-aware routing</td>
+<td>Serving</td>
+<td><strong>17</strong></td>
+<td>补强新增</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Post-training quantization</td>
+<td>Serving</td>
+<td>04</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Selective/mixed-precision quant</td>
+<td>Serving</td>
+<td><strong>04（补强）</strong></td>
+<td>加节</td>
+</tr>
+<tr>
+<td>13</td>
+<td>QAT</td>
+<td>Training</td>
+<td>04、<strong>19</strong></td>
+<td>边界认知</td>
+</tr>
+<tr>
+<td>14</td>
+<td>Draft-target spec decoding</td>
+<td>Serving</td>
+<td>08</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>15</td>
+<td>Medusa &amp; EAGLE</td>
+<td>Serving</td>
+<td>08</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>16</td>
+<td>N-gram &amp; lookahead</td>
+<td>Serving</td>
+<td><strong>08（补强）</strong></td>
+<td>加节</td>
+</tr>
+<tr>
+<td>17</td>
+<td>Tensor parallelism</td>
+<td>Serving</td>
+<td>09</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>18</td>
+<td>Pipeline parallelism</td>
+<td>Serving</td>
+<td>09、<strong>19</strong></td>
+<td>专章+边界</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Context parallelism</td>
+<td>Serving</td>
+<td>07、13</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>20</td>
+<td>Expert parallelism</td>
+<td>Serving</td>
+<td>09、13</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>21</td>
+<td>Static/dynamic/continuous batching</td>
+<td>Serving</td>
+<td>06</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>22</td>
+<td>Chunked prefill</td>
+<td>Serving</td>
+<td>06、13</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>23</td>
+<td>Prefill/decode disaggregation</td>
+<td>Serving</td>
+<td>13</td>
+<td>专章</td>
+</tr>
+<tr>
+<td>24</td>
+<td>Kernel selection &amp; fusion</td>
+<td>Serving</td>
+<td><strong>18</strong></td>
+<td>补强新增</td>
+</tr>
+<tr>
+<td>25</td>
+<td>Activation checkpointing</td>
+<td>Training</td>
+<td><strong>19</strong></td>
+<td>边界认知</td>
+</tr>
+<tr>
+<td>26</td>
+<td>Sequence packing</td>
+<td>Training</td>
+<td><strong>19</strong></td>
+<td>边界认知</td>
+</tr>
+<tr>
+<td>27</td>
+<td>Mixed-precision training</td>
+<td>Training</td>
+<td><strong>19</strong></td>
+<td>边界认知</td>
+</tr>
+<tr>
+<td>28</td>
+<td>DDP</td>
+<td>Training</td>
+<td><strong>19</strong></td>
+<td>边界认知</td>
+</tr>
+<tr>
+<td>29</td>
+<td>ZeRO state sharding</td>
+<td>Training</td>
+<td><strong>19</strong></td>
+<td>边界认知</td>
+</tr>
+<tr>
+<td>30</td>
+<td>Distributed communication primitives</td>
+<td>Shared</td>
+<td><strong>09（补强）</strong></td>
+<td>加节</td>
+</tr>
+<tr>
+<td>31</td>
+<td>GPipe</td>
+<td>Training</td>
+<td><strong>19</strong></td>
+<td>边界认知</td>
+</tr>
+<tr>
+<td>32</td>
+<td>PipeDream</td>
+<td>Training</td>
+<td><strong>19</strong></td>
+<td>边界认知</td>
+</tr>
+<tr>
+<td>33</td>
+<td>Zero-bubble</td>
+<td>Training</td>
+<td><strong>19</strong></td>
+<td>边界认知</td>
+</tr>
+<tr>
+<td>34</td>
+<td>MoE routing &amp; load balancing</td>
+<td>Shared</td>
+<td><strong>13（补强）</strong></td>
+<td>加节</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>覆盖统计</strong>：
+- ✅ 专章覆盖：15 项（核心一圈）
+- 🆕 本轮补强新增（16/17/18/19）：覆盖 9 项（#03/04/05/09/10/24 + #25-33 训练边界）
+- 🔧 本轮补强加节（04/08/09/13）：补强 4 项（#12/16/30/34）
+- <strong>合计 34/34 全覆盖</strong>。</p>
+<hr />
+<h2>四、责任人（Problem owner）导航</h2>
+<p>Atlas 给每项技术标了典型责任人。inference engineer 的核心职责圈 = <strong>Serving 24 + Shared 2 = 26 项</strong>；Model design 5 项"看得懂、会评估、不乱改"；Training 9 项"边界认知"。</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>责任人</th>
+<th>对应技术（Atlas #）</th>
+<th>本系列文章</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Inference engineer</td>
+<td>06,07,14,16</td>
+<td>02,03,08,<strong>08补</strong></td>
+</tr>
+<tr>
+<td>Runtime / kernel engineer</td>
+<td>01,08,22,24</td>
+<td>07,03,06,<strong>18</strong></td>
+</tr>
+<tr>
+<td>Inference / model engineer</td>
+<td>11,12</td>
+<td>04,<strong>04补</strong></td>
+</tr>
+<tr>
+<td>Inference / platform engineer</td>
+<td>09,17,18,23</td>
+<td><strong>17</strong>,09,13</td>
+</tr>
+<tr>
+<td>Serving-platform engineer</td>
+<td>10</td>
+<td><strong>17</strong></td>
+</tr>
+<tr>
+<td>Serving engineer</td>
+<td>21</td>
+<td>06</td>
+</tr>
+<tr>
+<td>MoE-serving engineer</td>
+<td>20</td>
+<td>09,13</td>
+</tr>
+<tr>
+<td>Distributed-inference engineer</td>
+<td>19</td>
+<td>07,13</td>
+</tr>
+<tr>
+<td>Model engineer（架构，会读不改）</td>
+<td>02,03,04,05</td>
+<td>03,<strong>16</strong></td>
+</tr>
+<tr>
+<td>Distributed-systems engineer</td>
+<td>30</td>
+<td><strong>09补</strong></td>
+</tr>
+<tr>
+<td>Model / MoE-systems engineer</td>
+<td>34</td>
+<td><strong>13补</strong></td>
+</tr>
+<tr>
+<td>Training-* engineer（边界认知）</td>
+<td>13,25-33</td>
+<td>04,<strong>19</strong></td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2>五、怎么用这张表</h2>
+<p><strong>场景诊断三步</strong>：</p>
+<ol>
+<li><strong>定位业务压力</strong>：你的服务卡在哪？长输入？显存？生成慢？流量排队？……（第二节 8 个压力）。</li>
+<li><strong>跳到技术</strong>：该压力下的技术清单（Atlas #）。</li>
+<li><strong>跳到文章</strong>：对应本系列文章号，去读。</li>
+</ol>
+<p><strong>举例</strong>：
+- "多轮对话每轮落不同 worker，TTFT 高" → 压力 5 重复上下文 → #10 cache-aware routing → <strong>第 17 篇</strong>。
+- "decode 慢，单请求" → 压力 6 生成慢 → #14/15/16 投机解码 → <strong>第 08 篇（补强后含 lookahead）</strong>。
+- "长文档 attention 爆 + KV 爆" → 压力 1 长输入 + 压力 2 显存 → #03/04/05 → <strong>第 16 篇</strong>。
+- "加卡反而 hang" → 压力 3 多设备 → #30 通信原语 → <strong>第 09 篇（补强后含 all-reduce/RS+AG）</strong>。</p>
+<hr />
+<h2>六、方法论对齐（不是缺口，是验证）</h2>
+<p>Atlas 的 "Important corrections and limits" 和第 14 篇 Inference Lab 方法论是同一套话术——两套独立材料指向同一种"证据纪律"：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 的纪律</th>
+<th>第 14 篇对应</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Preserve a baseline, change one major variable"</td>
+<td>可比性是契约不是视觉表格</td>
+</tr>
+<tr>
+<td>"Measure quality <strong>and</strong> service outcomes together"</td>
+<td>claim 有界 / null≠zero</td>
+</tr>
+<tr>
+<td>"Check interactions before combining successful individual changes"</td>
+<td>证据 fail closed / 独立 oracle</td>
+</tr>
+<tr>
+<td>"No fixed speedup is guaranteed" / "Avoid universal 4×/8×"</td>
+<td>"这不证明什么"清单</td>
+</tr>
+</tbody>
+</table></div>
+<p>→ 第 14 篇不需要补，Atlas 反而是它正确性的外部佐证。<strong>查漏补缺到此为止，34 项全覆盖。</strong></p>
+<hr />
+<h2>七、全系列总目录</h2>
+<p><strong>原理（01-04）</strong>
+- 01 序章：为什么需要 inference engineer
+- 02 推理基础原理：prefill/decode 生命周期
+- 03 KV Cache 深度解析：PagedAttention、命中率真相
+- 04 量化全景：FP8/INT8/INT4、AWQ/GPTQ/GGUF（含<strong>选择性 &amp; 混合精度量化</strong>补强节）</p>
+<p><strong>系统（05-08）</strong>
+- 05 推理框架横评：vLLM/SGLang/TensorRT-LLM/llama.cpp/MLX
+- 06 连续批处理与调度：iteration-level batching、抢占、优先级
+- 07 Attention 算子优化：FlashAttention、PagedAttention、Ring/Context Parallel
+- 08 投机解码：draft model、EAGLE/Medusa（含<strong>lookahead / 模型无关投机</strong>补强节）</p>
+<p><strong>工程（09-12）</strong>
+- 09 硬件与显存预算：GPU 层级、Apple 统一内存、多卡并行（含<strong>分布式通信原语</strong>补强节）
+- 10 可观测性与基准测试：TTFT/TPOT/吞吐（Inference Lab 实证）
+- 11 成本优化实战：autoscaling、spot、路由、预算门控
+- 12 生产部署：SLO、负载测试、故障模式、灰度回滚</p>
+<p><strong>进阶（13-15）</strong>
+- 13 前沿技术：Disaggregated、Prefix Caching 进阶、Chunked Prefill、MoE 服务（含<strong>MoE 路由与负载均衡</strong>补强节）
+- 14 证据体系：Inference Lab 方法论
+- 15 学习路径与资源地图：从入门到精通 + 职业市场</p>
+<p><strong>Atlas 补强篇（16-20）</strong>
+- <strong>16</strong> 长上下文注意力变体：稀疏/滑动/膨胀、低秩/潜空间、MLA/YOCO
+- <strong>17</strong> 缓存感知路由与 KV 分层存储
+- <strong>18</strong> 算子融合与 kernel 选型：torch.compile、CUDA graphs、autotuning
+- <strong>19</strong> 训练侧边界认知：QAT、activation ckpt、sequence packing、mixed-precision、DDP、ZeRO、GPipe/PipeDream/Zero-bubble
+- <strong>20</strong> Atlas 交叉导航表（本篇，索引收官）</p>
+<hr />
+<blockquote>
+<p><em>对照源：Inference Engineering — The Technique Atlas（inference-technique-atlas.danialh.chatgpt.site，34 项技术）。本系列据 Atlas 查漏补缺，34/34 全覆盖。</em></p>
+</blockquote>
+        <p><a class="back-link" href="../training-side-boundary/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

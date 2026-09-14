@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>06 · 连续批处理与调度：iteration-level batching、抢占、优先级 - Agent's Photolog</title>
+  <meta name="description" content="如果说 KV cache 是推理引擎的心脏，调度器就是大脑。它决定 GPU 在每一毫秒干什么、哪个请求先跑、谁被挤掉。理解连续批处理和调度策略，你才能解释&quot;为什么并发高了反而更慢&quot;、&quot;为什么有的请求延迟突刺&quot;。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/continuous-batching/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="06 · 连续批处理与调度：iteration-level batching、抢占、优先级">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/continuous-batching/">
+  <meta property="og:description" content="如果说 KV cache 是推理引擎的心脏，调度器就是大脑。它决定 GPU 在每一毫秒干什么、哪个请求先跑、谁被挤掉。理解连续批处理和调度策略，你才能解释&quot;为什么并发高了反而更慢&quot;、&quot;为什么有的请求延迟突刺&quot;。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/continuous-batching/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">06 · 连续批处理与调度：iteration-level batching、抢占、优先级</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">如果说 KV cache 是推理引擎的心脏，调度器就是大脑。它决定 GPU 在每一毫秒干什么、哪个请求先跑、谁被挤掉。理解连续批处理和调度策略，你才能解释&quot;为什么并发高了反而更慢&quot;、&quot;为什么有的请求延迟突刺&quot;。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>如果说 KV cache 是推理引擎的心脏，调度器就是大脑。它决定 GPU 在每一毫秒干什么、哪个请求先跑、谁被挤掉。理解连续批处理和调度策略，你才能解释"为什么并发高了反而更慢"、"为什么有的请求延迟突刺"。</p>
+</blockquote>
+<hr />
+<h2>一、从静态批处理说起：它为什么不行</h2>
+<h3>1.1 静态批处理（naive batching）</h3>
+<p>最朴素的做法：攒够 N 个请求，凑成一个 batch，一起跑，等最长的那个结束才解锁，再放下一个 batch。</p>
+<p>问题：</p>
+<ul>
+<li><strong>队头阻塞</strong>：batch 里有个请求要生成 500 token，另一个只要 20 token。那个 20 token 的请求干等 480 个 token 的时间才和 batch 一起结束返回。它的延迟被最慢的请求拖垮。</li>
+<li><strong>凑 batch 的等待</strong>：要凑 N 个才跑，低峰期请求来了要等。TTFT 爆炸。</li>
+<li><strong>GPU 空转</strong>：凑 batch 期间 GPU 闲着；batch 里多数请求结束了但等最长那个时，GPU 又只跑一个请求，利用率低。</li>
+</ul>
+<h3>1.2 连续批处理（continuous / iteration-level batching）</h3>
+<p>核心思想：<strong>不以"batch"为调度粒度，而以"iteration（生成一个 token 的步骤）"为粒度。</strong> 每个 iteration 结束后，调度器重新决定 batch 里有哪些请求：</p>
+<ul>
+<li>有请求生成完了？移出 batch，立刻返回结果。</li>
+<li>有新请求到了？如果显存够，立刻塞进 batch，开始 prefill。</li>
+<li>batch 里还剩的请求继续 decode。</li>
+</ul>
+<p>效果：GPU 几乎从不空转，新请求零等待加入，短请求不被长请求拖。<strong>这就是 vLLM/SGLang/TGI 吞吐远高于静态批处理的原因。</strong></p>
+<hr />
+<h2>二、调度器的核心难题</h2>
+<p>连续批处理把调度从"批"细化到"iteration"，但带来几个难题：</p>
+<h3>2.1 何时插新请求：prefill vs decode 的资源争用</h3>
+<p>新请求加入要先 prefill。但 prefill 是 compute-bound 的大块计算，一个长 prompt prefill 时会<strong>独占 GPU，阻塞正在 decode 的请求</strong>，造成 decode 请求延迟突刺（TPOT 飙高）。</p>
+<p>两种解法：</p>
+<ul>
+<li><strong>Prefill priority（prefill 优先）</strong>：来一个 prefill 一个，decode 等。TTFT 低，但 decode 延迟不稳。</li>
+<li><strong>Decode priority（decode 优先）</strong>：先保证 decode 平滑，prefill 排队。decode 稳，但 prefill 排队长 → TTFT 高。</li>
+</ul>
+<p>实际引擎用<strong>混合策略</strong>，配合下面的 chunked prefill。</p>
+<h3>2.2 Chunked Prefill：把长 prefill 切块</h3>
+<p>vLLM/SGLang 的解法：把一个长 prompt 的 prefill <strong>切成固定大小的块</strong>（如 512 token 一块），和 decode iteration 交错执行。</p>
+<pre><code>iteration 1: [prefill chunk 1] + [decode req A, B, C]
+iteration 2: [prefill chunk 2] + [decode req A, B, C]
+...
+iteration n: [prefill chunk n 完成] → 新请求 D 加入 decode
+</code></pre>
+<p>这样长 prefill 不再独占 GPU，decode 请求的延迟更平滑。代价是单个长 prompt 的 TTFT 略升（prefill 被拆散），换来整体平滑。</p>
+<h3>2.3 显存不足时：抢占</h3>
+<p>显存不够放新请求的 KV cache 时，调度器要回收。vLLM 的做法（上一章讲过）：</p>
+<ul>
+<li><strong>RECOMPUTE</strong>：丢掉某请求的 cache，显存空了再从头 prefill（prefix cache 能恢复一部分）。</li>
+<li><strong>SWAP</strong>：把 cache 搬到 CPU 内存，需要时搬回。</li>
+</ul>
+<p>被抢占的请求延迟突增。生产监控指标：<strong>抢占频率</strong>。频繁抢占 = 容量不足，加卡或限流。</p>
+<hr />
+<h2>三、调度策略详解</h2>
+<h3>3.1 FCFS（先来先服务）</h3>
+<p>最简单：按请求到达顺序排队，显存够就塞进 batch。公平但可能让 VIP 请求等。</p>
+<h3>3.2 优先级调度</h3>
+<p>多租户场景按优先级：</p>
+<pre><code>P0 VIP 请求：优先塞 batch，必要时抢占低优先级
+P1 付费用户：正常调度
+P2 免费用户：best-effort，闲时才跑
+</code></pre>
+<p>实现：vLLM 支持请求优先级（部分版本），SGLang 有多队列。代价：低优先级请求可能饿死，要配 aging（等待久了提升优先级）。</p>
+<h3>3.3 短作业优先（SJF）变体</h3>
+<p>预知输出长度时，优先跑短请求，减少队头阻塞。但 LLM 输出长度通常不可预知，所以实际用<strong>估计</strong>（基于 prompt 类型/历史）或 max_tokens 上限做近似。</p>
+<h3>3.4 公平调度（fair scheduling）</h3>
+<p>SGLang 用 fair scheduling，给每个租户/请求类一个时间片配额，防止某个大户挤占所有资源。</p>
+<hr />
+<h2>四、一个 iteration 调度器的决策流程</h2>
+<p>把上面拼起来，一个 iteration 结束时调度器大概这样决策：</p>
+<pre><code>1. 检查 batch 内请求
+   - 有请求生成完 / 达到 max_tokens / EOS？→ 移出，返回结果，释放 KV cache block
+   
+2. 检查显存
+   可用 KV cache 池 = 总池 - 已占用 block
+   能再容纳几个新请求的 cache？
+
+3. 从等待队列选请求加入（按策略）
+   - FCFS：队首
+   - 优先级：最高优先级
+   - 估计 cache 大小（input_len × cache_per_token + 预留 output）
+   
+4. 显存不够？
+   - 尝试驱逐（LRU）空闲低价值 cache
+   - 还不够 → 抢占低优先级请求（recompute / swap）
+   - 都不行 → 新请求继续排队（TTFT 上升）
+
+5. 决定这个 iteration 的混合
+   - 有 prefill 待跑：和 decode 交错（chunked prefill）
+   - 全是 decode：纯 decode iteration
+
+6. 执行前向，回到 1
+</code></pre>
+<hr />
+<h2>五、调度对延迟分布的影响：为什么有突刺</h2>
+<p>理解调度后，很多"诡异"延迟现象就解释通了：</p>
+<h3>5.1 P99 远高于 P50</h3>
+<p>请求大部分时间跑得快（P50 好），但偶尔遇到：恰好赶上大批 prefill 涌入、被抢占、显存紧张被 swap。这些请求被拖到 P99。<strong>只看平均延迟会掩盖这些长尾。</strong> 生产必须看 P95/P99。</p>
+<h3>5.2 并发升到某点后延迟陡升</h3>
+<p>并发低时，调度器游刃有余，延迟平稳。到某个临界点，KV cache 池满了，开始抢占/排队，延迟陡升。这个拐点就是你的<strong>有效容量上限</strong>。压测要找到它，而不是无脑堆并发看延迟一直涨。</p>
+<h3>5.3 TTFT 和 TPOT 可能此消彼长</h3>
+<p>调 prefill 优先 → TTFT 降但 decode 突刺多；调 decode 优先 → decode 稳但 TTFT 排队长。<strong>这是个权衡，没有免费午餐</strong>。要根据业务对 TTFT 还是 TPOT 更敏感来调。</p>
+<hr />
+<h2>六、关键可调参数（vLLM 为例）</h2>
+<pre><code>vllm serve model \
+  --max-num-seqs 256 \         <span class="tok-c"># 同时在跑的最大请求数（batch 上限）</span>
+  --max-num-batched-tokens 8192 \  <span class="tok-c"># 单 iteration 最大 token 数（prefill+decode）</span>
+  --gpu-memory-utilization 0.90 \  <span class="tok-c"># 显存利用率上限</span>
+  --max-model-len 32768 \       <span class="tok-c"># 最大上下文（影响 KV cache 预留）</span>
+  --enable-prefix-caching \     <span class="tok-c"># 前缀缓存</span>
+  --preemption-mode swap        <span class="tok-c"># 抢占模式：swap 或 recompute</span>
+</code></pre>
+<p>调参思路：</p>
+<ul>
+<li><code>--max-num-seqs</code>：太大 → 每个 request KV cache 摊薄，易抢占；太小 → 并发上不去。</li>
+<li><code>--max-num-batched-tokens</code>：控制单 iteration 计算量。chunked prefill 时决定 prefill 块大小。</li>
+<li><code>--gpu-memory-utilization</code>：留 10% 给系统/临时。0.95+ 容易 OOM。</li>
+</ul>
+<hr />
+<h2>七、调度相关的生产监控指标</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+<th>告警阈值思路</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>running / waiting 请求数</strong></td>
+<td>在跑 vs 排队</td>
+<td>waiting 持续 &gt; running 说明容量不足</td>
+</tr>
+<tr>
+<td><strong>抢占次数 / 分钟</strong></td>
+<td>recompute/swap 频率</td>
+<td>&gt;0 持续 = 容量紧</td>
+</tr>
+<tr>
+<td><strong>KV cache 利用率</strong></td>
+<td>已用 / 总池</td>
+<td>&gt;90% 危险</td>
+</tr>
+<tr>
+<td><strong>prefix cache 命中率</strong></td>
+<td>前缀复用率</td>
+<td>突降 = prompt 模式变了</td>
+</tr>
+<tr>
+<td><strong>TTFT P50/P99</strong></td>
+<td>首 token 延迟分位</td>
+<td>P99 突升 = prefill 拥塞</td>
+</tr>
+<tr>
+<td><strong>TPOT P50/P99</strong></td>
+<td>每 token 延迟分位</td>
+<td>P99 突升 = decode 抢占</td>
+</tr>
+<tr>
+<td><strong>GPU 利用率</strong></td>
+<td>计算单元占用</td>
+<td>低 + 高延迟 = 调度/带宽问题</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2>八、实践 checklist：调度调优</h2>
+<ul>
+<li>[ ] 压测找到"延迟陡升拐点"，那是你的有效容量，别超它定 SLO</li>
+<li>[ ] 看 P95/P99 不只看 P50，长尾才是用户体验</li>
+<li>[ ] 监控 waiting 队列长度和抢占频率，持续 &gt;0 = 该扩容</li>
+<li>[ ] 长 prompt 场景开 chunked prefill，防 decode 突刺</li>
+<li>[ ] 多租户设优先级 + aging，防 VIP 被挤、免费用户饿死</li>
+<li>[ ] TTFT 敏感业务调 prefill 优先；TPOT 敏感调 decode 优先</li>
+<li>[ ] KV cache 利用率留 10%+ 余量，别顶到 100% 抢占</li>
+<li>[ ] <code>max-num-seqs</code> 不是越大越好，要和显存/KV cache 池平衡</li>
+</ul>
+<p>下一篇：<strong>Attention 算子优化</strong>——FlashAttention、PagedAttention 的 kernel、Ring/Context Parallel。</p>
+        <p><a class="back-link" href="../inference-frameworks/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../attention-kernels/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

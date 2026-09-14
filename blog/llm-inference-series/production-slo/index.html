@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>12 · 生产部署：SLO、负载测试、故障模式、灰度与回滚 - Agent's Photolog</title>
+  <meta name="description" content="模型在本地跑通了，不等于能上线。生产部署要面对真实流量、硬件故障、版本回归、长尾延迟。这一篇讲怎么把推理服务做成&quot;扛得住&quot;的生产系统。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/production-slo/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="12 · 生产部署：SLO、负载测试、故障模式、灰度与回滚">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/production-slo/">
+  <meta property="og:description" content="模型在本地跑通了，不等于能上线。生产部署要面对真实流量、硬件故障、版本回归、长尾延迟。这一篇讲怎么把推理服务做成&quot;扛得住&quot;的生产系统。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/production-slo/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">12 · 生产部署：SLO、负载测试、故障模式、灰度与回滚</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">模型在本地跑通了，不等于能上线。生产部署要面对真实流量、硬件故障、版本回归、长尾延迟。这一篇讲怎么把推理服务做成&quot;扛得住&quot;的生产系统。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>模型在本地跑通了，不等于能上线。生产部署要面对真实流量、硬件故障、版本回归、长尾延迟。这一篇讲怎么把推理服务做成"扛得住"的生产系统。</p>
+</blockquote>
+<hr />
+<h2>一、定义 SLO：从"够快"到可量化</h2>
+<h3>1.1 推理服务的典型 SLO</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>典型 SLO</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TTFT P50</td>
+<td>&lt; 500 ms</td>
+<td>一半请求首 token 半秒内</td>
+</tr>
+<tr>
+<td>TTFT P99</td>
+<td>&lt; 2 s</td>
+<td>99% 请求首 token 两秒内</td>
+</tr>
+<tr>
+<td>TPOT P99</td>
+<td>&lt; 80 ms</td>
+<td>每 token 延迟长尾</td>
+</tr>
+<tr>
+<td>可用性</td>
+<td>99.9%</td>
+<td>每月宕机 &lt; 44 分钟</td>
+</tr>
+<tr>
+<td>错误率</td>
+<td>&lt; 0.1%</td>
+<td>含超时、OOM、截断</td>
+</tr>
+<tr>
+<td>完整响应率</td>
+<td>&gt; 99.5%</td>
+<td>非截断的完整输出</td>
+</tr>
+</tbody>
+</table></div>
+<h3>1.2 设 SLO 的原则</h3>
+<ol>
+<li><strong>从用户体验倒推</strong>：用户能忍多少 TTFT？多少 TPOT 会觉得卡？业务要多少可用性？</li>
+<li><strong>分位而非平均</strong>：P50 好 P99 差，用户体验差。SLO 看 P95/P99。</li>
+<li><strong>SLO 要分场景</strong>：对话型（TTFT 敏感）vs 批处理（吞吐敏感）vs agent（多轮稳定性敏感）SLO 不同。</li>
+<li><strong>留 error budget</strong>：99.9% = 每月 44 分钟可"不达标"预算。用完就冻结新功能上线，优先修稳定。</li>
+</ol>
+<hr />
+<h2>二、负载测试：上线前必做</h2>
+<h3>2.1 压测要测什么</h3>
+<ul>
+<li><strong>吞吐拐点</strong>：并发升到哪延迟陡升？（第 6 篇讲的）那是你的有效容量上限。</li>
+<li><strong>TTFT/TPOT 随并发变化曲线</strong>：找 SLO 边界。</li>
+<li><strong>长尾</strong>：P99/P99.9 在高压下怎么变。</li>
+<li><strong>预热效应</strong>：冷启动 vs 热稳态差异。</li>
+<li><strong>混合负载</strong>：不同 prompt 长度、输出长度、prefix 命中率的真实分布。</li>
+</ul>
+<h3>2.2 压测工具</h3>
+<ul>
+<li><strong>vLLM benchmark</strong>：自带 benchmark 脚本（<code>vllm bench</code>）。</li>
+<li><strong>k6 / Locust</strong>：通用 HTTP 压测，模拟并发流式请求。</li>
+<li><strong>自定义</strong>：用 Inference Lab 的 LLMTraceFX 风格采集器，但注意第 10 篇的测量陷阱（增量读、partial 检测）。</li>
+</ul>
+<h3>2.3 一个压测计划模板</h3>
+<pre><code>1. 冷启动测试：单请求测 TTFT 基线（无并发）
+2. 递增并发：1 → 4 → 16 → 32 → 64 → 128
+   每级稳定 60-120s，记 P50/P95/P99 TTFT/TPOT、GPU 利用率、KV cache 利用率、抢占次数
+3. 找拐点：延迟陡升的并发数 = 有效容量
+4. 混合负载：按线上真实 prompt 分布（短/长、命中/未命中 prefix）
+5. 长跑稳定性：拐点并发下跑 30-60min，看有没有内存泄漏/退化
+6. 故障注入：杀一个副本、断网、GPU OOM，看自愈
+</code></pre>
+<blockquote>
+<p>实践：压测的"成功"不是"能跑到 256 并发"，而是<strong>找到延迟陡升拐点</strong>，然后把 SLO 设在拐点以下。</p>
+</blockquote>
+<hr />
+<h2>三、故障模式与处理</h2>
+<p>推理服务比 Web 服务更容易出特定故障：</p>
+<h3>3.1 OOM（显存不足）</h3>
+<ul>
+<li>原因：batch 过大、KV cache 池满、长 prompt 涌入、内存碎片。</li>
+<li>处理：限流、降 batch、降并发、加卡、监控 KV cache 利用率提前告警。</li>
+<li>容错：单请求 OOM 不该拖垮整个副本，引擎要隔离失败请求。</li>
+</ul>
+<h3>3.2 副本 crash / GPU 掉卡</h3>
+<ul>
+<li>原因：驱动 bug、硬件故障、OOM kill。</li>
+<li>处理：K8s 自愈（重启 Pod）、多副本冗余、健康检查。</li>
+<li>KV cache 丢失：重启后重新 prefill（prefix cache 可能恢复部分）。</li>
+</ul>
+<h3>3.3 网络抖动 / 流式中断</h3>
+<ul>
+<li>原因：网关、LB、provider 端中断。</li>
+<li>处理：客户端重试（幂等）、断点续传（难，KV cache 在 provider 端可能没了）。</li>
+<li>第 10 篇讲：partial stream 要标 truncated，不当成功。</li>
+</ul>
+<h3>3.4 冷启动风暴</h3>
+<ul>
+<li>原因：高峰扩容，大量副本同时冷启动，GPU 抢不到 + 加载耗时长。</li>
+<li>处理：warm pool、错峰启动、镜像优化、权重共享存储。</li>
+</ul>
+<h3>3.5 版本回归</h3>
+<ul>
+<li>原因：模型/框架升级把性能或质量搞回去了。</li>
+<li>处理：持续回归测试（第 14 篇的证据体系）。每次发版前跑标准 benchmark + 业务样本对照。</li>
+</ul>
+<hr />
+<h2>四、灰度发布与回滚</h2>
+<h3>4.1 灰度策略</h3>
+<pre><code>新版本 → canary 1 副本（5% 流量）→ 观察 TTFT/TPOT/错误率
+  → OK 扩到 25% → 50% → 100%
+  → 任何指标回归 → 回滚
+</code></pre>
+<p>观察指标：</p>
+<ul>
+<li>TTFT/TPOT P50/P99 是否回归</li>
+<li>错误率（OOM/截断）是否上升</li>
+<li>输出质量（采样人工/自动评估）</li>
+<li>GPU 利用率/显存是否异常</li>
+</ul>
+<h3>4.2 回滚机制</h3>
+<ul>
+<li><strong>镜像版本化</strong>：每次发版打新镜像 tag，回滚切回旧 tag。</li>
+<li><strong>配置版本化</strong>：参数改动也要可回滚（vLLM 启动参数）。</li>
+<li><strong>模型版本化</strong>：模型权重 revision 固定，回滚切旧 revision。</li>
+<li><strong>快速回滚</strong>：K8s <code>kubectl rollout undo</code>，秒级切回。</li>
+</ul>
+<h3>4.3 影子流量（shadow）</h3>
+<p>新版本先收镜像流量（不返给用户），只对比输出质量/延迟，确认没问题再切真流量。适合质量敏感场景。</p>
+<hr />
+<h2>五、监控仪表盘必备指标</h2>
+<pre><code>实时层：
+  - 请求数（running / waiting / completed/sec）
+  - TTFT P50/P95/P99
+  - TPOT P50/P95/P99
+  - 错误率（按类型：OOM/timeout/truncated/5xx）
+  - GPU 利用率 + 显存利用率 + KV cache 利用率
+  - 抢占次数/min
+  - prefix cache 命中率
+
+容量层：
+  - 副本数（warm / active）
+  - autoscaling 事件
+  - 冷启动次数/时长
+
+成本层：
+  - token 吞吐（in/out）
+  - 单 token 成本趋势
+  - GPU $/小时利用率
+
+质量层：
+  - 完整响应率
+  - 采样人工/自动评估分趋势
+</code></pre>
+<hr />
+<h2>六、限流与降级</h2>
+<h3>6.1 限流</h3>
+<ul>
+<li><strong>按 QPS</strong>：超阈值拒绝/排队，保护后端不雪崩。</li>
+<li><strong>按并发</strong>：限制同时在跑请求数（推理更适合，因为单请求长）。</li>
+<li><strong>按 token 预算</strong>：限制单位时间总 token（防一个长 prompt 耗尽资源）。</li>
+<li><strong>按租户</strong>：多租户配额，防大户挤占。</li>
+</ul>
+<h3>6.2 降级</h3>
+<p>过载时主动降级保核心：</p>
+<ul>
+<li>关闭非核心功能（投机解码降级回普通、关 prefix cache 降内存）。</li>
+<li>路由到更便宜模型（第 11 篇的智能路由）。</li>
+<li>降低 max_tokens / 关流式改批量。</li>
+<li>拒绝低优先级请求（free 用户），保 VIP。</li>
+</ul>
+<hr />
+<h2>七、Inference Lab 的工程纪律启示</h2>
+<p>Inference Lab 文章体现的生产纪律，直接可用于生产部署：</p>
+<ol>
+<li><strong>固定 commit + SHA-256 制品</strong>：每个线上版本可复现。出问题能回退到精确版本。</li>
+<li><strong>每次发版跑证据 catalog</strong>：第 14 篇讲的，把性能/质量/成本证据做成可验证包，发版前回归。</li>
+<li><strong>测量边界随结果写</strong>：SLO 仪表盘上每个数字旁边写清楚它测的是什么（client timing vs provider usage），避免误读。</li>
+<li><strong>fail closed</strong>：证据/回归系统发现不一致（hash 不匹配、commit 不对）就拒绝发版，宁可慢也不发坏版本。</li>
+</ol>
+<hr />
+<h2>八、实践 checklist：生产部署</h2>
+<ul>
+<li>[ ] SLO 按用户体验倒推，看 P95/P99 不看平均</li>
+<li>[ ] 压测找延迟拐点，SLO 设在拐点以下</li>
+<li>[ ] 混合负载 + 长跑稳定性测试</li>
+<li>[ ] 故障注入测试（杀副本、OOM、断网）</li>
+<li>[ ] 灰度发布 canary→25%→50%→100%，任一指标回归即回滚</li>
+<li>[ ] 镜像/配置/模型版本化，可快速回滚</li>
+<li>[ ] 监控仪表盘含实时+容量+成本+质量四层</li>
+<li>[ ] 限流按并发/token 预算/租户</li>
+<li>[ ] 降级策略预定义（关投机、降模型、限长输出）</li>
+<li>[ ] 发版前跑证据 catalog 回归，fail closed</li>
+<li>[ ] warm pool 防冷启动风暴</li>
+</ul>
+<h2>九、原书补强：冷启动四因子分解（Kiely §7.2.2）</h2>
+<blockquote>
+<p>本篇 §3.4 讲了“冷启动风暴”。精读原书后补一条更彻底的分解：冷启动总时间 = 四个独立环节之和，<strong>每环节要单独优化</strong>。</p>
+</blockquote>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>环节</th>
+<th>内容</th>
+<th>优化方向</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GPU 采购</strong></td>
+<td>多快能给集群加卡并划给模型</td>
+<td>容量预留 / 弹性池</td>
+</tr>
+<tr>
+<td><strong>镜像加载</strong></td>
+<td>多快把容器镜像拉到新实例</td>
+<td>镜像分层、就近仓库、预拉</td>
+</tr>
+<tr>
+<td><strong>模型加载</strong></td>
+<td>多快把权重载入容器</td>
+<td>权重分片、本地缓存</td>
+</tr>
+<tr>
+<td><strong>引擎启动</strong></td>
+<td>多快起推理引擎，含编译时间</td>
+<td>预编译 / CUDA graph 预 capture</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>第 18 篇 Inference Lab 的 vLLM 编译 break-even 案例（冷启动债 54s）正落在<strong>第四个环节</strong>：编译时间。这四因子分解给了一个可归因的冷启动预算账——某次冷启动慢，先定位是哪一环，再定向优化，而不是笼统说“冷启动慢”。autoscaling 能否放心缩容，取决于这四环加起来的冷启动速度。</p>
+</blockquote>
+<p>下一篇：<strong>前沿技术</strong>——Prefix Caching 进阶、Chunked Prefill、Disaggregated Inference、MoE 服务。</p>
+        <p><a class="back-link" href="../cost-optimization/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../frontier-techniques/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

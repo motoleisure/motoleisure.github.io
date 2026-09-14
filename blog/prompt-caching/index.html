@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>你的 AI Agent 正在偷偷烧钱？搞懂「提示词缓存」，费用直接降 90% - Agent's Photolog</title>
+  <meta name="description" content="你以为每次提问都要为 5 万 token 的上下文全价买单？其实只要用对缓存：命中部分按一折计费，写对缓存边界、避开动态内容，成本能砍到接近零。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/prompt-caching/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="你的 AI Agent 正在偷偷烧钱？搞懂「提示词缓存」，费用直接降 90%">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/prompt-caching/">
+  <meta property="og:description" content="你以为每次提问都要为 5 万 token 的上下文全价买单？其实只要用对缓存：命中部分按一折计费，写对缓存边界、避开动态内容，成本能砍到接近零。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/prompt-caching/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">你的 AI Agent 正在偷偷烧钱？搞懂「提示词缓存」，费用直接降 90%</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-08">发布于 2026 年 9 月 8 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">你以为每次提问都要为 5 万 token 的上下文全价买单？其实只要用对缓存：命中部分按一折计费，写对缓存边界、避开动态内容，成本能砍到接近零。</p>
+
+        <div class="prose">
+<blockquote>
+<p>你以为每次提问都要为 5 万 token 的上下文全价买单？其实只要用对缓存，成本能砍到接近零。</p>
+</blockquote>
+<figure><p><img alt="题图：小象推着 5 万 token 纸堆走向模型，模型盖上 10% 的缓存命中章" src="../../assets/images/posts/prompt-caching/01.avif"  loading="lazy" /></p><figcaption>题图：小象推着 5 万 token 纸堆走向模型，模型盖上 10% 的缓存命中章</figcaption></figure>
+<hr />
+<p>假设你正在用一个编程 Agent 干活，对话已经积累了 <strong>5 万 token</strong> 的上下文。这时你追加了一个 1 千 token 的小问题，总上下文变成了 5.1 万 token。</p>
+<p>问题来了：这 5.1 万个 token，会不会<strong>全部按全价计费</strong>？</p>
+<p>答案是：<strong>只要你的 Agent 脚手架实现正确，就不会。</strong> 但如果实现不对，你就得为整段内容支付全价——那会非常非常贵。</p>
+<p>今天这期视频讲的就是这件事：<strong>提示词缓存（Prompt Caching）</strong>，以及如何正确使用它，在使用 AI Agent 时省下一大笔钱。</p>
+<h2>先打破一个误区：缓存的是「输入」，不是「输出」</h2>
+<p>搞软件开发的朋友都熟悉缓存：数据库把查询结果存起来，下次同样的查询直接命中，不用再去数据库重新算一遍。</p>
+<p>很多人以为提示词缓存也是这个逻辑——把大模型的<strong>输出</strong>缓存下来，下次发同样的提示词，直接把缓存的回复返回。</p>
+<p><strong>这是完全错误的。</strong></p>
+<p>提示词缓存缓存的不是输出，而是<strong>输入</strong>。</p>
+<p>在大模型的每一次推理中，真正的开销在于：模型需要重新"处理"你发送的全部上下文。</p>
+<ul>
+<li>你的对话进行到一半，已有 5 万 token；</li>
+<li>你又问了一个问题，追加 1 千 token；</li>
+<li>为了让模型理解完整上下文，你必须把 <strong>5.1 万 token 全部重新发送</strong>过去；</li>
+<li>下一次提问，又要重新发送 5.5 万、5.8 万、6 万……</li>
+</ul>
+<p>你会发现：<strong>同样的 token，被一遍又一遍地重复发送。</strong> 每一轮，模型都在重复处理之前已经看过的内容。</p>
+<figure><p><img alt="同一卷纸带循环回送：每一轮都在重复处理之前的 token" src="../../assets/images/posts/prompt-caching/02.avif"  loading="lazy" /></p><figcaption>同一卷纸带循环回送：每一轮都在重复处理之前的 token</figcaption></figure>
+<p>有些 API（比如某些响应式 API）会包装得很好，让你感觉模型"记得"之前说过什么。但后台发生的，其实是模型在<strong>每次响应时把全部上下文重新处理了一遍</strong>。</p>
+<p>顺便说一句——这也是为什么在编码会话里<strong>追求超大上下文不是个好主意</strong>：它会让费用迅速失控。</p>
+<h2>缓存命中价：同样的内容，第二次只要 10%</h2>
+<p>既然如此，各家大模型 API 是怎么解决这个问题的？</p>
+<p>答案就是<strong>提示词缓存</strong>：</p>
+<ul>
+<li>模型<strong>第一次</strong>看到某个 token，按<strong>全价</strong>收费；</li>
+<li>之后<strong>第二次、第三次</strong>再读到完全相同的 token，只收<strong>约 10%</strong> 的缓存命中价。</li>
+</ul>
+<p>实现上，提供商会把相同的处理过程<strong>路由到同一台之前处理过的机器</strong>上，直接命中缓存。</p>
+<p>这意味着：一个 5 万 token 的会话，并不是只消耗 5 万 token，而是 <strong>5 万 + 5.1 万 + 5.4 万 + 5.5 万……</strong> 累加。如果全价支付，费用增长是指数级的；而启用缓存后，大部分重复 token 都按 10% 计费，成本曲线<strong>从指数级变成线性级</strong>，甚至趋近于免费。</p>
+<figure><p><img alt="全价 100 vs 缓存价 10 的柜台：同样的内容，第二次只要 10%" src="../../assets/images/posts/prompt-caching/03.avif"  loading="lazy" /></p><figcaption>全价 100 vs 缓存价 10 的柜台：同样的内容，第二次只要 10%</figcaption></figure>
+<h2>省钱的威力有多大？看几个数字</h2>
+<p>作者做了个模拟：假设一个 <strong>20 万 token</strong> 的编码会话，分别跑在 Claude Opus、GPT、Gemini、Kimi、Grok、DeepSeek 等模型上：</p>
+<ul>
+<li><strong>不启用缓存</strong>：在 Opus、GPT 这些贵价模型上，<strong>一次会话就要 41 美元</strong>，而且这还算短的；</li>
+<li><strong>启用缓存后</strong>：价格大幅下降；</li>
+<li><strong>DeepSeek 更是另一个层级</strong>——现在的缓存价便宜得离谱，基本等于<strong>免费</strong>（不过作者也提醒：价格可能很快会上涨）。</li>
+</ul>
+<p>作者还分享了一个真实案例：一个长会话累计交换了 <strong>1090 万 token</strong>，全部算下来<strong>只花了 6 美分</strong>。"这我无话可说，真的就是基本等于免费。"</p>
+<h2>关键实践：4 条规则让你的缓存一直「命中」</h2>
+<p>既然缓存能省这么多钱，那怎么保证高命中率？作者给出了几条非常重要的实操建议。</p>
+<h3>1. 系统提示词里，绝对不要放「动态内容」⚠️</h3>
+<p>这是最容易被忽略、也最致命的一条。</p>
+<p>假设你的系统提示词有 1 万 token，每次请求都带着它，本来这部分能稳定命中缓存。但如果你在系统提示词里塞了<strong>时间戳</strong>、<strong>当前工作目录</strong>、<strong>动态更新的工具列表</strong>这类会变化的内容——</p>
+<p><strong>哪怕只改了一个字，也会让此后的整个缓存全部失效。</strong> 之后的每一轮，都要重新按全价处理。</p>
+<p>所以：<strong>系统提示词、线程、历史记录，在对话过程中都不应该动态变化。</strong></p>
+<figure><p><img alt="小闹钟卡住缓存之门：时间戳这类动态内容会让整个缓存失效" src="../../assets/images/posts/prompt-caching/04.avif"  loading="lazy" /></p><figcaption>小闹钟卡住缓存之门：时间戳这类动态内容会让整个缓存失效</figcaption></figure>
+<h3>2. 对话历史「只追加，不修改」</h3>
+<p>对话历史应该始终是 append-only（只追加）。不要在中间插入、修改、删除内容，任何一点"小错误"都会导致缓存失效。</p>
+<h3>3. 了解你的提供商：缓存默认开没开？多久过期？</h3>
+<p>不同提供商的缓存策略差异很大：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>提供商</th>
+<th>是否默认启用</th>
+<th>缓存有效期（约）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenAI / Hugging Face</td>
+<td>✅ 默认启用</td>
+<td>约 1 小时</td>
+</tr>
+<tr>
+<td>Anthropic</td>
+<td>❌ 需手动启用</td>
+<td>默认 5 分钟</td>
+</tr>
+<tr>
+<td>Claude Code 认证</td>
+<td>—</td>
+<td>约 1 小时</td>
+</tr>
+<tr>
+<td>Gemini</td>
+<td>❌ 需手动启用</td>
+<td>视配置而定</td>
+</tr>
+</tbody>
+</table></div>
+<p>特别是使用 <strong>Chat Completion API</strong> 时，缓存<strong>并不总是默认开启</strong>，你需要自己去确认、显式启用。如果你用的是托管在后台处理了一切的响应式 API，通常默认就开着。</p>
+<h3>4. 压缩（Compaction）会重置缓存，这是正常代价</h3>
+<p>当对话太长需要把历史内容压缩成摘要时，缓存必然会失效——因为内容已经被重写了。压缩本身没问题，但你心里要有数：<strong>压缩之后，下一轮需要重新"喂"一遍全价输入。</strong></p>
+<h2>最后：用现成的 Agent 脚手架，并盯住命中率</h2>
+<p>如果你不是自己从头搭 Agent 脚手架，就直接用一款成熟的开源脚手架——它会帮你处理好这些细节，甚至能让你<strong>实时监控缓存命中率</strong>。</p>
+<p>作者展示了自己的工具界面：右侧边栏能清楚看到——</p>
+<ul>
+<li>整个会话累计交换了多少 token；</li>
+<li><strong>上一次请求的缓存命中率</strong>；</li>
+<li><strong>整个会话的缓存命中率</strong>。</li>
+</ul>
+<p>还能一键导出<strong>缓存命中报告</strong>，图表直观显示：会话刚开始时按全价计费，随着反复读取相同的 token，命中率越来越高。</p>
+<h2>总结：记住这几句话</h2>
+<ol>
+<li>提示词缓存缓存的是<strong>输入</strong>，不是输出；</li>
+<li>系统提示词里<strong>别放时间戳、工作目录</strong>这类动态内容；</li>
+<li>对话历史<strong>只追加</strong>，别因小失大；</li>
+<li>搞清楚你的提供商<strong>是否默认启用、缓存多久过期</strong>；</li>
+<li>压缩会重置缓存，心里有数即可；</li>
+<li>直接用一个<strong>成熟的 Agent 脚手架</strong>，并<strong>监控缓存命中率</strong>。</li>
+</ol>
+<p>AI Agent 对话烧钱不可怕，可怕的是<strong>明明能命中缓存，却因为一点小配置让每一轮都在全价重算</strong>。</p>
+<p>从今天起，检查一下你的缓存命中率吧——那里藏着一笔你可能已经亏了很久的钱。💰</p>
+<hr />
+<p><em>本文内容提炼自视频《Prompt Caching Explained: Stop Overpaying for AI Agents》，字幕由本地语音识别工具自动生成，术语已按上下文校正。</em></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

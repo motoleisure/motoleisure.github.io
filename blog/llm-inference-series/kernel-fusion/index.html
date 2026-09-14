@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>18 · 算子融合与 kernel 选型：torch.compile、CUDA graphs、autotuning - Agent's Photolog</title>
+  <meta name="description" content="*Atlas 补强篇（对应 Technique Atlas #24）*。profiler 显示一堆重复的 device-memory 来回搬运、或小算子之间的 launch 开销——这是 *Runtime / kernel engineer* 的主场。这一篇讲算子融合与 kernel 选型，并且直接拿已读的 Inference Lab「vllm-compilation-break-even」做实证案例：编译让单请求更快，但启动多欠 54 秒，&quot;第 113 请求交叉&quot;只是建模而非观测——这恰好是本技术 tradeoff 的高保真样本。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/kernel-fusion/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="18 · 算子融合与 kernel 选型：torch.compile、CUDA graphs、autotuning">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/kernel-fusion/">
+  <meta property="og:description" content="*Atlas 补强篇（对应 Technique Atlas #24）*。profiler 显示一堆重复的 device-memory 来回搬运、或小算子之间的 launch 开销——这是 *Runtime / kernel engineer* 的主场。这一篇讲算子融合与 kernel 选型，并且直接拿已读的 Inference Lab「vllm-compilation-break-even」做实证案例：编译让单请求更快，但启动多欠 54 秒，&quot;第 113 请求交叉&quot;只是建模而非观测——这恰好是本技术 tradeoff 的高保真样本。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/kernel-fusion/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">18 · 算子融合与 kernel 选型：torch.compile、CUDA graphs、autotuning</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">*Atlas 补强篇（对应 Technique Atlas #24）*。profiler 显示一堆重复的 device-memory 来回搬运、或小算子之间的 launch 开销——这是 *Runtime / kernel engineer* 的主场。这一篇讲算子融合与 kernel 选型，并且直接拿已读的 Inference Lab「vllm-compilation-break-even」做实证案例：编译让单请求更快，但启动多欠 54 秒，&quot;第 113 请求交叉&quot;只是建模而非观测——这恰好是本技术 tradeoff 的高保真样本。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p><em>Atlas 补强篇（对应 Technique Atlas #24）</em>。profiler 显示一堆重复的 device-memory 来回搬运、或小算子之间的 launch 开销——这是 <em>Runtime / kernel engineer</em> 的主场。这一篇讲算子融合与 kernel 选型，并且<strong>直接拿已读的 Inference Lab「vllm-compilation-break-even」做实证案例</strong>：编译让单请求更快，但启动多欠 54 秒，"第 113 请求交叉"只是建模而非观测——这恰好是本技术 tradeoff 的高保真样本。</p>
+</blockquote>
+<hr />
+<h2>一、动机：两个隐藏成本</h2>
+<p>推理时 GPU 的算子调度有两个容易被忽略的成本：</p>
+<ol>
+<li><strong>device-memory 往返</strong>：两个算子串行跑，第一个把中间结果<strong>写回 HBM</strong>，第二个再<strong>读回来</strong>。这一写一读是带宽 + 延迟，白白消耗。</li>
+<li><strong>kernel launch 开销</strong>：每个 kernel 启动有 CPU→GPU 的 dispatch 延迟（几微秒）。算子多、每个小，launch 开销累计就显著——decode 阶段尤其，因为每个 token 要跑很多小算子。</li>
+</ol>
+<p><strong>算子融合</strong>治第一个：把能合并的算子揉成一个 kernel，中间结果<strong>留在片上（寄存器/SRAM）</strong>，不写回 HBM。
+<strong>kernel 选型 + autotuning</strong>治第二个：给每种 shape/hardware 选最快的实现，并用 CUDA graph 把整段调度的 launch 开销摊掉。</p>
+<hr />
+<h2>二、算子融合（Atlas #24 核心）</h2>
+<h3>2.1 什么是融合</h3>
+<pre><code>未融合:  读 → Op A → 写HBM → 读HBM → Op B → 写
+融合后:  读 → Op A + Op B(同一 kernel) → 写      ← 中间结果不出片上
+</code></pre>
+<p>Atlas 原文："Fusion keeps intermediate results inside a combined kernel rather than writing and rereading them between operations."</p>
+<h3>2.2 Transformer 里典型的融合点</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>融合点</th>
+<th>未融合（几个 kernel）</th>
+<th>融合后</th>
+<th>收益</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>QKV projection</td>
+<td>3 个 GEMM</td>
+<td>1 个 GEMM（拼接）</td>
+<td>launch + 带宽</td>
+</tr>
+<tr>
+<td>RoPE</td>
+<td>2 矩阵乘 + 旋转</td>
+<td>1 fused rope</td>
+<td>带宽</td>
+</tr>
+<tr>
+<td>LayerNorm</td>
+<td>均值/方差/scale/shift 多步</td>
+<td>1 fused layernorm</td>
+<td>带宽</td>
+</tr>
+<tr>
+<td>SiLU/GELU + mul</td>
+<td>激活 + 逐元素乘</td>
+<td>1 fused</td>
+<td>带宽</td>
+</tr>
+<tr>
+<td>Attention（FlashAttention 就是融合的极端）</td>
+<td>QK^T → softmax → mask → AV 多步</td>
+<td>1 fused tile kernel</td>
+<td><strong>大</strong>（见第 07 篇）</td>
+</tr>
+<tr>
+<td>RMSNorm</td>
+<td>多步</td>
+<td>1 fused</td>
+<td>带宽</td>
+</tr>
+</tbody>
+</table></div>
+<blockquote>
+<p>注意：FlashAttention 本身就是"算子融合"的旗舰案例——它把 attention 的多步写回（score 矩阵）压成 tile 内就地计算。第 07 篇讲的是它的算法，这里是从"融合"角度再切一刀。</p>
+</blockquote>
+<h3>2.3 融合的代价（Atlas 反复强调的 tradeoff）</h3>
+<blockquote>
+<p>"Fusion can raise register pressure or lose an efficient library path. A faster isolated kernel can leave the service bottleneck unchanged."</p>
+</blockquote>
+<ul>
+<li><strong>寄存器压力</strong>：揉进越多算子，寄存器占用越高，可能溢出到本地内存（local memory），反而变慢。</li>
+<li><strong>丢掉高效库路径</strong>：有些算子有高度优化的库（cuBLAS/cutlass），自己融合的版本可能不如调好的库。</li>
+<li><strong>孤立更快 ≠ 服务更快</strong>：一个 kernel 快了 20%，但服务瓶颈在 KV cache 带宽，整体没变——<strong>别只看 micro-benchmark</strong>。</li>
+</ul>
+<hr />
+<h2>三、kernel 选型与 autotuning</h2>
+<h3>3.1 shape/hardware 匹配</h3>
+<p>同一个算子（比如 GEMM），不同 shape、不同精度（FP8/INT8/FP16）、不同 GPU（Ampere/Hopper/Blackwell）该用不同实现：</p>
+<ul>
+<li>小矩阵：可能 cuBLAS 不如手写 kernel。</li>
+<li>大矩阵 + FP8：要用 Hopper 的 tensor core FP8 路径。</li>
+<li>GQA 的 KV GEMM：shape 特殊，要专门 kernel。</li>
+</ul>
+<h3>3.2 autotuning（Triton/TVM 路线）</h3>
+<p>把 kernel 参数（tile 大小、并行策略）当搜索空间，对每个 shape 在目标硬件上跑一遍 tuning，记下最快配置。Triton 的 <code>@triton.jit + autotune</code> 是主流：</p>
+<pre><code>@triton.jit
+@triton.autotune(configs=[triton.Config({...}, num_warps=4), ...], key=[<span class="tok-s">&#x27;M&#x27;</span>,<span class="tok-s">&#x27;N&#x27;</span>,<span class="tok-s">&#x27;K&#x27;</span>])
+def fused_kernel(...): ...
+</code></pre>
+<p>→ autotuning 的产物是 <strong>shape → 配置</strong> 的查表，运行时按 shape 选。<strong>这是为什么"同一个模型在 A100 和 H100 上最优 kernel 不同"。</strong></p>
+<h3>3.3 vLLM/SGLang 的 kernel 选型</h3>
+<ul>
+<li>vLLM 内置多种 attention / quant kernel（FlashAttention、FlashInfer、xformers、Marlin for INT4），按模型 + 硬件自动选。</li>
+<li>SGLang 用 FlashIncer / Triton 融合 kernel，重度 autotuning。</li>
+<li><strong>经验</strong>：别假定默认 kernel 最优，<code>VLLM_ATTENTION_BACKEND</code> 这类环境变量能切后端，benchmark 不同后端。</li>
+</ul>
+<hr />
+<h2>四、torch.compile 与 CUDA graphs（编译路径）</h2>
+<h3>4.1 torch.compile（inductor）</h3>
+<p>PyTorch 2.x 的 <code>torch.compile</code>（inductor 后端）把 eager 的 Python 算子图<strong>编译成融合的 Triton/CUDA kernel</strong>，并做算子融合 + autotuning。推理框架（vLLM、SGLang）把 <code>torch.compile(mode="max-autotune", fullgraph=True)</code> 用在模型上：</p>
+<ul>
+<li>收益：融合 + 减少 launch + 选快 kernel。</li>
+<li>代价：<strong>编译耗时</strong>——第一次跑要编译，冷启动慢很多。这就是下一节 Inference Lab 案例的主角。</li>
+</ul>
+<h3>4.2 CUDA graphs</h3>
+<p>CUDA graph 把一整段 kernel 调度<strong>录制成一个 graph</strong>，之后一次 replay，省掉所有 CPU 端 launch 开销。decode 阶段（每个 token 跑固定算子图）特别适合 graph replay。</p>
+<ul>
+<li>vLLM/SGLang 都有 CUDA graph capture（<code>--enforce-eager</code> 关掉就是开 graph）。</li>
+<li>代价：graph 录制要固定 shape/batch，<strong>变 batch 时要重新 capture</strong>；某些动态控制流不好 graph 化。</li>
+<li>收益：decode 的 launch 开销几乎清零，TPOT 明显下降。</li>
+</ul>
+<hr />
+<h2>五、实证案例：Inference Lab「vllm-compilation-break-even」</h2>
+<p>这一节是本技术的真实样本——<strong>来自第 14 篇 / 已读的 Inference Lab vllm-compilation-break-even</strong>。</p>
+<h3>5.1 现象</h3>
+<p>开 torch.compile + CUDA graph（compiled 模式）后：
+- ✅ <strong>稳态单请求更快</strong>：compiled 后每个 token 的 decode 更快（融合 + graph replay 省了 launch/带宽）。
+- ❌ <strong>冷启动多欠 54 秒</strong>：第一次要编译模型、capture graph，启动时间多欠 ~54s。
+- 📊 <strong>"第 113 请求交叉"</strong>：要服务到第 113 个请求，compiled 累计省下的时间才追平冷启动多欠的 54s。</p>
+<h3>5.2 Inference Lab 的三个反直觉结论</h3>
+<ol>
+<li><strong>"第 113 请求交叉"是建模，不是观测。</strong> 作者强调这个交叉点是<strong>从延迟模型外推的</strong>，不是实测稳态跑到 113 个请求观测出来的。→ <strong>模型可以指导下次运行，但不必晋升为"上次的结果"</strong>。这是第 14 篇"测量边界先于指标"的体现。</li>
+<li><strong>输出漂移</strong>：compiled 和 eager 两条路，12 个请求里 <strong>4 个输出不同</strong>。融合 + graph 改变了浮点执行顺序，输出不逐位一致。→ 开编译要做质量 gate，不是"无损加速"。</li>
+<li><strong>break-even 取决于 workload</strong>：只有请求数 &gt; break-even 点、且稳态省下的时间能覆盖冷启动债，compiled 才净赚。短时服务 / 频繁重启的场景，compiled 净亏。</li>
+</ol>
+<h3>5.3 这正好对应 Atlas #24 的全部 tradeoff</h3>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Atlas 的告诫</th>
+<th>vllm-compilation-break-even 的实证</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"A faster isolated kernel can leave the service bottleneck unchanged"</td>
+<td>单 token 快了，但冷启动 54s 才是真实成本</td>
+</tr>
+<tr>
+<td>"Fusion can raise register pressure or lose an efficient library path"</td>
+<td>compiled 输出和 eager 不一致（执行顺序变了）</td>
+</tr>
+<tr>
+<td>"No fixed speedup is guaranteed"</td>
+<td>break-even 点随 workload 浮动，不是"开了就快"</td>
+</tr>
+</tbody>
+</table></div>
+<p>→ 这就是为什么把 Inference Lab 那篇放在本篇做案例：<strong>它是"算子融合/kernel 选型"tradeoff 最完整的一份实测样本。</strong></p>
+<hr />
+<h2>六、什么时候该开 compile / 什么时候别开</h2>
+<h3>6.1 该开</h3>
+<ul>
+<li><strong>长稳态服务</strong>：服务跑得久，请求数远超 break-even 点，冷启动债能摊掉。</li>
+<li><strong>decode 主导</strong>：CUDA graph 对 decode 的 launch 开销收益最大。</li>
+<li><strong>固定 shape</strong>：batch 模式固定，graph 不用反复 capture。</li>
+</ul>
+<h3>6.2 别开 / 慎开</h3>
+<ul>
+<li><strong>短时任务 / 频繁重启</strong>：冷启动债 54s 摊不掉，净亏。</li>
+<li><strong>变 batch 剧烈</strong>：graph 反复 capture，capture 本身有开销。</li>
+<li><strong>对输出一致性敏感</strong>：compiled 有浮点漂移，关键场景要测。</li>
+</ul>
+<h3>6.3 决策树</h3>
+<pre><code>服务是长稳态 + decode 主导 + 固定 batch?
+  ├─ 是 → 开 torch.compile + CUDA graph，但先测：
+  │        (1) 冷启动债多少秒
+  │        (2) 稳态每 token 省多少
+  │        (3) break-even 请求 = 冷启动债 / 稳态每请求省
+  │        (4) 你的真实请求数 &gt;&gt; break-even 吗
+  │        (5) 开编译 vs 不开，输出质量对照（漂移检测）
+  └─ 否（短时/频繁重启/变 batch）→ 用 eager，或只开 CUDA graph 不开 full compile
+</code></pre>
+<blockquote>
+<p>关键纪律：<strong>break-even 点要自己算，别信框架/文档的声称。</strong> Inference Lab 的核心教训就是"第 113 请求是建模不是观测"——你的环境、workload、硬件的 break-even 要实测。</p>
+</blockquote>
+<hr />
+<h2>七、责任边界与证据</h2>
+<p>Atlas 把 #24 归 <em>Runtime / kernel engineer</em>。inference engineer 不一定要手写 kernel，但要：</p>
+<ol>
+<li>能读懂 profiler（哪些算子在搬 HBM、哪些 launch 多）。</li>
+<li>能开关 + 选 kernel backend（<code>VLLM_ATTENTION_BACKEND</code>、<code>--enforce-eager</code>）。</li>
+<li>算 break-even，决定 compile/graph 开不开。</li>
+<li>测输出漂移（开编译 vs 不开的 token 级对照）。</li>
+</ol>
+<p>证据指标：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>kernel time / launch overhead</td>
+<td>profiler 看每算子时间 + launch 占比</td>
+</tr>
+<tr>
+<td>end-to-end TTFT / TPOT</td>
+<td>真北极</td>
+</tr>
+<tr>
+<td>cold-start time</td>
+<td>冷启动债（compile/graph capture）</td>
+</tr>
+<tr>
+<td>output diff rate</td>
+<td>开/关编译的输出差异比例</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2>八、实践 checklist：算子融合与 kernel 选型</h2>
+<ul>
+<li>[ ] 先 profiler 找瓶颈：是 HBM 搬运还是 launch 开销，再决定融什么</li>
+<li>[ ] benchmark 不同 attention/quant kernel backend，别假定默认最优</li>
+<li>[ ] 开 torch.compile 前先量冷启动债（Inference Lab 实测 54s 级别）</li>
+<li>[ ] 自己算 break-even 请求 = 冷启动债 / 稳态每请求省，别信声称</li>
+<li>[ ] 真实请求数 &gt;&gt; break-even 才净赚，短时服务用 eager</li>
+<li>[ ] 开编译后做 token 级输出对照，检测漂移（Inference Lab：12 请求 4 不同）</li>
+<li>[ ] CUDA graph 对 decode 收益大，但变 batch 要重 capture，权衡</li>
+<li>[ ] "第 113 请求交叉"是建模不是观测——别把外推当实测结果引用</li>
+<li>[ ] 声明写边界："compiled 稳态 TPOT 降 X%，冷启动 +54s，break-even ~113 请求（建模值）"</li>
+</ul>
+<h2>九、原书补强：DeepGEMM——手动 kernel 选型的真例（Kiely §4.1.2）</h2>
+<blockquote>
+<p>本篇 §3 讲了 kernel 选型“大多自动、少数手动”。精读原书后补一个原书给的真例，让“手动选型”具体化。</p>
+</blockquote>
+<p><strong>DeepGEMM 是“手动 kernel 选型”的教科书案例。</strong> DeepSeek 发 DeepSeek-V3 时一并发了 <strong>DeepGEMM</strong>——针对 <strong>Hopper 架构 FP8 矩阵乘</strong>的更高效 GEMM kernel。绝大多数生产 GEMM 来自 cuBLAS（自动），但当你有“两个精确维度的矩阵相乘”这种具体步骤时，可把 DeepGEMM kernel <strong>作为插件插入</strong>替换该步、提速。</p>
+<p><strong>两个工程教训：</strong></p>
+<ol>
+<li><strong>kernel 与硬件硬绑定。</strong> DeepGEMM 为 Hopper 写、硬编码了该架构的 Tensor Core 布局/带宽。换 B200 要么换回 cuBLAS、要么等 DeepGEMM 出 Blackwell 支持（出版时已支持）、要么自己移植。<strong>kernel 升级跨架构要重做</strong>，不是“一次写到处跑”。</li>
+<li><strong>手动选型 = 精确点插。</strong> 不是整模型换 kernel，而是定位到“这步 matmul 维度刚好匹配 DeepGEMM 强项”才插。和本篇 §5 的 Inference Lab 编译 break-even 同源：<strong>孤立的更快 kernel 不代表服务瓶颈消除</strong>——插之前先 profiler 确认这步真是瓶颈。</li>
+</ol>
+<p>下一篇：<strong>训练侧边界认知</strong>——inference engineer 该懂的 9 件事：QAT、activation checkpoint、sequence packing、mixed-precision、DDP、ZeRO、GPipe/PipeDream/Zero-bubble。不需要会训练，但要能和训练团队对话。</p>
+        <p><a class="back-link" href="../cache-aware-routing/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../training-side-boundary/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

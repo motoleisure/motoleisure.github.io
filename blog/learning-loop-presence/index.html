@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>谁该拥有你的学习闭环：OpenAI 用 Codex 10 天降了 15% 转接率，但有个更深的押注 - Agent's Photolog</title>
+  <meta name="description" content="生产会话暴露缺口→Codex 提议修复→团队测试批准→上线：这套闭环和 Cole Murray 开源的 OpenInspect 是同一种架构，区别只在——你租用闭环，还是拥有闭环。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/learning-loop-presence/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="谁该拥有你的学习闭环：OpenAI 用 Codex 10 天降了 15% 转接率，但有个更深的押注">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/learning-loop-presence/">
+  <meta property="og:description" content="生产会话暴露缺口→Codex 提议修复→团队测试批准→上线：这套闭环和 Cole Murray 开源的 OpenInspect 是同一种架构，区别只在——你租用闭环，还是拥有闭环。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/learning-loop-presence/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">谁该拥有你的学习闭环：OpenAI 用 Codex 10 天降了 15% 转接率，但有个更深的押注</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-12">发布于 2026 年 9 月 12 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">生产会话暴露缺口→Codex 提议修复→团队测试批准→上线：这套闭环和 Cole Murray 开源的 OpenInspect 是同一种架构，区别只在——你租用闭环，还是拥有闭环。</p>
+
+        <div class="prose">
+<blockquote>
+<p>OpenAI Presence自带一个"Codex驱动的改进循环":生产会话暴露缺口→Codex提议修复→团队测试批准→上线。10天把人工转接率降了15个百分点。但这套闭环的架构,和Cole Murray开源的OpenInspect是同一种——区别在于:OpenAI押注"你租我的闭环",Cole押注"你拥有自己的闭环"。这篇拆为什么这个区别比模型本身更重要。</p>
+</blockquote>
+<figure><p><img alt="学习闭环:一处修复,全员受益" src="../../assets/images/posts/learning-loop-presence/01.avif"  loading="lazy" /></p><figcaption>学习闭环:一处修复,全员受益</figcaption></figure>
+<h2>一、先看一个硬数字:10天,15个百分点</h2>
+<p>OpenAI刚发布的Presence,跑在它自己的英文电话客服1-888-GPT-0090上。官方博客原文我逐字抓了:</p>
+<blockquote>
+<p>"Within weeks, it met or exceeded benchmarks we use to grade frontline human-support quality and now resolves 75% of inbound issues without human assistance. Working with our launch team, its Codex-powered improvement loop reduced human handoffs by 15 percentage points in just 10 days."</p>
+</blockquote>
+<p><strong>75%的来电无需人工,10天降15个百分点的转接率。</strong> 这不是PPT数字,是OpenAI自己的客服线上跑出来的。</p>
+<p>它的闭环是这样的:每次部署从一个具体工种开始(比如解决账单问题),agent只拿到这个工种所需的知识和系统权限,公司设定policy(能做什么、何时需审批、何时转人工)。上线后,<strong>生产会话和转接暴露缺口→Codex提议更新→团队测试每个提议(和线上版本对比)→批准一个受控的滚动发布</strong>。</p>
+<p>这就是"学习闭环"——agent不是因为模型变强了才变强,而是因为<strong>它从自己的错误中学到了</strong>。</p>
+<figure><p><img alt="10天降15个百分点:人工转接→闭环驱动→多数来电自解" src="../../assets/images/posts/learning-loop-presence/02.avif"  loading="lazy" /></p><figcaption>10天降15个百分点:人工转接→闭环驱动→多数来电自解</figcaption></figure>
+<h2>二、什么是学习闭环,为什么它比模型更重要</h2>
+<p>先把概念说清楚。大模型时代,很多人以为"换个更强的模型"就是agent进化的路径。但生产环境的agent,真正的瓶颈不是模型绝对能力——是你怎么从自己的真实会话里发现错误、修复它、让所有未来的会话都受益。</p>
+<p>一个完整的学习闭环有四个站:</p>
+<ol>
+<li><strong>生产信号</strong>:真实会话里出了什么问题(转接、投诉、没完成任务)。</li>
+<li><strong>发现缺口</strong>:从信号里定位"agent哪里做错了"——是没调对工具?漏了约束?还是该追问的时候没追问?</li>
+<li><strong>提议修复</strong>:基于缺口提出改法(改prompt、加约束、加工具、调路由)。</li>
+<li><strong>测试+批准+上线</strong>:把改法和线上版本对比测,过了才推。</li>
+</ol>
+<p>关键在于:<strong>这个闭环跑得越久,你的agent越懂你的业务、你的客户、你的流程。</strong> 这是复利,不是线性提升。10天降15个百分点,是因为OpenAI的闭环转起来了;你如果也有一个跑起来的闭环,你的agent也会以同样的速度变好。</p>
+<figure><p><img alt="学习闭环四站：生产信号→发现缺口→提议修复→测试·批准·上线" src="../../assets/images/posts/learning-loop-presence/03.avif"  loading="lazy" /></p><figcaption>学习闭环四站：生产信号→发现缺口→提议修复→测试·批准·上线</figcaption></figure>
+<h2>三、但Cole Murray赌的是另一个方向:这个闭环,你该拥有</h2>
+<p>问题来了。Presence的学习闭环确实跑通了,但它的落地形态是这样的:</p>
+<figure><p><img alt="Presence的Codex改进循环:生产信号→Codex提议→测试·批准" src="../../assets/images/posts/learning-loop-presence/04.avif"  loading="lazy" /></p><figcaption>Presence的Codex改进循环:生产信号→Codex提议→测试·批准</figcaption></figure>
+<p>我逐字引官方原文:</p>
+<blockquote>
+<p>"Presence is available to eligible enterprise customers as a deployed product through a limited general availability program. Deployments are led by OpenAI Forward Deployed Engineers and select global systems integrators. Presence is not yet available as a self-serve product."</p>
+</blockquote>
+<p>翻译:不是自助产品,得由OpenAI的前线部署工程师(FDE)和选定的系统集成商带着你上,限量GA。组件是:policies和SOP、guardrails、approved actions、simulations、evaluation tools、Codex-powered改进流程。客户是BBVA(墨西哥银行语音客服)、SoftBank(日语客服)、IAG(极端天气高峰期客服)。</p>
+<p>而Cole Murray——我们前几轮追的那位"software factory"作者——在开源OpenInspect时,把"learning loops"列为<strong>应该开源的五个理由之一</strong>。他的逻辑是:</p>
+<ul>
+<li><strong>组织路由</strong>:每个公司的真实组织图、任务路由逻辑是独一无二的。厂商给你的路由器是"跨客户平均"的通用版,对不上你的真实流程。</li>
+<li><strong>技能分发</strong>:agent的skills(特定步骤的操作指令)要随你的业务变化而变化。这些skills是你的IP,不该锁在厂商的闭源系统里。</li>
+<li><strong>学习闭环</strong>:会话轨迹(session trajectories)是agent进化的燃料。这些轨迹包含你的客户数据、你的业务流程、你的失败模式——<strong>你租着用,意味着你的改进燃料在别人的服务器上</strong>。</li>
+<li><strong>成本优化</strong>:token的ROI归属(哪个路由、哪个skill、哪个prompt在花钱)只有你自己能算清,因为只有你有完整的组织上下文。</li>
+<li><strong>token ROI归属</strong>:哪个agent调用产生了实际价值?这需要你的业务系统数据,厂商给不了。</li>
+</ul>
+<p>Cole的结论是:"价值不在基建,在组织流程。所以你该拥有基建,因为基建是承载你组织流程的容器。"</p>
+<figure><p><img alt="OpenInspect的闭环:会话轨迹·你拥有,技能箱·开放,改进日志·自维护" src="../../assets/images/posts/learning-loop-presence/05.avif"  loading="lazy" /></p><figcaption>OpenInspect的闭环:会话轨迹·你拥有,技能箱·开放,改进日志·自维护</figcaption></figure>
+<h2>四、同一种闭环,两个相反的押注</h2>
+<p>把两套放一起看,张力就出来了:</p>
+<figure><p><img alt="同一架构,两个押注:企业托管 vs 开源自建" src="../../assets/images/posts/learning-loop-presence/06.avif"  loading="lazy" /></p><figcaption>同一架构,两个押注:企业托管 vs 开源自建</figcaption></figure>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>OpenAI Presence</th>
+<th>Cole Murray / OpenInspect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>闭环架构</td>
+<td>生产→Codex提议→测试→批准→上线</td>
+<td>生产→你自己的改进流程→测试→上线</td>
+</tr>
+<tr>
+<td>会话轨迹</td>
+<td>在OpenAI侧</td>
+<td>在你自己的服务器</td>
+</tr>
+<tr>
+<td>改进引擎</td>
+<td>Codex(OpenAI的)</td>
+<td>你选的任意模型+agent harness</td>
+</tr>
+<tr>
+<td>部署方式</td>
+<td>FDE带队,限量GA,非自助</td>
+<td>开源MIT,自托管,社区贡献</td>
+</tr>
+<tr>
+<td>组件</td>
+<td>policy/guardrail/sim/eval全打包</td>
+<td>你自己拼(OpenInspect给基建)</td>
+</tr>
+<tr>
+<td>你拥有什么</td>
+<td>你的policy和SOP</td>
+<td>一切:轨迹、skills、路由、改进循环</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>架构是同一种趋势</strong>:生产信号→发现缺口→提议修复→测试→上线。两边都认这个循环是对的。</p>
+<p><strong>区别在于闭环的"所有权"在谁手里</strong>:
+- OpenAI押注:<strong>闭环的引擎(Codex)和燃料(会话轨迹)都放在我这,你出policy和SOP,我帮你跑。</strong> 你省心,但你的进化数据在我这。
+- Cole押注:<strong>闭环的一切都在你手里——轨迹你自己存,改进引擎你自己选,skills你自己维护。</strong> 你操心,但你的进化数据是你的。</p>
+<h2>五、为什么"拥有"比"租用"重要:三个具体场景</h2>
+<p>这不是抽象的哲学之争。三个具体场景:</p>
+<p><strong>场景1:你换了模型厂商。</strong> 今天用OpenAI的Astra,明天想换Anthropic的Claude或xAI的Grok(τ³-bench已经支持这三个provider)。如果你租着Presence,你的历史会话轨迹、你的改进记录都在OpenAI侧,换厂商=从零开始。如果你拥有OpenInspect,轨迹是你自己的,换引擎=换个adapter,闭环继续转。</p>
+<p><strong>场景2:你的业务流程变了。</strong> 比如你从"餐厅订位"扩展到"退款处理",需要加新的policy约束和工具调用顺序。租用模式下,你得等OpenAI的FDE排期、走他们的审批流。自建模式下,你自己改scenario、自己跑CRAWL/WALK/RUN回归、自己上线——可能当天就发了。</p>
+<p><strong>场景3:你要算token ROI。</strong> 哪个agent路径在烧钱但没产出?哪个skill调用最贵但转化最高?这需要把token消耗和你的业务系统数据(CRM、订单、工单)join起来。厂商的计费面板给不了这个粒度,因为他们没有你的业务上下文。只有你自己拥有轨迹+路由+业务系统,才能算清这笔账。</p>
+<figure><p><img alt="三个场景:换厂商轨迹跟着你/业务变当天上线/算token ROI" src="../../assets/images/posts/learning-loop-presence/07.avif"  loading="lazy" /></p><figcaption>三个场景:换厂商轨迹跟着你/业务变当天上线/算token ROI</figcaption></figure>
+<h2>六、但也要诚实:OpenAI的闭环确实跑通了</h2>
+<p>不能因为Cole的论点有道理,就假装OpenAI的路走不通。事实是:</p>
+<ul>
+<li>Presence解决了75%的来电,这个数字是真的。</li>
+<li>10天降15个百分点的转接率,这是实打实的改进速度。</li>
+<li>BBVA、SoftBank、IAG是真实的企业客户在用。</li>
+<li>Codex作为改进引擎,确实能从生产信号里提出有用的修复(至少OpenAI自己的客服证明了)。</li>
+</ul>
+<p>Cole的OpenInspect呢?前几轮我们查过:2796 stars、411 forks、约1637个已合并PR,社区活跃度有;但<strong>没有可证实的生产客户案例</strong>,产品端零商业化(无SaaS定价、无席位费),唯一收入是Cole的咨询业务。</p>
+<p>也就是说:<strong>OpenAI的闭环是跑通了的产品,Cole的闭环是跑起来了的开源项目但没跑通商业。</strong> 这不是谁对谁错的问题——是两个不同阶段的赌注。</p>
+<figure><p><img alt="两个阶段：跑通的产品 vs 跑起来的开源，不是对错是阶段" src="../../assets/images/posts/learning-loop-presence/08.avif"  loading="lazy" /></p><figcaption>两个阶段：跑通的产品 vs 跑起来的开源，不是对错是阶段</figcaption></figure>
+<h2>七、落点:你该问自己的问题</h2>
+<figure><p><img alt="你该拥有的不是模型,是学习闭环" src="../../assets/images/posts/learning-loop-presence/09.avif"  loading="lazy" /></p><figcaption>你该拥有的不是模型,是学习闭环</figcaption></figure>
+<p>如果你正在做agent产品,不管选哪条路,有一个问题是绕不开的:</p>
+<p><strong>你的学习闭环,谁拥有?</strong></p>
+<ul>
+<li>如果你选租用(Presence这类):你的闭环引擎是别人的,你的进化数据在别人服务器上。你省了部署的心,但你的agent的"进化速度"不掌握在你手里——它取决于厂商的FDE排期和Codex更新节奏。</li>
+<li>如果你选自建(OpenInspect这类):你的闭环一切都在你手里。你要操心部署、维护、改进流程,但你的agent进化速度由你自己控制,你的业务知识沉淀在你自己的系统里。</li>
+</ul>
+<p>还有一个中间态值得注意:OpenAI的GPT-Live-1 API本身就支持<strong>Client委托模式</strong>——GPT-Live只管语音交互,推理和工具调用你完全可以路由到自己的agent harness。这意味着你可以在"用OpenAI的语音前端"+"用自己的后端和闭环"之间做组合。你的会话轨迹、你的改进循环在你这边,前端只是个语音管道。</p>
+<figure><p><img alt="中间态：租用前端+你拥有后端·轨迹·改进循环" src="../../assets/images/posts/learning-loop-presence/10.avif"  loading="lazy" /></p><figcaption>中间态：租用前端+你拥有后端·轨迹·改进循环</figcaption></figure>
+<p>所以真正的选择不是"OpenAI还是开源",而是:</p>
+<p><strong>你的学习闭环的引擎和燃料,放在谁手里?</strong></p>
+<p>这个问题的答案,取决于你的业务复杂度、你的合规要求、你的团队能力。但有一点是确定的:<strong>闭环跑起来的人,赢。</strong> 不管你用谁的基建,只要你的闭环在转——生产信号在喂进来,缺口在被发现,修复在被测试和上线——你的agent就会以复利速度变好。</p>
+<p>OpenAI用10天降了15个百分点,不是因为GPT-Live-1比别人强10倍,而是因为<strong>他们的闭环转起来了</strong>。你的闭环转起来了吗?</p>
+<hr />
+<p><strong>来源(均一手核验):</strong>
+- OpenAI Presence发布页: <code>openai.com/index/introducing-openai-presence/</code>(全文,75%无人转接、10天降15pp、BBVA/SoftBank/IAG客户、限量GA非自助)
+- OpenAI GPT-Live-1 API发布页: <code>openai.com/index/introducing-gpt-live-1-in-the-api/</code>(前后端分离、Client委托模式原文)
+- GPT-Live Live API delegation guide: <code>developers.openai.com/api/docs/guides/live-delegation</code>(547KB,"With client delegation, connect any model, agent harness, or service your application runs")
+- Cole Murray "Why I open-sourced my software factory" 文章(开源rationale五点:organizational routing / skills distribution / learning loops / cost optimization / token ROI attribution)
+- GitHub <code>ColeMurray/background-agents</code>(OpenInspect,2796 stars/411 forks,MIT,零商业化)
+- OpenAI Plugins文档: <code>developers.openai.com/plugins</code>(skills+MCP+hooks,通用插件目录)
+- τ³-bench voice README: <code>github.com/sierra-research/tau2-bench</code>(支持OpenAI/Gemini/xAI三provider)
+- OpenAI Cookbook CRAWL/WALK/RUN: <code>github.com/openai/openai-cookbook/tree/main/examples/audio/duplex_voice_agent_evaluation</code></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GPT-Live-1 架构图解教程：从全双工音频流到工具调用全流程 - Agent's Photolog</title>
+  <meta name="description" content="用 10 张图逐步拆解 GPT-Live-1 的完整实现架构：音频怎么流进流出、委托怎么发生、工具怎么执行、结果怎么确认说回用户——每一张图对应一个架构层，看完就能动手搭。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/gpt-live-1-architecture/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="GPT-Live-1 架构图解教程：从全双工音频流到工具调用全流程">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/gpt-live-1-architecture/">
+  <meta property="og:description" content="用 10 张图逐步拆解 GPT-Live-1 的完整实现架构：音频怎么流进流出、委托怎么发生、工具怎么执行、结果怎么确认说回用户——每一张图对应一个架构层，看完就能动手搭。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/gpt-live-1-architecture/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">GPT-Live-1 架构图解教程：从全双工音频流到工具调用全流程</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-12">发布于 2026 年 9 月 12 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">用 10 张图逐步拆解 GPT-Live-1 的完整实现架构：音频怎么流进流出、委托怎么发生、工具怎么执行、结果怎么确认说回用户——每一张图对应一个架构层，看完就能动手搭。</p>
+
+        <div class="prose">
+<blockquote>
+<p>OpenAI 的 GPT-Live-1 是一个全双工语音到语音模型——能边听边说，把推理和工具调用委托给后端文本模型。这份教程用 10 张图逐步拆解它的完整实现架构：从音频怎么流进流出，到委托怎么发生，到工具怎么执行，到结果怎么确认说回用户，再到计费和上下文怎么管。每一张图对应一个架构层，看完你就能动手搭。</p>
+</blockquote>
+<figure><p><img alt="GPT-Live-1 完整系统：用户音频→前端→委托→后端→工具→结果→音频流回" src="../../assets/images/posts/gpt-live-1-architecture/01.avif"  loading="lazy" /></p><figcaption>GPT-Live-1 完整系统：用户音频→前端→委托→后端→工具→结果→音频流回</figcaption></figure>
+<h2>一、总览：一条完整的数据流</h2>
+<p>先看全局。GPT-Live-1 不是一个"模型"那么简单——它是一套<strong>分层架构</strong>，至少三层：</p>
+<ol>
+<li><strong>语音前端层</strong>（gpt-live-1 本体）：管理实时对话——音频进出、接话、打断、ASR 转写、回复文本。它"边听边说"，不等你讲完才开口。</li>
+<li><strong>后端推理层</strong>：一个文本模型（OpenAI 的 GPT-6 Astra / GPT-5.6 Terra / GPT-5.6 Luna，或你自己的第三方模型），负责深度推理和工具调用。前端把活"委托"给它。</li>
+<li><strong>工具与应用层</strong>：后端调用的 API、数据库、业务系统——真正执行操作、改变应用状态的地方。</li>
+</ol>
+<p>官方博客那句关键定位是："developers choose the models, tools, and agent harness behind the conversation"——<strong>前端是 OpenAI 的，后端模型、工具、agent harness 由你选</strong>。这和过去那种"一个模型干所有事"的链式 STT→LLM→TTS 架构完全不同。</p>
+<p>数据流走一遍：用户开口 → 音频流进前端 → 前端判断要不要委托 → 委托事件发给后端 → 后端推理 + 调工具 → 工具执行、改应用状态 → 后端把结果返回前端 → 前端把验证过的结果说回用户。<strong>确认是"接地的"（grounded）——只在工具真的成功之后才确认</strong>，不是空口说。</p>
+<h2>二、全双工音频流：没有回合事件</h2>
+<figure><p><img alt="全双工：音频同时流进流出，没有回合事件" src="../../assets/images/posts/gpt-live-1-architecture/02.avif"  loading="lazy" /></p><figcaption>全双工：音频同时流进流出，没有回合事件</figcaption></figure>
+<p>GPT-Live-1 和旧的 GPT-Realtime API 最大的 API 差异在于：<strong>没有回合（turn）和音频结束（audio-done）事件</strong>。</p>
+<p>旧 Realtime API 是回合制的：你说一段，模型说一段，中间靠 <code>turn</code> 事件和 <code>audio_done</code> 事件做交接。这套机制的毛病官方自己点出来了——"brittle handoffs"（脆弱的交接）：每次交接都增加延迟，还容易丢时序、丢上下文、丢对话的自然节奏。</p>
+<p>GPT-Live-1 的 API 是<strong>连续流</strong>：你把音频流进去，音频流出来，模型自己决定什么时候开口。你随时能插话、打断、改主意——因为它在说的同时在听，在听的同时能说。Justin Uberti（OpenAI）指出这和 Realtime API"非常不同"，核心区别就是<strong>没有了回合边界这个概念</strong>。</p>
+<p>这对开发者的意义：你的音频处理管道不能再假设"等用户说完再处理"。前端一直在消费用户音频块——哪怕它自己正在说话、哪怕后端正在干活。这就是为什么后面的评测框架（CRAWL/WALK/RUN）强调"不能在对话之间暂停时钟"。</p>
+<h2>三、前后端分离：最干净的设计</h2>
+<figure><p><img alt="前后端分离：前端管对话，后端管推理+工具" src="../../assets/images/posts/gpt-live-1-architecture/03.avif"  loading="lazy" /></p><figcaption>前后端分离：前端管对话，后端管推理+工具</figcaption></figure>
+<p>这是整个架构最核心的设计决策。官方博客原话：GPT-Live-1 "<strong>can delegate reasoning and tool calls to a backend text model like GPT-6 Astra or a third-party model</strong>"。</p>
+<p>对比旧模型：
+- <strong>GPT-Realtime</strong>：一个模型干三件事——对话、推理、工具调用。全塞在一个模型里。
+- <strong>GPT-Live-1</strong>：前端<strong>只管语音交互</strong>（听、说、接话、打断、ASR、回复文本），推理和工具调用<strong>全部委托给后端</strong>。</p>
+<p>我 curl 抓了 Live API 指南原文（developers.openai.com/api/docs/guides/live，333KB），官方对这条"分割线"的表述很明确："Backend work can run through the configured Responses model or, with client delegation, any model, agent, or service your application operates."——<strong>后端的活可以走 OpenAI 的 Responses 模型，也可以走你自己的任何模型、agent 或服务</strong>。而且关键一句："<strong>In either mode, your application owns permissions, confirmations, business records, and task state.</strong>"——不管哪种模式，权限、确认、业务记录和任务状态都归你的应用管。这条很重要：<strong>OpenAI 不碰你的业务状态，业务状态是你的</strong>。</p>
+<p>NVIDIA 语音研究员 Desh Raj 称这是"产品中最干净的前后端分离"，并说这种"前端管对话、后端管推理"的分离"基本已被公认为构建语音 agent 的正确方式"。<strong>新意在于这个行为是被训练进模型里的</strong>——不是靠 prompt 硬凑出来的委托逻辑，而是模型原生就会判断"这个我自己答 / 这个该委托后端"。</p>
+<h2>四、两种委托模式：Responses vs Client</h2>
+<figure><p><img alt="两种委托模式：Responses 委托 vs Client 委托" src="../../assets/images/posts/gpt-live-1-architecture/04.avif"  loading="lazy" /></p><figcaption>两种委托模式：Responses 委托 vs Client 委托</figcaption></figure>
+<p>前端怎么把活"委托"出去？官方文档定义了<strong>两种委托模式</strong>，我逐字核验了 Live Delegation 指南（547KB）原文：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th></th>
+<th>Responses 委托</th>
+<th>Client 委托</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>谁准备上下文</strong></td>
+<td>OpenAI 后端模型通过 Responses API 自动拿对话上下文</td>
+<td><strong>你的应用</strong>自己准备上下文</td>
+</tr>
+<tr>
+<td><strong>谁跑后端</strong></td>
+<td>OpenAI 的 Responses 模型（如 Astra）</td>
+<td><strong>任何</strong>模型、agent harness 或服务</td>
+</tr>
+<tr>
+<td><strong>适合什么</strong></td>
+<td>OpenAI 的托管工作流够用时</td>
+<td>你需要更控制后端上下文、执行或返回结果时</td>
+</tr>
+</tbody>
+</table></div>
+<p>官方给的选型建议原话："Start with Responses delegation when its managed workflow fits. Choose client delegation when you need more control over backend context, execution, or the results returned to GPT-Live."</p>
+<p><strong>Client 委托尤其强大</strong>——它等于给你的已有 agent 系统套上一层全双工语音能力。你的应用收到一个委托事件（delegation event），你自己决定路由到哪个 agent、跑什么工作流、返回什么结果。这意味着 GPT-Live-1 不绑定 OpenAI 的后端——你可以接 Claude、接自己的开源模型、接 Cole Murray 那种 OpenInspect agent harness。</p>
+<h2>五、交错 Token 序列：前端的内部结构（推断）</h2>
+<figure><p><img alt="交错 Token 序列：所有流塞进一条序列（推断）" src="../../assets/images/posts/gpt-live-1-architecture/05.avif"  loading="lazy" /></p><figcaption>交错 Token 序列：所有流塞进一条序列（推断）</figcaption></figure>
+<p>⚠️ <strong>这一节是推断，不是官方确认的</strong>——来自 Desh Raj 博客里打了 ✦guess 标记的工程猜测，官方文档完全没说 token 序列的组织方式。</p>
+<p>Desh 推测前端内部不是"多流"（各自独立的音频流、文本流、推理流），而是<strong>交错设计</strong>（interleaved）：用户音频块、用户转写文本、推理痕迹（thinking）、委托事件、agent 文本、agent 音频——全部塞进<strong>一条单一交错 token 序列</strong>，用特殊 token 划边界。</p>
+<p>这个推测的依据是：官方文档说前端"natively provides ASR transcripts and response text"（原生提供 ASR 转写和回复文本），又说后端可以通过 <code>session.thinking.append</code> 注入文本"作为模型内部推理的上下文"——这意味着前端<strong>自己也在维护一条推理痕迹</strong>，加上用户音频、用户文本、agent 音频、agent 文本，至少六条流。如果是多流设计，会有同步问题；交错成一条序列，用一个模型统一预测，是更干净的工程选择。</p>
+<p>Desh 还指出模型"natively supports turn detection"（原生支持回合检测）但"not a turn-based model"（不是回合制模型）——这说明它被训练了<strong>回合 token</strong>（用户回合开始/结束的特殊 token），但回合只是序列里的标记，不是执行模型的硬约束。</p>
+<p>不管交错还是多流，对开发者的实际影响是：<strong>你不能假设干净的回合边界</strong>。前端在说的同时在听用户音频，后端在干活的同时用户还在说话——所有这些流在时间上重叠。这就是为什么评测必须按"连续推进的时间线"对齐音频和事件，而不是假设干净的交替回合。</p>
+<h2>六、会话事件流：delegation.created 到结果返回</h2>
+<figure><p><img alt="会话事件流：委托创建→后端响应→结果返回" src="../../assets/images/posts/gpt-live-1-architecture/06.avif"  loading="lazy" /></p><figcaption>会话事件流：委托创建→后端响应→结果返回</figcaption></figure>
+<p>一个委托从前端发出到结果返回，走的是一套<strong>有结构的事件流</strong>。我从 Live Delegation 指南原文抠出了关键事件类型：</p>
+<ol>
+<li>
+<p><strong><code>session.delegation.created</code></strong>：前端决定要委托，发出这个事件。如果是 Responses 委托，事件带 <code>target: "responses"</code> 和一个 <code>response_id</code>；如果是 Client 委托，事件带 <code>target: "client"</code>，你的应用接管。</p>
+</li>
+<li>
+<p><strong><code>response.event</code> 信封</strong>（Responses 委托下）：后端模型的推理和工具调用结果，通过一连串 <code>response.event</code> 信封传回。每个信封包着后端的中间步骤和最终结果。</p>
+</li>
+<li>
+<p><strong>结果返回</strong>：后端完成工作，把验证过的结果交回前端，前端把它说回用户。</p>
+</li>
+</ol>
+<p>关键设计：<strong>前端在等后端结果的同时，继续消费用户音频</strong>。它不会"卡住"等后端——对话还在进行，用户还在说话，前端还在听。后端结果到了，前端再决定怎么说。</p>
+<p>这意味着你的应用代码要处理<strong>重叠的委托</strong>：用户可能在后端干活的时候又说了新东西，触发新的委托。Live Delegation 指南提到用 <code>delegation_id</code> 来关联委托和响应——每个委托有唯一 ID，结果用这个 ID 关联回来。</p>
+<h2>七、中途插话：session.append 三通道</h2>
+<figure><p><img alt="中途插话：插话指令/推理上下文/不改后端" src="../../assets/images/posts/gpt-live-1-architecture/07.avif"  loading="lazy" /></p><figcaption>中途插话：插话指令/推理上下文/不改后端</figcaption></figure>
+<p>GPT-Live-1 提供了三条<strong>侧信道</strong>，让你在对话进行中"插话"操控前端，而不打断后端正在干的活。这三条来自 Live Delegation 指南原文：</p>
+<ul>
+<li><strong><code>session.instructions.append</code></strong>：追加一条指令，可以重定向对话。比如基于转写的护栏（guardrail）检测到敏感内容，追加一条指令让前端改方向。</li>
+<li><strong><code>session.thinking.append</code></strong>：给模型的内部推理注入文本上下文（带 <code>delegation_id: null</code> 表示给前端自己，不是给某个委托的后端）。</li>
+<li><strong><code>session.commentary.append</code></strong>：追加旁注。</li>
+</ul>
+<p>官方明确：这些 append <strong>操控的是前端</strong>（steers the live model），<strong>不改后端的 prompt，也不取消正在进行的工作</strong>。原文："This steers the live model; it does not change the Responses backend prompt or cancel work already in progress."</p>
+<p>这对实时控制的工程意义是：你可以在对话进行中动态调整前端行为——加护栏、改语气、注入上下文——而不需要停掉后端重来。这是一个"活"的会话，不是一锤子买卖。</p>
+<h2>八、工具调用全流程：餐厅订位实例</h2>
+<figure><p><img alt="工具调用全流程：口语请求→工具执行→确认结果" src="../../assets/images/posts/gpt-live-1-architecture/08.avif"  loading="lazy" /></p><figcaption>工具调用全流程：口语请求→工具执行→确认结果</figcaption></figure>
+<p>这是全篇最具体的一节——用 OpenAI cookbook 里那个真实跑通的餐厅订位例子，逐时间线拆一个完整工具调用。</p>
+<p>这个例子在 <code>openai/openai-cookbook</code> 的 <code>duplex_voice_agent_evaluation</code> 目录里，scenario 叫 <code>restaurant_booking_complete</code>，配置是 <code>gpt-live-1</code> 前端 + <code>gpt-5.6-terra</code> 后端 + <code>cedar</code> 语音 + client 委托模式。我抓到了它的完整 transcript 和 results.json。时间线如下：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>时间(ms)</th>
+<th>事件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1180</td>
+<td>前端开口："Hi, I'm John from Acme. How can I help you today?"</td>
+</tr>
+<tr>
+<td>4840</td>
+<td>用户说话："Hi John! I was hoping to book a table on August 7th."</td>
+</tr>
+<tr>
+<td>8400</td>
+<td><strong>委托事件</strong>发出：target=client</td>
+</tr>
+<tr>
+<td>9800</td>
+<td>前端接话："Sure, let me check that for you."（后端在后台干活，前端同时回应）</td>
+</tr>
+<tr>
+<td>10600</td>
+<td>后端返回："Sure—what time would you like, for how many guests, and under what name?"</td>
+</tr>
+<tr>
+<td>11640</td>
+<td>前端把后端结果说给用户</td>
+</tr>
+<tr>
+<td>16280</td>
+<td>用户回答："7 p.m., please, for two under Maya."</td>
+</tr>
+<tr>
+<td>19600</td>
+<td><strong>第二次委托</strong>发出：target=client</td>
+</tr>
+<tr>
+<td>20920</td>
+<td>前端："Checking that now."</td>
+</tr>
+<tr>
+<td>21060</td>
+<td><strong>工具调用</strong>：<code>create_reservation</code> 状态=in_progress</td>
+</tr>
+<tr>
+<td>21800</td>
+<td>工具执行完成：<code>create_reservation</code> 参数=<code>{"date":"2026-08-07","guest_name":"Maya","party_size":2,"time":"19:00"}</code></td>
+</tr>
+<tr>
+<td>21800</td>
+<td>后端完成，结果返回</td>
+</tr>
+</tbody>
+</table></div>
+<p>results.json 的指标拆解：<code>task_completed: true</code>、<code>delegation_accuracy: 1.0</code>（委托准确率满分）、<code>tool_accuracy: 0.5</code>（工具调用准确率 50%，因为 actual=1 而 expected=2）、<code>turns: 7/7</code>。音频指标：<code>response_rate: 0.75</code>、<code>response_latency_ms: 1513</code>、<code>interruption_rate: 0.0</code>。消费：前端音频时长 42000ms，后端总 token 2479（input 2374 + output 105）。</p>
+<p>这个例子最关键的工程教训是 cookbook 反复强调的那句：<strong>"A passing evaluation must preserve the correction, create exactly one reservation for August 6, verify the resulting application state, and confirm the reservation only after the tool succeeds."</strong>——确认必须在工具成功之后，而且要验证应用状态。这就是"grounded confirmation"（接地的确认）：不是模型空口说"订好了"，而是工具真的执行了、数据库真的改了、状态真的对了，才确认。</p>
+<h2>九、计费架构：前端按分钟 + 后端按 token</h2>
+<figure><p><img alt="计费架构：前端按分钟、后端按token、并发会话限流" src="../../assets/images/posts/gpt-live-1-architecture/09.avif"  loading="lazy" /></p><figcaption>计费架构：前端按分钟、后端按token、并发会话限流</figcaption></figure>
+<p>GPT-Live-1 的计费是<strong>两层独立计费</strong>，我逐字核验了 models 页（developers.openai.com/api/docs/models/gpt-live-1）：</p>
+<ul>
+<li><strong>前端语音层</strong>：<code>$0.05/分钟</code>，按秒计费（per second），<strong>不向上取整到整分钟</strong>（"Session duration is not rounded up to the next whole minute"）。</li>
+<li><strong>后端模型和工具使用</strong>：<strong>单独计费</strong>（"Backend model and tool usage is billed separately"），按 token 走你选的后端模型的定价。</li>
+</ul>
+<p>后端模型的牌价（来自 openai.com/business/pricing，每百万 output token）：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>模型</th>
+<th>input</th>
+<th>output</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPT-6 Astra</td>
+<td>$10</td>
+<td>$50</td>
+<td>旗舰，最难任务</td>
+</tr>
+<tr>
+<td>GPT-5.6 Sol</td>
+<td>$4</td>
+<td>$20（促销，原$30）</td>
+<td>旗舰级 agentic</td>
+</tr>
+<tr>
+<td>GPT-5.6 Terra</td>
+<td>$2</td>
+<td>$12</td>
+<td>平衡，高吞吐</td>
+</tr>
+<tr>
+<td>GPT-5.6 Luna</td>
+<td>$0.20</td>
+<td>$1.20</td>
+<td>低成本高频</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>限流不是按 token，是按并发会话</strong>（concurrent sessions）：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>并发会话数</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Free</td>
+<td>不支持</td>
+</tr>
+<tr>
+<td>Tier 1</td>
+<td>25</td>
+</tr>
+<tr>
+<td>Tier 2</td>
+<td>50</td>
+</tr>
+<tr>
+<td>Tier 3</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Tier 4</td>
+<td>300</td>
+</tr>
+<tr>
+<td>Tier 5</td>
+<td>500</td>
+</tr>
+</tbody>
+</table></div>
+<p>按并发会话而非按 token 限流，本身是"实时服务要预留算力"的定价体现——每个并发会话都要占一条实时音频管道，不能用批处理摊薄成本。这也是 Desh 推断 $0.05/分钟里有"实时服务溢价"的依据：服务全双工 S2S 模型比服务同体量文本模型贵得多，因为前缀缓存失效（每段音频输入都不同）、预填充极小（一次 5 token，对 GPU 来说跟解码没区别）、不能排队等批（会害死实时延迟）。</p>
+<h2>十、上下文窗口：小窗口、填得快、需压缩</h2>
+<figure><p><img alt="上下文窗口：小窗口、填得快、需压缩" src="../../assets/images/posts/gpt-live-1-architecture/10.avif"  loading="lazy" /></p><figcaption>上下文窗口：小窗口、填得快、需压缩</figcaption></figure>
+<p>GPT-Live-1 的上下文窗口<strong>小</strong>，而且填得快。Desh 从 prompting guide 读到："the live model has a small context window."</p>
+<p>填得多快？Desh 估算：音频 tokenizer 跑 12.5 Hz（80ms 一帧），用户流和 agent 流各 750 token/分钟，加上文本（转写+思考+回复）约 300 token/分钟，<strong>合计每分钟约 2000+ token</strong>。再加上每次后端委托调用注入的上下文约 500 token——<strong>一分钟就能把一个小窗口填满</strong>。</p>
+<p>这意味着你的应用需要管理<strong>上下文压缩</strong>（compaction）。OpenAI 文档里提到了 compaction 机制——当上下文快满时，需要把前面的对话压缩成更短的形式，腾出空间继续。这对长会话场景（比如长时间的客服电话）尤其关键：你不能假设整个对话历史都留在上下文里，必须主动管理"什么保留、什么压缩、什么丢弃"。</p>
+<p>结合第七节的中途插话机制，你的应用在长会话中的控制模式是：<strong>持续监控上下文水位 → 快满时触发压缩 → 必要时通过 session.append 注入关键上下文补偿压缩损失</strong>。这是一个活的、需要运维的会话，不是一次性调用。</p>
+<h2>十一、落地建议：怎么用这套架构</h2>
+<p>把 10 张图连起来，GPT-Live-1 的落地路径是清晰的：</p>
+<ol>
+<li>
+<p><strong>先定后端路由</strong>：高频简单任务（排期、订单查询）配 Luna（$1.20/M output），复杂推理配 Astra（$50/M output），平衡配 Terra（$12/M output）。这就是官方博客举的"Luna 高频、Astra 复杂"例子的实质——<strong>按任务选模型，不是一刀切</strong>。</p>
+</li>
+<li>
+<p><strong>选委托模式</strong>：如果你已有 agent 系统，用 Client 委托把 GPT-Live-1 套上去；如果从零开始且 OpenAI 后端够用，先用 Responses 委托快速跑通。</p>
+</li>
+<li>
+<p><strong>用 CRAWL/WALK/RUN 搭评测</strong>：CRAWL（合成音频测单轮基线）→ WALK（真实录音测鲁棒性）→ RUN（模拟来电者测连续多轮全双工）。核心指标只有一个——任务完成率。先让 CRAWL 稳定，再加复杂度。</p>
+</li>
+<li>
+<p><strong>管好上下文和插话</strong>：长会话必须做 compaction；用 session.append 做实时护栏和上下文注入；记住确认必须 grounded——工具真的成功了才确认。</p>
+</li>
+<li>
+<p><strong>算清成本</strong>：前端 $0.05/分钟 × 通话时长 + 后端 token 费。并发会话限流决定你能同时接多少通电话——Tier 3（200 并发）对中型客服中心够用，Tier 5（500 并发）是大企业量级。</p>
+</li>
+</ol>
+<p>这套架构的精髓在于<strong>分离</strong>：前端管交互、后端管推理、工具管执行、你管业务状态。每一层都可以独立选型、独立优化、独立计费。你不再被绑在一个"什么都干"的模型上——你搭的是一条语音 agent 的<strong>流水线</strong>。</p>
+<hr />
+<p><strong>来源</strong>：OpenAI 官方 GPT-Live-1 发布博客、Live API 指南（333KB）、Live Delegation 指南（547KB）、Live Prompting 指南（358KB）、models 页、business pricing 页、openai-cookbook 的 CRAWL/WALK/RUN harness 源码 + recorded example run（restaurant_booking_complete transcript + results.json）、Desh Raj 博客《Dissecting GPT-Live-1》（交错序列推断部分已标注为 ✦guess）、τ-Voice 论文（arXiv 2603.13686）。计费、限流、委托模式、事件类型、工具调用时间线均来自第一手官方文档逐字核验。</p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

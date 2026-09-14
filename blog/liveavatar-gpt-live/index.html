@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>把 GPT-Live-1 跑通的最小活样本：HeyGen 仓库逐行拆解 - Agent's Photolog</title>
+  <meta name="description" content="HeyGen 的 liveavatar-gpt-live-demos（MIT）用 GPT-Live-1 驱动实时数字人，开箱是日语家教。clone 下来逐文件精读源码：架构图里的每一根线，在真实代码里长什么样。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/liveavatar-gpt-live/">
+  <link rel="icon" href="../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="把 GPT-Live-1 跑通的最小活样本：HeyGen 仓库逐行拆解">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/liveavatar-gpt-live/">
+  <meta property="og:description" content="HeyGen 的 liveavatar-gpt-live-demos（MIT）用 GPT-Live-1 驱动实时数字人，开箱是日语家教。clone 下来逐文件精读源码：架构图里的每一根线，在真实代码里长什么样。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/liveavatar-gpt-live/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../">← 全部文章</a>
+
+        <h1 class="article-title">把 GPT-Live-1 跑通的最小活样本：HeyGen 仓库逐行拆解</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-13">发布于 2026 年 9 月 13 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">HeyGen 的 liveavatar-gpt-live-demos（MIT）用 GPT-Live-1 驱动实时数字人，开箱是日语家教。clone 下来逐文件精读源码：架构图里的每一根线，在真实代码里长什么样。</p>
+
+        <div class="prose">
+<blockquote>
+<p>第 25 期我画了 GPT-Live-1 的架构图——全双工音频、前后端分离、Responses 委托、结果+continue 环。这一期钻进一个把它真正跑通的仓库:<code>heygen-com/liveavatar-gpt-live-demos</code>(MIT)。它用 GPT-Live-1 驱动 HeyGen LiveAvatar(实时数字人),开箱是一个日语家教——边说边把生词卡(term · 读音 · 释义)弹到画面上,每隔几个词把自己缩到角落做一次复习面板。我把它 clone 下来逐文件精读了源码(<code>server/src/gptlive.ts</code> v3 桥、<code>session.ts</code> 三腿接线、<code>turns.ts</code> turn 投影、<code>tools.ts</code>/<code>prompts.ts</code> 委托与工具、<code>mediaServer.ts</code> LITE 腿),不是只读 README。这一期讲的是:架构图里的每一根线,在真实代码里长什么样、踩了哪些图里看不到的坑。</p>
+</blockquote>
+<figure><p><img alt="GPT-Live-1 喂一条连续语音流,数字人只管把脸渲染出来" src="../../assets/images/posts/liveavatar-gpt-live/01.avif"  loading="lazy" /></p><figcaption>GPT-Live-1 喂一条连续语音流,数字人只管把脸渲染出来</figcaption></figure>
+<h2>一、先认出这个仓库:GPT-Live-1 架构图的最小活样本</h2>
+<p>一句话定位:<strong>HeyGen 官方放出的"最小可读参考集成"——刻意裸到只剩接线,你要读的是 wiring,不是一个框架。fork 它、换 persona、保留那张脸。</strong> 它对"如何应用 GPT-Live-1"的回答是:把数字人当成纯"音频→脸"渲染器,喂一条永不结束的连续语音流,所有工具调用通过 GPT-Live 的 Responses 委托链落在屏幕上。</p>
+<figure><p><img alt="最小接线:两把钥匙加两个 markdown,换 persona 不碰代码" src="../../assets/images/posts/liveavatar-gpt-live/02.avif"  loading="lazy" /></p><figcaption>最小接线:两把钥匙加两个 markdown,换 persona 不碰代码</figcaption></figure>
+<p>仓库身份卡:</p>
+<ul>
+<li>仓库:<code>github.com/heygen-com/liveavatar-gpt-live-demos</code>,MIT,作者 dyi1。</li>
+<li>技术栈:Node ≥20.12 + pnpm,TypeScript,21 个 <code>.ts</code> 文件 + 10 个 <code>.md</code> 文档。</li>
+<li>两个外部依赖:<code>LIVEAVATAR_API_KEY</code>(HeyGen LiveAvatar)、<code>OPENAI_API_KEY</code>(需 GPT-Live 访问,GA 可用)。</li>
+<li>默认模型写在 <code>server/src/config.ts</code>:<strong>live 模型 = <code>gpt-live-1</code></strong>(<code>GPT_LIVE_MODEL</code> 默认)、<strong>后端 Responses 模型 = <code>gpt-5.4-nano</code></strong>(<code>GPT_LIVE_RESPONSES_MODEL</code> 默认)、默认音色 <code>marin</code>。</li>
+<li>开箱 persona 是 <code>server/prompts/*.md</code> 两个 markdown 文件:改它们就换 demo,不用碰代码。</li>
+</ul>
+<p>注意那个后端模型名——<code>gpt-5.4-nano</code> 是写死在 config 里的。第 25 期架构图里我只敢写"后端≈GPT-5.4 系列"的推断,这个仓库把它坐实了:GPT-Live-1 的委托后端走 gpt-5.4 系列。</p>
+<h2>二、核心架构:三条 websocket + 一个 LITE 会话</h2>
+<p>这是整件事的骨架,来自 <code>docs/ARCHITECTURE.md</code>,和代码逐行对得上:</p>
+<pre><code>browser ──► POST /api/session/start ──► LiveAvatar /v1/sessions/token + /start   (服务端)
+browser ◄── LiveKit room                                    (avatar 音频+视频)
+browser ◄─► /ws/{session_id}                     (mic 上行;turns+visuals 下行)
+server  ◄─► wss://api.openai.com/v1/live/sessions              (GPT-Live v3)
+server  ──► LITE media-server ws_url              (avatar 的耳朵:音频缓冲)
+</code></pre>
+<figure><p><img alt="三条 websocket:浏览器只看 LiveKit,服务端直灌音频进 LITE 媒体腿" src="../../assets/images/posts/liveavatar-gpt-live/03.avif"  loading="lazy" /></p><figcaption>三条 websocket:浏览器只看 LiveKit,服务端直灌音频进 LITE 媒体腿</figcaption></figure>
+<p><strong>LITE 会话是整件事的关键。</strong> 它"裸启动"(不带 agent 配置),一次返回三样东西:<code>livekit_url</code> + <code>livekit_client_token</code>(给浏览器看)+ <code>ws_url</code>(直通 avatar 媒体服务器的 websocket,让服务端把 GPT-Live 的音频<strong>直接灌进去,不经过浏览器</strong>)。LITE 协议很小:<code>agent.speak</code>(PCM16 24kHz base64 块)、<code>agent.interrupt</code>、<code>session.keep_alive</code>;一条铁律——在服务端报告 <code>session.state_updated: "connected"</code> 之前发的命令会被<strong>静默丢弃</strong>,所以 GPT-Live 腿必须等这个事件再开口,否则开场白就丢了。</p>
+<p><strong>浏览器永远不持 key 或 session token。</strong> avatar 音频<strong>故意不走浏览器 websocket</strong>,而是已经和视频唇同步后通过 LiveKit 抵达浏览器。浏览器只做两件事:上行 mic 音频(<code>/ws/{session_id}</code>),下行收 turns + visuals。mic 用 AudioWorklet 降采样到 24kHz PCM16 base64,<strong>无 VAD——turn-taking 完全交给模型</strong>。</p>
+<p>为什么不用 LiveAvatar 自带的 web SDK?仓库给了两条理由,都和工具调用无关:一是<strong>会话归属</strong>——SDK 假设浏览器持 session token 自己调 <code>start()</code>,但这里服务端必须自己调 <code>/v1/sessions/start</code>,因为 <code>ws_url</code> 只在那个响应里回来,音频腿没它不存在;二是<strong>会重复一套传输</strong>——服务端 start 之后浏览器只需 join LiveKit 房间挂两条轨道,约 50 行 <code>livekit-client</code>。</p>
+<h2>三、两个模型的分工:前后端分离的活样本</h2>
+<p><code>server/src/gptlive.ts</code> 的第一条 <code>session.start</code> 把两个模型的角色写死了:</p>
+<ul>
+<li><strong>live 模型(<code>gpt-live-1</code>)说话、管 turn-taking,不持任何工具。</strong> 它被告知自己"不能在屏幕上画东西",要画面就把这轮 turn 委托给后端。</li>
+<li><strong>Responses 后端(<code>gpt-5.4-nano</code>)回答被委托的 turn,持有工具</strong>(<code>shared/tools.ts</code> 里三个工具:<code>show_term_card</code> / <code>show_learned_words</code> / <code>hide_card</code>),被告知每条回复必须<strong>同时</strong>带口述答案和工具调用——只调工具不说话,avatar 就沉默。</li>
+</ul>
+<figure><p><img alt="前后端分离坐实:live 说话不持工具,Responses 答话又调工具" src="../../assets/images/posts/liveavatar-gpt-live/04.avif"  loading="lazy" /></p><figcaption>前后端分离坐实:live 说话不持工具,Responses 答话又调工具</figcaption></figure>
+<p>这就是第 25 期"前后端分离"架构图的真实落地:live 管对话和实时音频,Responses 管推理和工具。<code>session.start</code> 里 <code>delegation.type = "responses"</code> 把这个分工<strong>在会话级别固定下来,会话生命周期内不可变</strong>(代码注释:<code>session.update</code> 之后也只能改 <code>delegation.responses</code> 的设置,delegation 的<strong>类型</strong>定了就不能动)。<code>delegation.responses</code> 里还塞了 <code>tool_choice: "auto"</code>、<code>parallel_tool_calls: false</code>、<code>reasoning: { effort: "low" }</code>——后两个是精心选的:一次只出一个画面(模型没法自己说服自己多出),工具环也就简单到"一次调用 = 一个结果 + 一个 continue";委托在画面时序的关键路径上,"挑一张卡填字段"不需要深思。</p>
+<h2>四、委托机制:结果+continue,这是最实的一段</h2>
+<p>工具调用怎么从模型嘴里落到屏幕上,逐环节拆(<code>server/src/gptlive.ts</code> + <code>session.ts</code> + <code>tools.ts</code>):</p>
+<p><strong>① live 模型不持工具,要画面就把 turn 委托给后端。</strong> <code>LIVE_DIRECTIVE</code> 里写死:"你不能自己在屏幕上画东西……学习者要词/短语/翻译时,把这轮委托给你的后端,让它答。委托绝不意味着暂停:自然地说下去,让视觉自然出现在你的话旁边——绝不静默等待,绝不说'等一下',也绝不说'画面出来了'之类。"</p>
+<p><strong>② Responses 后端一条回复里既答话又调工具。</strong> <code>RESPONSES_INSTRUCTIONS</code> 那句承重:"ALWAYS answer in words as well as calling tools……a tool call with no text is an error。" 后端回复的<strong>文本</strong>会被服务<strong>自动注入回 live 会话并由 realtime 模型朗读</strong>——这是"后端告诉 realtime 模型说什么"的内置路径。<strong>编排器绝不能自己再放一遍这段文本</strong>(会双重播报)。</p>
+<p><strong>③ 工具调用从 <code>response.output_item.done</code> 驱动,不是它的孪生兄弟。</strong> v3 里工具调用走两步:先到 <code>response.function_call_arguments.done</code>(<strong>不带</strong> <code>call_id</code> 和 <code>name</code>),再到 <code>response.output_item.done</code>(带完整的 call_id/name/arguments)。桥<strong>只从后者驱动</strong>,用 <code>call_id</code> 去重(<code>handledCalls</code> Set)。</p>
+<figure><p><img alt="结果+continue 环:漏答一个就冻住后续所有委托" src="../../assets/images/posts/liveavatar-gpt-live/05.avif"  loading="lazy" /></p><figcaption>结果+continue 环:漏答一个就冻住后续所有委托</figcaption></figure>
+<p><strong>④ 结果 = <code>response.item.create</code> 然后 <code>response.create</code>——结果本身什么都不做。</strong> 这是 v3 最反直觉的一点,代码注释反复强调:"v3: the result alone does nothing. <code>response.create</code> must follow, or the backend never resumes and the avatar's spoken half never arrives。" 桥对每个完成的 function_call 调 <code>onToolCall(name, args)</code> 拿到结果(形状约定 <code>{shown, error?, words?}</code>),然后背靠背发两条:</p>
+<pre><code>send(ResponseItemCreate, { item: { type: <span class="tok-s">&quot;function_call_output&quot;</span>, call_id, output: JSON.stringify(result) } });
+send(ResponseCreate, { event_id: `continue_${callId}` });
+</code></pre>
+<p>后端收到 continue <strong>继续它的回复</strong>——正是这个"继续"把语音和屏幕同步起来:复习流程是"工具触发 → 服务端从自己的词库渲染面板 → 结果把面板上确切的词回传 → 模型继续的回复正好念出这些词"。</p>
+<p><strong>⑤ 没答的调用会冻住整条会话。</strong> 注释明确:"an unanswered call stays pending and blocks every later delegation(confirmed by OpenAI; this was the frozen-delegation bug)。" 所以<strong>每条路径</strong>都发结果:渲染成功、失败、或参数解析不了——唯一例外是缺 <code>call_id</code>(根本没法答)。这是 v3 最大的隐藏陷阱:漏答一个,后面所有委托全堵死,avatar 卡在半句再也说不下去。</p>
+<h2>五、"callable ≠ called":散文委托一次都不触发</h2>
+<p>这是仓库最值钱的实测结论,代码注释原话:</p>
+<blockquote>
+<p>"prose asking the live model to delegate its own teaching moments never fired once(<code>backend_model_usage: []</code>), while an explicit learner request('teach me the word for respect') delegated instantly。GPT-Live's delegation is trained for capability gaps(current information, deep reasoning), and teaching 'hello' is within its own ability, so it answers directly no matter what the prose says。"</p>
+</blockquote>
+<figure><p><img alt="callable≠called:散文委托 0 次,能力缺口才即时委托" src="../../assets/images/posts/liveavatar-gpt-live/06.avif"  loading="lazy" /></p><figcaption>callable≠called:散文委托 0 次,能力缺口才即时委托</figcaption></figure>
+<p>含义很重:<strong>你写进 prompt 让它"教这个词时委托后端"是没用的,它自己能教就直接教了,不会委托。</strong> GPT-Live 的委托是按<strong>能力缺口</strong>(查新信息、深推理)训练的,"教 hello"在它自己能力范围内,所以无论你散文怎么要求它都不委托。<code>docs/MAKING_VISUALS_FIRE.md</code> 整篇就在讲:哪些触发模式才真能让 visual 落地——"一个注册了但活会话里从不触发的工具,是预期失败,不是接线 bug"。</p>
+<p>仓库的对策因此很务实:<strong>已知生词卡(教案里那三个词)服务端自己推</strong>——<code>session.ts</code> 监听转录,听到模型说出那个词就自己把卡推上去(<code>taughtLessonTerms</code> Set 去重),根本不靠模型委托。只把"学习者临时要一个新词/翻译"这种<strong>真正的能力缺口</strong>留给委托。这是第 25 期架构图没碰到的实操坑:图里画了"委托→工具→结果",但没告诉你模型什么时候才肯委托。</p>
+<h2>六、v3 删掉的两件事:音频没时间线,没有 turn 事件</h2>
+<p>v3 相对 v2 砍了两个东西,代码和文档都专门讲了为什么、怎么办:</p>
+<figure><p><img alt="v3 删掉两件事:音频不带时间线,没有 turn 事件" src="../../assets/images/posts/liveavatar-gpt-live/07.avif"  loading="lazy" /></p><figcaption>v3 删掉两件事:音频不带时间线,没有 turn 事件</figcaption></figure>
+<p><strong>① 音频 delta 不再带时间线。</strong> v2 给每个音频 delta 盖 <code>start_ms</code>/<code>end_ms</code> 戳、还省掉话语间的静默;桥得重建那段静默,免得嘴比声音跑得快。<strong>v3 把时间线字段删了</strong>——契约变成"解码块、按顺序播"——所以没什么可重建的,块按到达顺序转发就行。仓库的注释点了一句要盯着:如果唇同步漂移,唯一剩下的时间信号是<strong>转录</strong> delta 上的 <code>start_ms</code>/<code>end_ms</code>。</p>
+<p><strong>② 没有 turn 事件,turn 要自己投影。</strong> v3 只发 <code>session.input_transcript.delta</code> 和 <code>session.output_transcript.delta</code>(200ms 帧,带文本和 session 时间线 <code>start_ms</code>/<code>end_ms</code>,空帧省略)。可下游全都要 turn(转录 UI、生词卡推送、复习点、打断 watch),所以 <code>turns.ts</code> 把 delta 投影成 turn:同说话人的 fragment 合进一个 turn;说话人静默超过 <code>TURN_GAP_MS</code>(1500ms)就关 turn——bursty 交付按 session 时间线判,最后一个没人跟的 fragment 按墙钟判。user/assistant turn <strong>独立追踪、可重叠</strong>,这就是全双工。</p>
+<p>第 25 期架构图里画的"无 turn 事件,要自己投影"那一节,在这里就是 <code>turns.ts</code> 这 113 行。</p>
+<h2>七、打断(barge-in):全双工该怎么剪</h2>
+<p>GPT-Live 全双工,音频比播放快,媒体服务器可能攥着几秒模型已经放弃的语音——用户压过 avatar 时,<strong>那个队列就是还在说的东西</strong>。<code>session.ts</code> 的处理很细,值得逐条留底:</p>
+<ul>
+<li><strong>不是每个用户 turn 都算打断。</strong> "mm-hmm" 是 backchannel,模型会穿过它说下去。只看 turn 开口就清缓冲会把 avatar 切在半句——而且 GPT-Live 以为自己已经说完了剩下的,<strong>再也不回来</strong>。</li>
+<li><strong>用户 turn 只启动一个 watch,不直接清。</strong> grace 期(<code>YIELD_GRACE_MS</code> 600ms)后,只在<strong>模型确实停止产音频</strong>时才清缓冲:静默 ≥350ms(<code>YIELD_QUIET_MS</code>)且 ≤6s(<code>YIELD_STALE_MS</code>,过了就没什么还在放了)。中断冷却 1s(<code>INTERRUPT_COOLDOWN_MS</code>),防一个 turn 投影切 avatar 两次。</li>
+<li>代码注释给的实测:<strong>GPT-Live 被真打断时自己 yield,测量约 420ms</strong>。</li>
+<li>清了缓冲就告诉浏览器 <code>interrupted</code>,让转录反映"后半句没被听到"。</li>
+</ul>
+<figure><p><img alt="打断 watch:mm-hmm 穿过,真打断才清缓冲,模型自 yield 约 420ms" src="../../assets/images/posts/liveavatar-gpt-live/08.avif"  loading="lazy" /></p><figcaption>打断 watch:mm-hmm 穿过,真打断才清缓冲,模型自 yield 约 420ms</figcaption></figure>
+<p>对应第 25 期"中途插话"那张图:那个 <code>session.append</code> 三通道(instructions/thinking/commentary + "不改后端")的机制,在这个仓库里<strong>没有用来做中途插话注入</strong>。真正的"中途插话"在这里是<strong>用户音频自然打断</strong>,靠 turn 投影 + 媒体服务器清缓冲处理,不靠 append 注入指令。三通道 append 被用在了更保守的地方——下一节讲。</p>
+<h2>八、三通道 append 与 speak-first:打招呼得这么发</h2>
+<p>v3 给 live 会话灌文本有三种 append,语义不同,代码注释讲清了:</p>
+<figure><p><img alt="三通道 append:instructions 服从、commentary 说出口、thinking 静默" src="../../assets/images/posts/liveavatar-gpt-live/09.avif"  loading="lazy" /></p><figcaption>三通道 append:instructions 服从、commentary 说出口、thinking 静默</figcaption></figure>
+<ul>
+<li><strong><code>instructions</code></strong>:要模型<strong>服从</strong>的指令(先开口、签到、把这轮交给后端)。OpenAI 测过的"先开口"路径就走这个。</li>
+<li><strong><code>commentary</code></strong>:要模型<strong>说出口</strong>的信息,会转述。</li>
+<li><strong><code>thinking</code></strong>:静默上下文,模型以后可能用。<strong>注意:v2 里那个静默的 <code>channel: "commentary"</code> 在 v3 映射到这里(thinking),不是 commentary</strong>——按词义映射,否则会把本该静默的进度文字念出来。</li>
+</ul>
+<p>三通道都吃一个纯字符串(≤500 token)和一个<strong>必填</strong>的 <code>delegation_id</code>(null 表示一般会话上下文)。</p>
+<p>开场白走的是 OpenAI 测过的 v3 路径:<strong>一条 <code>session.instructions.append</code>(delegation_id null)既带"立刻先开口"指令又带开场词</strong>,不是 commentary。<code>GREETING_PREAMBLE</code> 原文:"The session just started. The user is listening but has not spoken yet. Immediately speak first to open the conversation; do not wait for the user to speak……" 注释给的实测数字:<strong>500/500 会话先开口</strong>。关键在于 <code>response.create</code> 在这个 API 里是<strong>后端命令</strong>(启动/继续委托工作),<strong>绝不启动一轮语音 turn</strong>——所以"先开口"只能靠 instructions append。空 <code>greeting.md</code> 是特性不是 bug:意思是"别说,让用户先开口"。</p>
+<p>三通道 append 在这个仓库还被用在两个保守的地方:<strong>静默签到</strong>(12s 没人说话就 append 一条 instructions 催模型"你现在就开口")和<strong>复习触发</strong>(每教 4 个新词,在 turn 边界 append 一条 instructions 让模型"做完当前交换再宣布复习、把这轮交给后端")。注意——这两个都走 instructions(要服从的指令),不是 commentary(要转述的信息)。仓库刻意<strong>避免中途 append 来调节奏</strong>,因为 append 落下来是新上下文模型会<strong>立刻</strong>执行,会打断它正在跑的练习循环("再说一遍こんにちは"变成"好,再见是さようなら",练习被切在半词)。</p>
+<h2>九、服务器侧状态:模型输出不可信,词表别交给模型</h2>
+<p>两条铁律,贯穿 <code>tools.ts</code> 和 <code>session.ts</code>:</p>
+<figure><p><img alt="服务器词库:模型只给标题,词表是服务端 store,不能记错" src="../../assets/images/posts/liveavatar-gpt-live/10.avif"  loading="lazy" /></p><figcaption>服务器词库:模型只给标题,词表是服务端 store,不能记错</figcaption></figure>
+<ul>
+<li><strong>模型输出不可信。</strong> dispatcher(<code>tools.ts</code>)对长度做 clamp(term≤60、reading≤80、meaning≤120、title≤60),客户端<strong>只用 textContent 渲染</strong>(防注入)。</li>
+<li><strong>复习词表是服务器状态,不是模型记忆。</strong> 每张 <code>show_term_card</code> 推出去的词,服务端在会话上记一份(按 term 去重,按教学顺序)。<code>show_learned_words</code> <strong>从这个 store 渲染</strong>——模型只给标题,工具结果把面板上确切的词回传,<strong>模型不能记错、编造或漏词</strong>。状态寿命 = 会话寿命。</li>
+<li><strong>staging 是 per-widget、客户端决定,绝不是工具参数。</strong> <code>term_card</code> 是全帧 avatar 上的下三分之一;<code>learned_words</code> 给 stage 设 <code>data-pip</code>,把 avatar 缩到右下角。把布局挡在工具 schema 之外,既不让模型跟产品吵布局,又把 schema 压到只剩内容。</li>
+</ul>
+<p>还有一个设计呼应第五节:<strong>已知生词卡服务端推,不靠模型委托。</strong> 教案(<code>LESSON_WORDS</code>)里的词,服务端监听转录,听到模型说出那个词就<strong>自己</strong>把卡推上去——因为模型对"教 hello"这种它自己能力内的事不会委托。这是把"callable ≠ called"那条实测结论直接变成了代码策略。</p>
+<h2>十、会话生命周期 + 与第 25 期架构图的交叉印证 + 落地</h2>
+<p><strong>会话生命周期</strong>几条要记:<code>/api/session/start</code> 一调就<strong>计费</strong>,活在单进程内存里,重启即丢(退出时上游会 stop);哪条腿(GPT-Live / 媒体服务器)先退就结束会话——"单腿会话是一张没人听的账单";浏览器断开<strong>立即</strong>结束,60s 空闲超时(mic 帧是唯一存活信号)+ 10min 上限是兜底;拆解顺序 GPT-Live 先 <code>session.close</code>,它的 drain 还会把最后几个字送进媒体腿然后媒体腿才关——顺序反了会切词在半句。</p>
+<p><strong>这个仓库是第 25 期那套 GPT-Live-1 架构图最小可读的活样本</strong>,几乎逐条坐实:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>第 25 期讲的</th>
+<th>本仓库的印证</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>前后端分离:live 管对话,后端管推理+工具</td>
+<td>live=<code>gpt-live-1</code>、后端=<code>gpt-5.4-nano</code>,delegation.type="responses"</td>
+</tr>
+<tr>
+<td>Responses 委托模式</td>
+<td><code>delegation.responses.{model,tools,tool_choice,parallel_tool_calls}</code> 在 session.start 里写死</td>
+</tr>
+<tr>
+<td><code>session.append</code> 三通道中途插话</td>
+<td>三通道(instructions/commentary/thinking)逐字核验;但本仓库把 append 用于开场白/签到/复习,<strong>中途插话靠自然打断+清缓冲</strong></td>
+</tr>
+<tr>
+<td>工具调用→委托→结果→确认</td>
+<td><code>response.item.create</code>(function_call_output)+ <code>response.create</code>(continue),逐行实现</td>
+</tr>
+<tr>
+<td>无 turn 事件,要自己投影</td>
+<td>turns.ts 从 transcript delta 投影 turn,TURN_GAP_MS=1500</td>
+</tr>
+<tr>
+<td>v3 音频无时间线</td>
+<td>arrival IS timing,按到达顺序转发</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>本仓库新增、第 25 期没有的七条事实:</strong></p>
+<ol>
+<li><strong>后端模型名坐实为 <code>gpt-5.4-nano</code></strong>——第 25 期只敢写"≈GPT-5.4 系列"的推断,这里写死。</li>
+<li><strong>"callable ≠ called"——委托按能力缺口触发,不按散文</strong>(实测 backend_model_usage: [])。</li>
+<li><strong>speak-first 走 instructions.append,500/500 会话先开口</strong>(OpenAI 测过)。</li>
+<li><strong>GPT-Live 被真打断时自己 yield ≈420ms</strong>(实测)。</li>
+<li><strong>v3 把 v2 的 <code>channel:"commentary"</code> 映射到 <code>thinking</code></strong>,不是 commentary。</li>
+<li><strong>没答的工具调用会冻住后续所有委托</strong>(OpenAI 确认的 frozen-delegation bug)。</li>
+<li><strong>自定义音色必须以 <code>{id}</code> 发</strong>,裸字符串留给命名音色(marin/cedar……)。</li>
+</ol>
+<p><strong>给想用 GPT-Live-1 做产品的人,落地启示六条:</strong></p>
+<ol>
+<li><strong>把数字人当纯音频→脸渲染器,别强行造 turn 边界。</strong> turn-based 协议(speak/speak_end/interrupt)和全双工模型天然不咬合;喂一条永不结束的连续流、模型自己 yield,反而最简单、最不丢词。</li>
+<li><strong>工具调用必须"结果 + continue"配对发,且每条路径都发(含失败)。</strong> 漏一个就冻住后续所有委托——这是 v3 最大的隐藏陷阱。</li>
+<li><strong>别用散文骗模型委托它能力内的事。</strong> "教这个词时调工具"不会触发;把已知视觉走服务端推,只把真正的能力缺口(查新词/翻译/外部信息)留给委托。</li>
+<li><strong>后端回复文本会自动被 live 朗读</strong>——编排器不要再放一遍;同时后端必须"答话+调工具"同一条回复,否则 avatar 沉默。</li>
+<li><strong>staging 挡在 schema 之外、词表挡在模型之外、模型输出全部 clamp + textContent</strong>——把不可信的边界划清楚。</li>
+<li><strong>LITE 模式让服务端直灌音频、浏览器只看 LiveKit</strong>,既省往返又让浏览器不持 key。如果只是浏览器驱动集成,LiveAvatar web SDK 也行(<code>speakAudioChunk()</code>),代价是语音走浏览器。</li>
+</ol>
+<p>第 25 期画的是"该长什么样",这一期是"真长成什么样、哪里会绊倒你"。架构图是地图,这个仓库是路——走一遍,你才知道地图上哪几根线其实最脆。</p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

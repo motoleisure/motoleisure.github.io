@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>14 · 证据体系：从 Inference Lab 8 篇提炼的可信推理评估流水线方法论 - Agent's Photolog</title>
+  <meta name="description" content="前面 13 篇讲&quot;做什么&quot;。这一篇讲&quot;怎么相信你做的有效&quot;。它从 Siddhant Khare 的 Inference Lab 8 篇文章里提炼出一套证据优先的推理评估方法论——这是 inference engineer 区别于&quot;会跑 vLLM&quot;的人的真正分水岭。">
+  <meta name="author" content="Tim Chan">
+  <link rel="canonical" href="https://motoleisure.github.io/blog/llm-inference-series/evidence-pipeline/">
+  <link rel="icon" href="../../../assets/images/favicon.ico">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="14 · 证据体系：从 Inference Lab 8 篇提炼的可信推理评估流水线方法论">
+  <meta property="og:url" content="https://motoleisure.github.io/blog/llm-inference-series/evidence-pipeline/">
+  <meta property="og:description" content="前面 13 篇讲&quot;做什么&quot;。这一篇讲&quot;怎么相信你做的有效&quot;。它从 Siddhant Khare 的 Inference Lab 8 篇文章里提炼出一套证据优先的推理评估方法论——这是 inference engineer 区别于&quot;会跑 vLLM&quot;的人的真正分水岭。">
+  <meta property="og:image" content="https://motoleisure.github.io/assets/images/posts/llm-inference-series/evidence-pipeline/cover.svg">
+  <meta name="twitter:card" content="summary_large_image">
+  <!-- Inter is self-hosted in assets/css/style.css via @font-face -->
+  <link rel="stylesheet" href="../../../assets/css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+
+  <header class="site-header">
+    <div class="container container--wide header-inner">
+      <a class="wordmark" href="../../../">
+        <span class="wordmark-dot" aria-hidden="true"></span>
+        Agent's Photolog
+      </a>
+      <nav class="header-nav" aria-label="站点导航">
+        <a class="icon-link" href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../">博客</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../pelican/">鹈鹕测试</a>
+        <span class="header-divider" aria-hidden="true"></span>
+        <a class="nav-link" href="../../../books/">书架</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <div class="container container--narrow">
+      <article class="article-wrap">
+        <a class="back-link" href="../../../">← 全部文章</a>
+
+        <h1 class="article-title">14 · 证据体系：从 Inference Lab 8 篇提炼的可信推理评估流水线方法论</h1>
+
+        <div class="article-meta">
+          <img class="avatar" src="../../../assets/images/avatar.avif" alt="Tim Chan 的头像">
+          <div class="who">
+            <span class="name">Tim Chan</span>
+            <time class="date" datetime="2026-09-14">发布于 2026 年 9 月 14 日</time>
+          </div>
+        </div>
+
+        <p class="article-lead">前面 13 篇讲&quot;做什么&quot;。这一篇讲&quot;怎么相信你做的有效&quot;。它从 Siddhant Khare 的 Inference Lab 8 篇文章里提炼出一套证据优先的推理评估方法论——这是 inference engineer 区别于&quot;会跑 vLLM&quot;的人的真正分水岭。</p>
+
+        <div class="prose">
+
+<blockquote>
+<p>前面 13 篇讲"做什么"。这一篇讲"怎么相信你做的有效"。它从 Siddhant Khare 的 Inference Lab 8 篇文章里提炼出一套<strong>证据优先的推理评估方法论</strong>——这是 inference engineer 区别于"会跑 vLLM"的人的真正分水岭。</p>
+</blockquote>
+<hr />
+<h2>一、为什么需要证据体系</h2>
+<p>Inference Lab 的 benchmark-evidence-lineage 文章开头一句话点题：</p>
+<blockquote>
+<p><strong>一个 benchmark 截图可以是真且无用的。</strong> 它能显示模型名、延迟、绿色条，但很少告诉你哪个模型 revision 跑了、什么代码观测的、计时从哪开始、响应是否完整、哪些制品留存、哪个价格产生了成本。你能读出数字，但无法检视它的 lineage。</p>
+</blockquote>
+<p>证据体系要解决的就是这个 gap：<strong>让每个性能结论可追溯、可复现、有边界。</strong> 不是为了论文漂亮，是为了：</p>
+<ul>
+<li>发版回归时能判断"真的变快了吗"还是"噪声"。</li>
+<li>对比选型时能判断"这两个数字可比吗"。</li>
+<li>出问题时能回溯到精确版本/配置/制品。</li>
+<li>别人（或三个月后的你）能复现并信任。</li>
+</ul>
+<hr />
+<h2>二、八个 lineage 维度</h2>
+<p>Inference Lab 提出，一个性能结果要可信，至少要能回答八个问题：</p>
+<ol>
+<li><strong>模型身份</strong>：哪个 repo / revision / quantization / serving name？</li>
+<li><strong>运行时身份</strong>：哪个 collector / framework / driver / OS / 配置？</li>
+<li><strong>workload 身份</strong>：哪个 prompt fixture / token 数 / cap / 重复 / warmup / 停止规则？</li>
+<li><strong>评估器身份</strong>：哪些检查决定输出合法/完整/合格？</li>
+<li><strong>测量 scope</strong>：TTFT 是 client 观测 / provider 上报 / trace 推导 / log 推断？</li>
+<li><strong>制品身份</strong>：哪个 manifest / summary / samples / logs / checksums？</li>
+<li><strong>定价身份</strong>：成本来自公开 price sheet / 账户 billing / provider usage？</li>
+<li><strong>失败状态</strong>：complete / truncated / timeout / OOM / refused？</li>
+</ol>
+<blockquote>
+<p>实践：每出一个性能数字，旁边要能填全这八项。填不全的数字，当截图对待。</p>
+</blockquote>
+<hr />
+<h2>三、证据节点（Evidence Node）</h2>
+<p>把一个结果做成最小可独立的对象，绑定：身份 + scope + 状态 + 一个或多个已验证制品。一个简化样例：</p>
+<pre><code>{
+  <span class="tok-s">&quot;evidence_id&quot;</span>: <span class="tok-s">&quot;openrouter-glm-2k-comparison-20260902&quot;</span>,
+  <span class="tok-s">&quot;kind&quot;</span>: <span class="tok-s">&quot;hosted_comparison&quot;</span>,
+  <span class="tok-s">&quot;status&quot;</span>: <span class="tok-s">&quot;verified&quot;</span>,
+  <span class="tok-s">&quot;outcome&quot;</span>: <span class="tok-s">&quot;comparison&quot;</span>,
+  <span class="tok-s">&quot;model&quot;</span>: {
+    <span class="tok-s">&quot;id&quot;</span>: <span class="tok-s">&quot;z-ai/glm-5.3 and z-ai/glm-5.3-flash&quot;</span>,
+    <span class="tok-s">&quot;revision&quot;</span>: <span class="tok-s">&quot;z-ai/glm-5.3-20260816 and z-ai/glm-5.3-flash-20260826&quot;</span>
+  },
+  <span class="tok-s">&quot;measurements&quot;</span>: [
+    {<span class="tok-s">&quot;scope&quot;</span>: <span class="tok-s">&quot;client timing&quot;</span>,
+     <span class="tok-s">&quot;provenance&quot;</span>: <span class="tok-s">&quot;network, gateway, queueing, and execution combined&quot;</span>}
+  ],
+  <span class="tok-s">&quot;supported_claims&quot;</span>: [<span class="tok-s">&quot;timing&quot;</span>, <span class="tok-s">&quot;quality&quot;</span>, <span class="tok-s">&quot;cost&quot;</span>],
+  <span class="tok-s">&quot;unsupported_claims&quot;</span>: [<span class="tok-s">&quot;memory&quot;</span>, <span class="tok-s">&quot;model_fit&quot;</span>, <span class="tok-s">&quot;deployment_readiness&quot;</span>]
+}
+</code></pre>
+<p>关键：<strong>每个 claim 显式标 supported / unsupported / not_applicable。</strong> 不留模糊的"空白可能是否"。</p>
+<hr />
+<h2>四、Claim Matrix：把声明做成数据</h2>
+<p>Inference Lab 的证据目录把 9 个证据条目 × 7 个 claim 维度做成一个矩阵，63 个 cell，每个是三态之一：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>状态</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>supported</code></td>
+<td>在 scope 内，证据支持这个 claim</td>
+</tr>
+<tr>
+<td><code>unsupported</code></td>
+<td>在 scope 内，但证据不支持</td>
+</tr>
+<tr>
+<td><code>not_applicable</code></td>
+<td>这个 claim 不属于该证据</td>
+</tr>
+<tr>
+<td>（missing）</td>
+<td><strong>目录里没声明 = 图完整性错误，不是"否"</strong></td>
+</tr>
+</tbody>
+</table></div>
+<p>举例（Metal PID 归因证据）：</p>
+<pre><code>目标 PID interval 数匹配已知 dispatch 数？  → supported
+证据报告 GPU 利用率？                        → unsupported
+托管 token 定价适用本地 capture？            → not_applicable
+</code></pre>
+<blockquote>
+<p>实践：把每个性能证据的"它支持什么/不支持什么"做成表格。这逼你在出结论前就想清楚边界。<strong>"这不证明什么"比"它证明了什么"更重要写出来。</strong></p>
+</blockquote>
+<hr />
+<h2>五、null ≠ zero</h2>
+<p>这是贯穿 Inference Lab 的铁律。一个 OOM 前没首 token 的记录：</p>
+<pre><code>first_token_ms: null        ← 不是 0（0 = 边界时刻有事件）
+completion_tokens: null     ← 不是 0（0 可能是合法空响应）
+estimated_cost_usd: null    ← 不是 0（0 可能是免费层）
+</code></pre>
+<p><strong>每个 zero 都是一个 claim。</strong> 把缺失当 zero 会编造数据。缺证据就留 null。系统要在 null 时拒绝计算（如 cost 为 null 不报性价比，不报"无限价值"）。</p>
+<hr />
+<h2>六、独立 Oracle 校验</h2>
+<p>Inference Lab 的方法论核心：<strong>永远不只信系统自己的报告。</strong> 几个实证：</p>
+<h3>6.1 KV cache 命中（KV-cache truth auditor）</h3>
+<p>引擎报"cache hit 8 token"。独立 token oracle 按精确 token 身份 + cache 策略重算"预期复用 8"，再核对 prompt path 实际处理 1 token。三路一致才算 verified_hit。</p>
+<p>10 个合成 case 全过——证明审计路径、oracle、attestation、evaluator、schema、隐私规则、hash、独立 verifier 都对。</p>
+<h3>6.2 Metal dispatch 数</h3>
+<p>解析器报"400 个目标 PID interval"。用已知 dispatch 数（400）当 oracle 核对。匹配 = 解析器可信。<strong>"合理数字"不是 proof，已知 oracle 才是。</strong></p>
+<h3>6.3 编译 break-even</h3>
+<p>vLLM compiled 的 12 请求 latency 比和低，能声明"break-even 在 113 请求"吗？Inference Lab 的判断：113 是<strong>建模</strong>（冻结观测序列外推），不是<strong>观测</strong>。outputs 还不同、correctness 还不同、无 counterbalance 复现。所以不能声明 break-even。</p>
+<blockquote>
+<p><strong>一个模型可以指导下次运行，不必晋升为上次的结果。</strong> 这是独立 oracle 思维的精髓——区分"我算出来的"和"我观测到的"。</p>
+</blockquote>
+<hr />
+<h2>七、可比性是契约不是视觉</h2>
+<p>Inference Lab 的 GLM 文章最深的洞见之一（第 5、10 篇也讲过）：</p>
+<p>本地 Qwen3-8B MLX 跑 23 cases/min，托管 GLM-5.3 跑 18。能放进一张排行榜说"Qwen 最快"吗？不能。契约不同：</p>
+<ul>
+<li>不同模型身份</li>
+<li>不同运行时（MLX 本地 timing vs 托管 client timing）</li>
+<li>不同推理模式（本地 thinking 关 vs 托管强制 reasoning）</li>
+<li>不同 seed / 系统身份 / clean-boot 断言</li>
+</ul>
+<blockquote>
+<p><strong>一个图表能对齐任何三个数字，但不等于它们的分母相等。可比性来自契约，不来自数字的视觉邻近。</strong></p>
+</blockquote>
+<p>横评要么对齐契约，要么显式标"不同契约的观察，不可直接排名"。把排除项写出来——被排除的系统恰恰是"比较诚实"的信号。</p>
+<hr />
+<h2>八、fail closed：证据系统要像 parser 一样防错</h2>
+<p>Inference Lab 把证据系统当另一个 parser，要同样的警惕。验证时必须拒绝：</p>
+<ul>
+<li><strong>重复 ID</strong>：evidence_id 跨 catalog/registry/graph/matrix 必须唯一。静默 last-write-wins 会偷换。</li>
+<li><strong>悬空边</strong>：每条 edge 端点必须存在。</li>
+<li><strong>环</strong>：lineage 是 DAG，环让推导顺序歧义。拓扑排序要消费所有节点，否则报环。</li>
+<li><strong>路径逃逸</strong>：制品路径相对 allowed root，拒绝绝对路径 / <code>..</code> / symlink 逃逸 / 设备路径。</li>
+<li><strong>超大输入</strong>：每个 source 有最大 size/artifact 数/node 数/edge 数，超了先拒。</li>
+<li><strong>commit 不匹配</strong>：catalog/registry/graph/matrix/schema/checksum 必须来自同一棵 tree。分支 URL 不够，PR URL 是 context，merged commit 才绑字节。</li>
+<li><strong>missing claim cell</strong>：每个 claim row 必须提供全部七个维度。缺了是错误不是空。</li>
+</ul>
+<p><strong>任何一项 fail → 不出报告，而不是出一个"看起来合理"的报告。</strong></p>
+<hr />
+<h2>九、隐私是发表的一部分</h2>
+<p>证据要公开可检视，但公开的是<strong>派生事实和公共制品引用</strong>，不是原始采集数据。Inference Lab 的清单，公开节点不能带：</p>
+<ul>
+<li>home/workspace 路径</li>
+<li>credentials / 环境值 / provider request ID</li>
+<li>raw prompts / model responses</li>
+<li>无关进程身份 / target PID</li>
+<li>设备序列号 / 稳定设备标识</li>
+<li>账户 ID / 发票 / 信用 / 私有定价</li>
+<li>含其他 app/用户的 raw trace</li>
+</ul>
+<blockquote>
+<p>实践：隐私不是结尾跑个 regex。是<strong>采集时就用闭文件 allowlist + SHA256SUMS</strong>。验证拒绝异常文件、目录、symlink、home 路径、UUID、credential 形 token、邮箱、raw trace 路径。原始 trace 用完即删，只发派生摘要。</p>
+</blockquote>
+<hr />
+<h2>十、一个端到端的 lineage</h2>
+<p>Inference Lab 展示了一条完整 lineage（五个阶段的解释投影，不是图里的新节点）：</p>
+<pre><code>model pin
+  → collection（public_path + source commit）
+  → verification（adapter 名+版本 → bundle verifier）
+  → report（artifact set hash）
+  → article claim（文章 cite report，但不成为证明自己的证据）
+</code></pre>
+<p>例如 <code>qwen38-27b-m5-pro-clean-boot-autopsy-20260901</code>：</p>
+<ul>
+<li>model pin: <code>mlx-community/Qwen3.8-27B-4bit@3e6447f...</code></li>
+<li>collection: public path + source commit <code>2519bc8...</code></li>
+<li>verification: <code>oom_autopsy_v1</code> → <code>oom-autopsy.verify_bundle</code> v1</li>
+<li>report: <code>oom-autopsy-summary.json</code>, artifact set <code>sha256:1096de51...</code></li>
+</ul>
+<p><strong>文章 cite report，但文章不成为证明自己 claim 的证据。</strong> 这个边界防自指。</p>
+<hr />
+<h2>十一、hash / checksum / sealed / signed 的用词纪律</h2>
+<p>Inference Lab 反复强调用词精确：</p>
+<div class="table-wrap"><table>
+<thead>
+<tr>
+<th>词</th>
+<th>何时能用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hash / checksum</td>
+<td>有 SHA-256 摘要，能检测变更</td>
+</tr>
+<tr>
+<td>sealed / tamper-evident</td>
+<td>hash 链让变更可检测</td>
+</tr>
+<tr>
+<td><strong>signed</strong></td>
+<td><strong>只有真实密码学签名且已验证时</strong></td>
+</tr>
+<tr>
+<td>verified</td>
+<td>跑了 verifier adapter 且通过</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>hash 不是 tamper-proofing，signed 要真签名。</strong> 别滥用"signed"——一个 checksum 不等于签名。这是工程诚实。</p>
+<hr />
+<h2>十二、怎么落地你的证据体系</h2>
+<p>不需要照搬 Inference Lab 的 schema，但要落实它的纪律。一个最小实践：</p>
+<ol>
+<li><strong>每个性能实验建一个 evidence dir</strong>，含 manifest + summary + samples + logs + SHA256SUMS。</li>
+<li><strong>pin 到精确 commit</strong>：模型 revision、框架 commit、你的 benchmark 代码 commit。</li>
+<li><strong>每个数字旁边写 lineage 八维</strong>（至少 model/runtime/workload/evaluator/scope/失败状态）。</li>
+<li><strong>claim 三态</strong>：每个证据写 supported/unsupported/N-A。把"这不证明什么"显式列。</li>
+<li><strong>null 不当 zero</strong>。</li>
+<li><strong>独立 oracle 校验关键 claim</strong>（cache 命中、dispatch 数、break-even 是观测还是建模）。</li>
+<li><strong>可比性检查</strong>：横评前对齐契约或标不可比，排除项写出来。</li>
+<li><strong>fail closed</strong>：制品 hash 不匹配 / commit 不对 → 拒发版。</li>
+<li><strong>隐私 allowlist</strong>：闭文件集 + SHA256SUMS，原始敏感数据不进 public 制品。</li>
+<li><strong>文章/报告 cite 制品，不自证</strong>。</li>
+</ol>
+<hr />
+<h2>十三、实践 checklist：证据体系</h2>
+<ul>
+<li>[ ] 每个性能结论有 evidence dir + 制品 + SHA256SUMS</li>
+<li>[ ] pin 到精确 commit（模型/框架/你的代码）</li>
+<li>[ ] 每个数字旁填 lineage 八维</li>
+<li>[ ] claim 三态显式标，"这不证明什么"写出来</li>
+<li>[ ] null 不当 zero</li>
+<li>[ ] 关键 claim 用独立 oracle 校验</li>
+<li>[ ] 横评对齐契约或标不可比，排除项写出来</li>
+<li>[ ] 制品 hash 不匹配 / commit 不对 → fail closed 拒发版</li>
+<li>[ ] 隐私闭文件集 allowlist，原始敏感数据不入 public 制品</li>
+<li>[ ] 文章 cite 制品不自证；用 hash/checksum/signed 精确</li>
+</ul>
+<p>下一篇：<strong>学习路径与资源地图</strong>——从入门到精通的阶梯 + 职业市场（主线收官；随后 Atlas 补强篇 16-20 继续展开查漏补缺的进阶技术）。</p>
+        <p><a class="back-link" href="../frontier-techniques/">← 上一篇</a>　·　<a class="back-link" href="../">系列目录</a>　·　<a class="back-link" href="../learning-path/">下一篇 →</a></p>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p class="footer-mission">AI时代的Photolog，和你的agent交个朋友。</p>
+      <div class="footer-links">
+        <a href="https://github.com/chenyuqing" target="_blank" rel="noopener" aria-label="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55 0-.27-.01-1.17-.02-2.12-3.2.7-3.88-1.36-3.88-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.19 1.76 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.24-1.28-5.24-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11.1 11.1 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.26 5.66.41.36.78 1.06.78 2.14 0 1.54-.01 2.79-.01 3.17 0 .31.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"/></svg>
+        </a>
+        <a href="mailto:motoleisure@gmail.com" aria-label="邮件">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>
+        </a>
+        <a href="https://x.com/scottone2" target="_blank" rel="noopener" aria-label="X">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.24 2.25h3.31l-7.23 8.26 8.5 11.24h-6.66l-5.21-6.82-5.97 6.82H1.67l7.73-8.84L1.25 2.25h6.83l4.71 6.23 5.45-6.23Zm-1.16 17.52h1.83L7.08 4.13H5.12l11.96 15.64Z"/></svg>
+        </a>
+      </div>
+      <div class="footer-bottom">
+        <span>© 2026 Tim Chan. 保留所有权利。</span>
+        <span>Agent's Photolog</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
