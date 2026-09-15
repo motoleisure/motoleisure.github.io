@@ -189,26 +189,95 @@ def strip_running_headers(text):
     return text
 
 
-def strip_diagram_brackets(text):
-    """Convert standalone [text] diagram lines to bold or remove if just dots."""
+def preserve_diagrams(text):
+    """Wrap runs of [bracket] diagram lines in ``` code blocks.
+
+    The calibre conversion turned PDF diagrams into bracket text.
+    Instead of destroying them, preserve as monospace ASCII art.
+    """
     lines = text.split('\n')
     out = []
-    for ln in lines:
+    i = 0
+    while i < len(lines):
+        ln = lines[i]
         stripped = ln.strip()
-        # Skip lines that are just [.] or [...] diagram dots
-        if re.match(r'^\[\.\]\s*$', stripped) or re.match(r'^\[\.\s*\.\s*\.\]', stripped):
-            continue
-        # Skip standalone bracket-only diagram labels (expert, router, etc.)
-        # but keep formula lines with $ or $$ 
-        if stripped.startswith('[') and stripped.endswith(']') and '$' not in stripped:
-            # This is a diagram element — convert to plain text without brackets
-            content = stripped[1:-1]
-            if len(content) < 30 and not any(c in content for c in '=+×∈'):
-                # short label → bold
-                out.append(f'**{content}**')
+        # Check if this line is a diagram element: starts with [ and ends with ]
+        # (possibly multiple bracket groups), and doesn't contain $ or ##
+        is_diagram = (
+            stripped.startswith('[')
+            and '$' not in stripped
+            and not stripped.startswith('## ')
+            and '理解混合专家' not in stripped
+            and '研究锚点' not in stripped
+            and '\\@techNmak' not in stripped
+        )
+        # Also catch lines that are just brackets with math italics like [*E*][1]
+        # or [稠密前馈层] [=] [⇒] [.] [.] [.]
+        if is_diagram or (stripped == '' and out and out[-1].startswith('```diagram')):
+            if is_diagram:
+                # Start a code block
+                out.append('```text')
+                out.append(stripped)
+                i += 1
+                # Collect following blank lines and bracket lines
+                while i < len(lines):
+                    next_stripped = lines[i].strip()
+                    if next_stripped == '':
+                        # Keep blank lines inside diagram (skip them for compactness)
+                        i += 1
+                        continue
+                    elif (next_stripped.startswith('[')
+                          and '$' not in next_stripped
+                          and '理解混合专家' not in next_stripped
+                          and '研究锚点' not in next_stripped):
+                        out.append(next_stripped)
+                        i += 1
+                    else:
+                        break
+                out.append('```')
+                out.append('')  # blank line after
                 continue
         out.append(ln)
+        i += 1
     return '\n'.join(out)
+
+
+def fix_timeline_table(text):
+    """Convert the plain-text timeline table to a markdown table."""
+    # Pattern: 年份 工作 持久的理念 followed by data rows
+    if '年份 工作 持久的理念' in text:
+        text = text.replace(
+            '年份 工作 持久的理念\n\n1991 Jacobs 等人 跨局部专家的学习门控\n\n2017 Shazeer 等人 稀疏 Top-*k* 条件计算 2020 GShard 超大规模分布式 Transformer MoE\n\n2022 Switch Top-1 路由与简化的稀疏执行\n\n2024+ 现代 LLM MoE 新的专家粒度、负载均衡和服务设计',
+            '| 年份 | 工作 | 持久的理念 |\n|------|------|------------|\n| 1991 | Jacobs 等人 | 跨局部专家的学习门控 |\n| 2017 | Shazeer 等人 | 稀疏 Top-*k* 条件计算 |\n| 2020 | GShard | 超大规模分布式 Transformer MoE |\n| 2022 | Switch | Top-1 路由与简化的稀疏执行 |\n| 2024+ | 现代 LLM MoE | 新的专家粒度、负载均衡和服务设计 |'
+        )
+    return text
+
+
+def fix_matrix(text):
+    """Fix the broken assignment matrix rendering."""
+    # The matrix is broken across lines with bracket chars
+    text = text.replace(
+        " \n\n1 1 0 0\n\n  1 0 1 0\n\n*R*   = *.*     0 1 1 0  \n\n1 0 0 1",
+        "```text\nR = ⎡1 1 0 0⎤\n    ⎢1 0 1 0⎥\n    ⎢0 1 1 0⎥\n    ⎣1 0 0 1⎦\n```"
+    )
+    return text
+
+
+def fix_h_primes(text):
+    """Fix h-prime notation: *h* [′] and *h* [′′] [′] [′]."""
+    text = text.replace(
+        "*h* [′] = *h* + Attention(Norm(*h*))*,*",
+        "$$h' = h + \\text{Attention}(\\text{Norm}(h))$$"
+    )
+    text = text.replace(
+        "*h* [′′] [′] [′] = *h* + FFN(Norm( *h*))*.*",
+        "$$h'' = h + \\text{FFN}(\\text{Norm}(h))$$"
+    )
+    text = text.replace(
+        "*h* [′′] [′] [′] = *h* + MoE(Norm( *h* ))*.*",
+        "$$h'' = h + \\text{MoE}(\\text{Norm}(h))$$"
+    )
+    return text
 
 
 def clean_inline_subscripts(text):
@@ -348,17 +417,23 @@ def main():
 
     # 1. Fix formulas
     text = fix_formulas(text)
+    text = fix_h_primes(text)
     print(f"  formulas fixed")
 
     # 2. Strip running headers
     text = strip_running_headers(text)
     print(f"  running headers stripped")
 
-    # 3. Strip diagram brackets
-    text = strip_diagram_brackets(text)
-    print(f"  diagram brackets cleaned")
+    # 3. Preserve diagrams as code blocks
+    text = preserve_diagrams(text)
+    print(f"  diagrams preserved")
 
-    # 4. Clean inline subscripts
+    # 4. Fix tables and matrices
+    text = fix_timeline_table(text)
+    text = fix_matrix(text)
+    print(f"  tables/matrices fixed")
+
+    # 5. Clean inline subscripts
     text = clean_inline_subscripts(text)
     print(f"  inline subscripts converted")
 

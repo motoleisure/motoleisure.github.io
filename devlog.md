@@ -522,3 +522,22 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
   ch12 有 4 个（Shazeer noisy gate、KeepTopK 等）。
 - 注意：payload 由 fix_moe_formulas.py 生成，不是 build_books.py 的 spine
   策略。如果重跑 build_books.py 需再跑 fix_moe_formulas.py。
+
+## 2026-09-15 MoE 手册图表+公式全面修复
+
+- 问题：用户反馈「图表，公式都不对」——calibre 转换把图表打碎成
+  括号文本（被 strip_diagram_brackets 误转成 bold），表格变成纯文本，
+  公式仍有碎片残留。
+- 修复 tools/fix_moe_formulas.py：
+  1. **图表**：strip_diagram_brackets → preserve_diagrams，
+     连续 [bracket] 行包进 ```text 代码块，保留 ASCII 图形结构
+     （路由器架构图、模块流程图等 148 行）
+  2. **表格**：fix_timeline_table 把「年份 工作 持久的理念」
+     纯文本转为 markdown 表格；fix_matrix 把破碎的分配矩阵
+     （跨行 + 框线字符）转为 <pre> 矩阵块
+  3. **公式**：fix_h_primes 处理 *h* [′′] [′] [′] → $$h''$$；
+     fix_html_formulas 处理 tilde→\tilde{}、残留括号碎片清除
+  4. KaTeX CDN + auto-render 已确认渲染（dump-dom 含 ∑ MathML）
+- 结果：37 章，54KB，ch4 有 6 个 display formula（MoE 求和、支撑集、
+  Top-k 输出），ch2 有图表 pre 块，ch10 有矩阵 pre 块，ch11 有
+  timeline 表格，ch5 有 h-prime 公式。
