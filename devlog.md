@@ -502,3 +502,23 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
   后处理清除：标题去前缀、正文删 book-title link + @techNmak figure +
   work_split 内部链接 unwrap。
 - 验证：headless 截图（8899）确认书架卡片 + reader 页 TOC/正文正常。
+
+## 2026-09-15 修复 MoE 手册公式渲染
+
+- 问题：calibre PDF→HTMLZ 转换把数学公式打碎成碎片——求和符号 Σ 丢失，
+  下标/上标拆成独立段落和括号片段。polish 误把 [@techNmak] [N] 运行页眉
+  转成 code-listing figure。
+- 方案：写 tools/fix_moe_formulas.py 从翻译后的 output.md 重建 payload：
+  1. 多行求和模式 → $$\text{MoE}(x) = \sum_{i=1}^{N} G_i(x) E_i(x)$$ 等 LaTeX
+  2. 行内下标 → $E_i(x)$, $G_i(x)$, $W_2$ 等
+  3. 运行页眉 → ## 标题（处理 \@ 转义和两种格式：bold 和 plain）
+  4. HTML 后处理：tilde→\tilde{}、残留括号碎片清除、S(x) 大括号转义
+  5. reader 页加 KaTeX 0.16.9 CDN（CSS+JS+auto-render），
+     renderMath() 在 show() 和 fetchBook().then() 后延迟重渲染（defer
+     脚本可能晚于 fetch 回调）
+  6. URL hash 导航（#N 直接跳第 N 章）
+- 结果：37 章（原 5 章 spine 太粗），payload 54KB，公式正确渲染
+  （dump-dom 确认 MathML 含 ∑ 求和符号）。ch4 有 6 个 display formula，
+  ch12 有 4 个（Shazeer noisy gate、KeepTopK 等）。
+- 注意：payload 由 fix_moe_formulas.py 生成，不是 build_books.py 的 spine
+  策略。如果重跑 build_books.py 需再跑 fix_moe_formulas.py。

@@ -15,6 +15,10 @@
   <meta property="og:image" content="https://motoleisure.github.io/assets/images/books/cover-moe-handbook.svg">
   <meta name="robots" content="noindex">
   <link rel="stylesheet" href="../../assets/css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+    onload="window.__katexReady=true;"></script>
   <style>
     .reader-band { background: var(--page-tint); padding: 3rem 0 4rem; min-height: 60vh; }
     .reader-head { display: flex; align-items: flex-start; gap: 1.4rem; flex-wrap: wrap; }
@@ -116,6 +120,9 @@
     .chapter colgroup { display: none; }
 
     .progress-note { margin: 0 0 1rem; color: var(--ink-muted); font-size: .85rem; }
+    .chapter .katex-display { margin: 1.5rem 0; overflow-x: auto; overflow-y: hidden; padding: .5rem 0; }
+    .chapter .katex { font-size: 1.05em; }
+    .chapter p:has(> .katex-display) { text-align: center; }
   </style>
 </head>
 <body>
@@ -236,6 +243,7 @@
       current = i;
       var ch = book.chapters[i];
       chapterEl.innerHTML = ch.html;
+      renderMath();
       chapterEl.scrollTop = 0;
       progressEl.textContent = "第 " + (i + 1) + " / " + book.chapters.length + " 章 · " + ch.title;
       var btns = tocEl.querySelectorAll("button");
@@ -247,11 +255,26 @@
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
 
+    function renderMath() {
+      if (typeof renderMathInElement === "function" && current >= 0) {
+        renderMathInElement(chapterEl, {
+          delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "$", right: "$", display: false}
+          ],
+          throwOnError: false
+        });
+      }
+    }
+
     function unlock() {
       readerEl.hidden = false;
       statusEl.hidden = true;
       renderToc();
-      show(0);
+      var initialCh = parseInt(location.hash.slice(1)) || 0;
+      show(initialCh < book.chapters.length ? initialCh : 0);
+      setTimeout(renderMath, 300);
+      setTimeout(renderMath, 1500);
     }
 
     fetchBook()
