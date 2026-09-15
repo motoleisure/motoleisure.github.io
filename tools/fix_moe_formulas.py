@@ -189,11 +189,44 @@ def strip_running_headers(text):
     return text
 
 
+def _is_formula_fragment(s):
+    """True if a bracket line is a formula fragment, not a diagram element."""
+    # Formula fragments: [*i*] [*i*], [*i*][=1], [aux] [*i*] [*i*],
+    # [*i*][∈S][(][*x*][)], [*N*], [importance] [importance], etc.
+    if re.match(r'^\[\*?\w\*?\]\s*\[?\*?\w\*?\]?\s*$', s):
+        return True
+    if re.match(r'^\[\*?\w\*?\]\[=\d+\]$', s):
+        return True
+    if re.match(r'^\[\*?\w\*?\]\[∈S\]', s):
+        return True
+    if 'aux' in s and '辅助' not in s:
+        return True
+    if 'importance' in s:
+        return True
+    # [*N*] alone (superscript limit)
+    if re.match(r'^\[\*N\*\]$', s):
+        return True
+    # [*i*] [*i*] (subscripts)
+    if re.match(r'^\[\*i\*\]\s*\[\*i\*\]$', s):
+        return True
+    return False
+
+
+def _clean_diagram_line(s):
+    """Strip brackets and italic markers from a diagram line for cleaner display."""
+    # [*E*][1] → E₁, [*x*] → x, [路由器] → 路由器
+    s = re.sub(r'\[\*?(\w)\*?\]\[(\d+)\]', lambda m: m.group(1) + m.group(2), s)
+    s = re.sub(r'\[\*(\w)\*\]', r'\1', s)  # [*x*] → x
+    s = re.sub(r'\[([^\]]*)\]', r'\1', s)   # [text] → text
+    return s.strip()
+
+
 def preserve_diagrams(text):
     """Wrap runs of [bracket] diagram lines in ``` code blocks.
 
     The calibre conversion turned PDF diagrams into bracket text.
     Instead of destroying them, preserve as monospace ASCII art.
+    Formula fragments (subscripts, summation limits) are excluded.
     """
     lines = text.split('\n')
     out = []
@@ -201,8 +234,7 @@ def preserve_diagrams(text):
     while i < len(lines):
         ln = lines[i]
         stripped = ln.strip()
-        # Check if this line is a diagram element: starts with [ and ends with ]
-        # (possibly multiple bracket groups), and doesn't contain $ or ##
+        # Check if this line is a diagram element
         is_diagram = (
             stripped.startswith('[')
             and '$' not in stripped
@@ -210,33 +242,35 @@ def preserve_diagrams(text):
             and '理解混合专家' not in stripped
             and '研究锚点' not in stripped
             and '\\@techNmak' not in stripped
+            and not _is_formula_fragment(stripped)
         )
-        # Also catch lines that are just brackets with math italics like [*E*][1]
-        # or [稠密前馈层] [=] [⇒] [.] [.] [.]
-        if is_diagram or (stripped == '' and out and out[-1].startswith('```diagram')):
-            if is_diagram:
-                # Start a code block
-                out.append('```text')
-                out.append(stripped)
-                i += 1
-                # Collect following blank lines and bracket lines
-                while i < len(lines):
-                    next_stripped = lines[i].strip()
-                    if next_stripped == '':
-                        # Keep blank lines inside diagram (skip them for compactness)
-                        i += 1
-                        continue
-                    elif (next_stripped.startswith('[')
-                          and '$' not in next_stripped
-                          and '理解混合专家' not in next_stripped
-                          and '研究锚点' not in next_stripped):
-                        out.append(next_stripped)
-                        i += 1
-                    else:
-                        break
-                out.append('```')
-                out.append('')  # blank line after
-                continue
+        if is_diagram:
+            # Start a code block
+            out.append('```text')
+            out.append(_clean_diagram_line(stripped))
+            i += 1
+            # Collect following blank lines and bracket lines
+            while i < len(lines):
+                next_stripped = lines[i].strip()
+                if next_stripped == '':
+                    i += 1
+                    continue
+                elif (next_stripped.startswith('[')
+                      and '$' not in next_stripped
+                      and '理解混合专家' not in next_stripped
+                      and '研究锚点' not in next_stripped
+                      and not _is_formula_fragment(next_stripped)):
+                    out.append(_clean_diagram_line(next_stripped))
+                    i += 1
+                else:
+                    break
+            out.append('```')
+            out.append('')
+            continue
+        # Also remove standalone formula fragment lines
+        if _is_formula_fragment(stripped):
+            i += 1
+            continue
         out.append(ln)
         i += 1
     return '\n'.join(out)
@@ -408,6 +442,19 @@ def fix_html_formulas(html):
 
     # 9. Remove empty <p></p>
     html = re.sub(r'<p>\s*</p>', '', html)
+
+    # 10. Remove <pre> blocks that only contain formula fragments (not real diagrams)
+    def clean_pre(m):
+        content = m.group(1)
+        # If the <pre> block contains formula fragments, remove it entirely
+        if re.search(r'\[\*i\*\]|\[\*N\*\]\s*$|\[aux\]|\[∈S\]|\[importance\]', content):
+            return ''
+        return m.group(0)
+    html = re.sub(r'<pre><code[^>]*>(.*?)</code></pre>', clean_pre, html, flags=re.S)
+
+    # 11. Remove any remaining standalone bracket-fragment <p> tags
+    html = re.sub(r'<p>\[\*?\w\*?\]\s*\[\*?\w\*?\]</p>', '', html)
+    html = re.sub(r'<p>\[\*?\w\*?\]\[.*?\]</p>', '', html)
 
     return html
 
