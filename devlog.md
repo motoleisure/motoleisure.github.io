@@ -484,3 +484,21 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
 - 验证：无 missing image 警告；headless 截图（8899）检查首页网格 31 卡、
   prompt-caching（fallback 图）、系列 hub、part1/3/20（代码块+表格）、
   post16。pfx 少了尾斜杠导致 CSS 404 一轮返工——参数化路径务必带 /。
+
+## 2026-09-15 翻译上传《理解混合专家》到书架
+
+- 使用 translate-book 技能翻译 Understanding_Mixture_of_Experts_Handbook_07.pdf
+  （@techNmak 的 MoE 技术手册，558KB PDF → calibre HTMLZ → 12 chunks）。
+- 3 批 × 4 个子 agent 并行翻译，每 chunk 注入 46 条术语表 + 邻居上下文；
+  术语一致：MoE→混合专家、router→路由器、auxiliary loss→辅助损失、
+  routing bias→路由偏置、auxiliary-loss-free→无辅助损失等。
+- merge_and_build 输出 EPUB（74KB），spine 策略提取 5 章。
+- 书架集成：BOOKS 加 moe-handbook（protected: False, spine）；
+  payload 75KB plain JSON；封面 SVG（teal accent #0d9488）；
+  reader 页复制自 ai-education-report 模板（SLUG 改 moe-handbook）；
+  shelf 卡片加到「系统与基础设施」分类，标记 📖 免费阅读。
+- 清理：calibre HTMLZ 转换把运行页眉（[理解混合专家] [@techNmak] [N]）
+  嵌入了 h2 标题和正文 → polish 误把 [@techNmak] [N] 转成 code-listing figure；
+  后处理清除：标题去前缀、正文删 book-title link + @techNmak figure +
+  work_split 内部链接 unwrap。
+- 验证：headless 截图（8899）确认书架卡片 + reader 页 TOC/正文正常。

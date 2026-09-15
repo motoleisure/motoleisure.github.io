@@ -103,6 +103,18 @@ BOOKS = [
         "strategy": "chapters",  # nav is corrupt; split files in spine order,
         # chapter boundaries = <h2><strong>第N章 …</strong></h2> (第四章 variant too)
     },
+    {
+        "slug": "moe-handbook",
+        "protected": False,
+        "title": "理解混合专家",
+        "title_en": "Understanding Mixture of Experts",
+        "author": "@techNmak",
+        "blurb": "从稀疏路由到现代 MoE 语言模型：路由器 logits、Top-k 选择、辅助损失、负载均衡、专家容量与 token 丢弃——面向工程师的混合专家技术手册。",
+        "epub": "/Users/tim/my-sys/Understanding_Mixture_of_Experts_Handbook_07_temp/book.epub",
+        "cover": "assets/images/books/cover-moe-handbook.svg",
+        "max_img_w": 1200,
+        "strategy": "spine",  # clean calibre EPUB; short handbook, spine order
+    },
 ]
 
 
