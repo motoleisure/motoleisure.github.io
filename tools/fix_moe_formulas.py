@@ -443,18 +443,86 @@ def fix_html_formulas(html):
     # 9. Remove empty <p></p>
     html = re.sub(r'<p>\s*</p>', '', html)
 
-    # 10. Remove <pre> blocks that only contain formula fragments (not real diagrams)
+    # 10. Remove <pre> blocks that only contain formula fragments
     def clean_pre(m):
         content = m.group(1)
-        # If the <pre> block contains formula fragments, remove it entirely
         if re.search(r'\[\*i\*\]|\[\*N\*\]\s*$|\[aux\]|\[∈S\]|\[importance\]', content):
             return ''
         return m.group(0)
     html = re.sub(r'<pre><code[^>]*>(.*?)</code></pre>', clean_pre, html, flags=re.S)
 
-    # 11. Remove any remaining standalone bracket-fragment <p> tags
+    # 11. Remove standalone bracket-fragment <p> tags
     html = re.sub(r'<p>\[\*?\w\*?\]\s*\[\*?\w\*?\]</p>', '', html)
     html = re.sub(r'<p>\[\*?\w\*?\]\[.*?\]</p>', '', html)
+
+    # 12. Fix inline subscript brackets: [<em>i</em>] → <sub>i</sub>
+    html = re.sub(r'\[<em>(\w)</em>\]', lambda m: '<sub>' + m.group(1) + '</sub>', html)
+    # [<em>d</em><em>model]</em>] → d<sub>model</sub>
+    html = re.sub(r'\[<em>(\w)</em><em>(\w+)\]</em>\]', lambda m: m.group(1) + '<sub>' + m.group(2) + '</sub>', html)
+    # [<em>i,t</em>] → <sub>i,t</sub>
+    html = re.sub(r'\[<em>(\w,\w)</em>\]', lambda m: '<sub>' + m.group(1) + '</sub>', html)
+
+    # 13. Fix function notation: <em>G</em>(<em>x</em>) → G(x) in non-display context
+    html = re.sub(r'<em>([A-Z])</em>\(<em>(\w)</em>\)', r'\1(\2)', html)
+    html = re.sub(r'<em>([A-Z])</em>\((\w)\)', r'\1(\2)', html)
+
+    # 14. Fix ch20: <em>T</em> [<em>x</em>][∈][<em>B</em>] → LaTeX fraction
+    html = html.replace(
+        '<em>T</em> <sub>x</sub>∈<sub>B</sub>',
+        '$$\\frac{1}{T} \\sum_{x \\in B}$$')
+    html = re.sub(
+        r'<em>T</em>\s*\[<em>x</em>\]\[∈\]\[<em>B</em>\]',
+        lambda m: '$$\\frac{1}{T} \\sum_{x \\in B}$$', html)
+
+    # 15. Fix mangled Σ: <em>N</em> X <em>f P</em> → $$N \sum_i f_i P_i$$
+    html = re.sub(
+        r'<em>N</em>\s+X\s+<em>f\s*P</em>\s*=\s*([\d.]+)',
+        lambda m: '$$N \\sum_i f_i P_i = ' + m.group(1) + '$$', html)
+    html = re.sub(
+        r'<em>N</em>\s+X\s+<em>f</em>\s*<sub>i</sub>\s*<em>P</em>\s*<sub>i</sub>\s*=\s*([\d.]+)',
+        lambda m: '$$N \\sum_i f_i P_i = ' + m.group(1) + '$$', html)
+
+    # 16. Remove calibre anchor IDs in any form
+    # Pattern: <h3><sub>i</sub> {#i .calibre24}</h3> or <h3>X {#x .calibre27}</h3>
+    html = re.sub(r'<h3>[^<]*\{#[^}]*calibre[^}]*\}</h3>', '', html)
+    html = re.sub(r'<h3><sub>\w</sub>\s*\{#[^}]*calibre[^}]*\}</h3>', '', html)
+    # Plain text calibre anchors
+    html = re.sub(r'\{#[^}]*calibre[^}]*\}', '', html)
+
+    # 17. Fix ch35 long bracket annotations: [long text] → (long text)
+    html = re.sub(r'\[([^\]]{10,})\]', lambda m: '(' + m.group(1) + ')' 
+                  if not m.group(0).startswith('$$') and 'katex' not in m.group(0)
+                  else m.group(0), html)
+
+    # 18. Fix ch33 code brackets
+    html = html.replace('<strong>if</strong> [mask.]<strong>any</strong>[():]',
+                        '<code>if mask.any():</code>')
+    html = html.replace('<strong>for</strong> [slot] <strong>in range</strong>[(2):]',
+                        '<code>for slot in range(2):</code>')
+    html = html.replace('[expert_id, expert] <strong>in enumerate</strong>',
+                        '<code>expert_id, expert in enumerate</code>')
+    html = html.replace('[mask.]', 'mask.')
+    html = html.replace('[():]', '()')
+    html = html.replace('[slot]', 'slot')
+    html = html.replace('[(2):]', '(2):')
+
+    # 19. Fix ch21 summation fragments: [=1] → _{=1}
+    html = re.sub(r'\[=(\d+)\]', r'<sub>=\1</sub>', html)
+    # X [(]<sub>i</sub>[)] → LaTeX sum
+    html = re.sub(
+        r'X\s*\[\(\]<sub>(\w)</sub>\[\)\]\s*X\s*<sub>(\w)</sub>\s*<sub>(\w)<',
+        lambda m: '$$\\sum_{' + m.group(1) + '} \\sum_{' + m.group(2) + '}', html)
+    # <em>B</em> <sub>i</sub>[=1] <sub>j</sub>[=1] → LaTeX double sum
+    html = re.sub(
+        r'<em>(\w)</em>\s*<sub>(\w)</sub>=<sub>(\d+)</sub>\s*<sub>(\w)</sub>=<sub>(\d+)</sub>',
+        lambda m: '$$\\sum_{' + m.group(2) + '=' + m.group(3) + '}^{\\text{' + m.group(1) + '}} \\sum_{' + m.group(4) + '=' + m.group(5) + '}^{' + m.group(1) + '}', html)
+
+    # 19. Fix <em>G</em>(<em>x</em>) patterns that remain
+    html = re.sub(r'<em>([A-Za-z])</em>\(<em>([a-z])</em>\)', r'\1(\2)', html)
+
+    # 20. Fix z-loss subscripts: <em>L</em>[total] → L_{total}
+    html = re.sub(r'<em>L</em>\[([a-zA-Z]+)\]',
+                  lambda m: '$L_{\\text{' + m.group(1) + '}}$', html)
 
     return html
 
