@@ -541,3 +541,33 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
 - 结果：37 章，54KB，ch4 有 6 个 display formula（MoE 求和、支撑集、
   Top-k 输出），ch2 有图表 pre 块，ch10 有矩阵 pre 块，ch11 有
   timeline 表格，ch5 有 h-prime 公式。
+
+## 2026-09-26 上传《LLM 推理手册》到书架
+
+- 书源：`/Users/tim/my-sys/llm-inference-book/`（README 总目录 + 7 章
+  markdown，56 节，基于 Modular LLM Inference Handbook 全站整理的中文
+  版）。原生 `$$`/`$` LaTeX、pipe 表格、78 个 fence 代码块、无图片。
+- 新管线 `tools/build_llm_inference_book.py`（md→payload 直建，不走
+  EPUB）：fenced 代码块 stash → 行内 code span stash → `$$` 块 stash →
+  `$` 行内 stash → `\$/`→`&dollar;` → python-markdown → 按序还原。
+  **为什么 math 也要 stash**：python-markdown 会把 `$W_Q$` 里的 `_` 当
+  emphasis、把 `$$` 块里的 `*`/`_` 打碎，raw 管线公式必坏。
+- 两个管线坑：
+  1. fence 还原顺序——先替换 token 再拆包裹 `<p>`，反过来会把带 token
+     的段落整段删掉（首跑 79 个 pre 全丢，ch1 只剩 2）。
+  2. re.sub 的替换串含 LaTeX 反斜杠（`\frac`）时被当转义 → KeyError，
+     必须用 lambda 传替换。
+- 坑提醒：bash 里 grep/python -c 验证 payload 内容时，双引号会把
+  `\\t` 吃成真 tab——审计误报「ch5 公式缺失」，payload 本身正确。
+  验证脚本里 LaTeX 用单引号或 eval。
+- payload：`assets/books/llm-inference-handbook.bin`，8 章（README
+  总目录为第 1 章）532KB 明文 JSON，免费阅读。审计：30 表格、19
+  display + 71 inline 公式、79 fence、0 残留 token、0 `&dollar;` 泄漏。
+- 接入：阅读器页 `books/llm-inference-handbook/`（复制 moe-handbook
+  模板，KaTeX 0.16.9 + URL hash 导航）；封面 SVG（accent #2563eb，
+  此前未占用）；书架「系统与基础设施」组新卡（📖 免费阅读）。
+- 验证：8899 headless 截图（书架 4 卡、阅读器 ch1/ch3、公式带）+
+  dump-dom：KaTeX MathML `<math>` 9 处、TTFT/TPOT 分式真渲染、无裸
+  `$$` 残留（仅 reader 脚本里的 delimiters 字面量，正常）。
+- 重跑构建：`python3 tools/build_llm_inference_book.py`（独立于
+  build_books.py / fix_moe_formulas.py）。
