@@ -613,3 +613,34 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
   风格原书插图）、折叠条渲染。动画 AVIF 浏览器原生支持（AVIF sequence）。
 - 重跑构建：`python3 tools/build_scaling_inference_book.py`（图片已
   外置 assets/images/books/scaling-inference/，重跑只重建 payload）。
+
+## 2026-09-28 上架《KV Cache：LLM 里的键值缓存》（单篇博客）
+
+- 来源：translate-book 管线翻译的 Outcome School 博客
+  《KV Cache in LLMs》（Amit Shekhar）→
+  `/Users/tim/my-sys/kv-cache-article-temp/output.md`（18KB 译文，
+  14 chunks 并行翻译 + meta 合并）。文章短、无真图（只有 1×1 追踪
+  GIF 和空白 calibre SVG），**单章 payload** 最合适。
+- 新管线 `tools/build_kv_cache_article.py`（md→payload 直建，与
+  llm-inference-book 同款 fence/code-span stash，无 math）：
+  1. **作者头 junk 清理**：calibre 把「作者/姓名/发布于」定义列表
+     导出成 4 空格缩进块（md 转换后变成 `<pre><code>` 假代码卡），
+     清理时按行过滤，跳过键在「KV 缓存是…」正文首句。
+  2. **calibre 链接属性残留**：`{target="_blank" rel="…"}` 在
+     markdown 转换后引号变成 `&quot;` 实体——清理正则要同时匹配
+     原始与实体两种形态（首跑残留 16 处，扩正则后归零）。
+  3. **坑：`"``` calibre9"` 带空格的 fence 标记**——`"```(\w*)\n"`
+     匹配不到，lazy 正则把相邻两个 fence 的开闭括号错配成一对，
+     产出嵌套 `<pre>` + prose 混进代码卡 + `**` 加粗泄漏（截图自检
+     发现）。改 `"``` ?(\w*)\n"` 后 5 个 fence 全部还原，9 h2 + 4 h3
+     结构正确。
+  4. 首跑曾误用 write 写了 839B 的 stub .bin 覆盖 17KB 真产物——
+     **write 新文件前先确认目标不存在**，真 payload 一律由构建脚本
+     生成，stub 立即用 builder 重建恢复。
+- 接入：阅读器 `books/kv-cache-in-llms/`（scaling-inference 模板，
+  KaTeX 保留但本文无公式；TOC 章名 = 书名）；封面 SVG（accent
+  `#b45309`，书架首个琥珀色）；书架「系统与基础设施」第 6 卡，
+  added-tag 2026-09-28。
+- 验证：8899 headless 截图（阅读器 fence 卡、书架 9 卡）+ payload
+  审计（5 fence/9 h2/4 h3/0 属性残留/0 calibre9）。
+- 重跑构建：`python3 tools/build_kv_cache_article.py`。
