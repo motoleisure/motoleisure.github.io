@@ -571,3 +571,45 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
   `$$` 残留（仅 reader 脚本里的 delimiters 字面量，正常）。
 - 重跑构建：`python3 tools/build_llm_inference_book.py`（独立于
   build_books.py / fix_moe_formulas.py）。
+
+## 2026-09-28 上传《Transformer 推理全解》到书架
+
+- 书源：`/Users/tim/my-sys/scaling-book/part7-inference.md`——DeepMind
+  《How To Scale Your Model》Part 7（All About Transformer Inference）
+  中文译本，单文件 579 行，6 个 h2。与 `llm-inference-book/` 互补：
+  手册讲工程手段，本文讲「从 roofline 出发的量化推算」。
+- 图片管线：17 张 PNG→AVIF（1200px 上限，共 260KB，源 2.9MB）；两张
+  动图 GIF→**动画 AVIF**（ffmpeg `-c:v libaom-av1 -crf 45`）：
+  continuous-batching 7.2MB→63KB（815 帧）、all-gather 757KB→37KB。
+  ffprobe 验证动画：`-show_packets` 数包（815/367），`nb_frames` 与
+  `-f null` 解码计数对 AVIF 序列不可靠（都显示 1）。
+- 新管线 `tools/build_scaling_inference_book.py`：按 h2/h3 切 9 章
+  （原书 6 个 h2，其中「推理基础」「附录」过长，各在最大 h3 处再切）。
+  md 渲染同 llm-inference-book 的 math/code stash 方案，另加三件事：
+  1. **图片 stash 放最前**：alt 文本里的 `$O(n)$` 若先被 math stash，
+     还原时 `<span>` 会插进 `alt="..."` 属性里直接打碎 img 标签。
+  2. **`<details>` 折叠答案**：python-markdown 不渲染块级 HTML 内部的
+     markdown。render_details 先对 inner 跑 md_to_html，把渲染好的
+     `<details class="qa">` 放进 `@@DETN@@` token，**外层 pass 完成后再
+     splice 回去**——直接内联回去会让外层二次 stash 碎片里的 `$$`，
+     产出嵌套 `.math-display` div + 双重转义实体（首跑 ch8 中招）。
+  3. **切章边界不得重叠**：首版 ch3 的结束标记与 ch4 起点含糊，187 行
+     的 h3 同时落在两章里，内容重复、公式片段双渲染。改 SPLITS 显式
+     相邻（ch3 终点=ch4 起点）后，`8192\ (T)` 等 sentinel 全书恰 1 次。
+- 三个 bug 均由「sentinel 计数 + 唯一性审计」抓出：17 个 `$$` 公式、
+  19 图、6 details、2 fence、5 表格，逐项核对 payload。
+- 顺带修复 `build_llm_inference_book.py` 同款 stray-`@` bug：math 还原
+  `html.replace(f"@@MATH{i}@", frag)` 少一个 `@`（token 是 `@@` 结尾），
+  段落内的 token 被 `<p>` unwrap 正则整体消费所以无恙，但行内/属性位置
+  会留下游离 `@`（llm payload 里 73 处，藏在 `</span>@` 后面）。改成
+  `@@MATH{i}@@` 重建，两书 payload `@` 计数只剩代码字面量（`@triton.jit`、
+  `@article`）。
+- 接入：阅读器 `books/scaling-inference/`（llm 模板 + KaTeX +
+  `details.qa` 折叠样式：▸ 旋转、hairline 边）；封面 SVG（accent
+  `#be185d`，全书架首个洋红）；书架「系统与基础设施」第 5 卡，added-tag
+  2026-09-27。
+- 验证：8899 headless 截图 ch1/ch3/ch7 + 书架；dump-dom：`<math>` 12、
+  `katex-display` 7、无裸 `$$`；三张截图确认公式分式、图片（含手绘
+  风格原书插图）、折叠条渲染。动画 AVIF 浏览器原生支持（AVIF sequence）。
+- 重跑构建：`python3 tools/build_scaling_inference_book.py`（图片已
+  外置 assets/images/books/scaling-inference/，重跑只重建 payload）。

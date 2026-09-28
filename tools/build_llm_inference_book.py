@@ -104,7 +104,7 @@ def md_to_html(text):
         # unwrap a paragraph that only wraps this token (lambda: frag may
         # contain backslashes from LaTeX, which re.sub would read as escapes)
         html = re.sub(r"<p>\s*@@MATH%d@@\s*</p>" % i, lambda m: frag, html)
-        html = html.replace(f"@@MATH{i}@", frag)
+        html = html.replace(f"@@MATH{i}@@", frag)
 
     # 10. wrap tables for horizontal scroll
     html = html.replace("<table>", '<div class="table-wrap"><table>')
