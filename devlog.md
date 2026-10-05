@@ -572,6 +572,40 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
 - 重跑构建：`python3 tools/build_llm_inference_book.py`（独立于
   build_books.py / fix_moe_formulas.py）。
 
+## 2026-10-05 上架《理解智能体执行框架工程》（Understanding Harness Engineering）
+
+- 书源：translate-book 管线翻译的 48 页技术手册
+  《Understanding Harness Engineering》（@techNmak，Understanding AI 系列）
+  → `/Users/tim/my-sys/Understanding_Harness_Engineering_temp/output.md`
+  （13 chunks 并行翻译 + 术语表合并，43 个编号章节全部还原）。
+- 新管线 `tools/build_harness_engineering_book.py`（scaling-inference 的
+  SPLITS 思路 + kv-cache 的单文件 payload 形态），本书三处与既有书不同：
+  1. **无 KaTeX**：全书只有行内伪记号（`y ~ p_theta(. | c)`、`C(H) ≠ H`、
+     `f(f(s)) = f(s)`、`B = (B_turns, ...)`），没有 `$` 定界符。原文里的
+     两个 `$`（"cost $9 / $200"）在翻译时已转成「9 美元 / 200 美元」，
+     译文 `$` 计数为 0，因此阅读器直接摘掉 KaTeX 的 link/script、
+     `.katex*` CSS 和整个 `renderMath` helper，每次进入少两个 CDN 请求。
+  2. **`[框线]` 重组为图示块**：原 PDF 的流程图是方框，convert 后散成
+     59 个独立 `[label]` 行（每行一个 `<p>`），读起来是一叠单行段落。
+     `stash_diagrams()` 把连续（容忍中间空行）的 `[label]` 行并成一个
+     `@@DIAGRAMn@@`，markdown 之后再 splice 回
+     `<pre><code class="language-text">`——和 MoE 阅读器处理 ASCII
+     图示同一套深色卡片样式。全书共 20 个图示块（含封面题字 plate、
+     §2 的智能体循环图、§11 的 harness/MCP 分层图、§30 的
+     requested→executed→observed→committed 状态图、§43 的 HARNESS 生产图）。
+  3. **h2 → h3 降级**：SPLITS 按 `## N 标题` 切 10 章，章名进 TOC，
+     原 `## ` 在章内降为 `<h3>`，43 节编号（1–43）在阅读器里仍然可见。
+- 分章：1 章封面/导言 + 10 章正文，按原书 running-head 的分部边界切
+  （导言 / 模型·会话·工具 / 工具设计 / MCP·上下文 / 状态面 / 沙箱·审批 /
+  停止·预算·验证 / 反馈·幂等 / 可强制·评估 / 误解·心智模型·参考文献）。
+- 接入：阅读器 `books/harness-engineering/`（kv-cache 模板去 KaTeX；
+  目录 11 项，`fetch` 载荷 61KB）；封面 SVG（accent `#b91c1c`，
+  书架首个绯红）；书架「智能体开发」第 3 卡，added-tag 2026-10-05。
+- 验证：8899 headless 截图（阅读器 ch1/ch4/ch11 + 书架 10 卡）+
+  payload 审计（43/43 h3 无缺号、20 图示块、1 表格、0 未解析 token、
+  0 console error / 0 requestfailed）。
+- 重跑构建：`python3 tools/build_harness_engineering_book.py`。
+
 ## 2026-09-28 上传《Transformer 推理全解》到书架
 
 - 书源：`/Users/tim/my-sys/scaling-book/part7-inference.md`——DeepMind
