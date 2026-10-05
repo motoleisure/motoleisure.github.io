@@ -51,8 +51,69 @@ SPLITS = [
     ("误解、生产心智模型与参考文献", "## 41 常见误解",                       None),
 ]
 
+# The book's concept formulas. output.md keeps readable pseudo-notation
+# because the same file also feeds the standalone PDF/EPUB/DOCX builds —
+# putting raw LaTeX there would leak \sim / \text{} into those formats. The web
+# reader typesets these as real KaTeX instead.
+#
+# ``$$...$$`` on its own line -> display math; ``$...$`` inside a line -> inline.
+MATH_SUBS = [
+    # §1  model invocation
+    ("y ~ p_theta(. | c)",
+     "$$\ny \\sim p_\\theta(\\cdot \\mid c)\n$$"),
+    # §1  agent system decomposition
+    ("agent system ~= model + harness + environment",
+     "$$\n\\text{agent system} \\approx \\text{model} + \\text{harness} "
+     "+ \\text{environment}\n$$"),
+    # §2  the four evolving objects (definition list -> inline math + gloss)
+    ("- s_t = 第 t 步之前持久或工作状态",
+     "- $s_t$ = 第 t 步之前持久或工作状态"),
+    ("- c_t = G(s_t) = 为下一次模型调用选出的上下文",
+     "- $c_t = G(s_t)$ = 为下一次模型调用选出的上下文"),
+    ("- a_t = M(c_t) = 模型输出，其中可能包含一个行动请求",
+     "- $a_t = M(c_t)$ = 模型输出，其中可能包含一个行动请求"),
+    ("- o_t = E(a_t) = 行动执行时环境产生的观察结果",
+     "- $o_t = E(a_t)$ = 行动执行时环境产生的观察结果"),
+    # §2  state update rule
+    ("s_(t+1) = U(s_t, a_t, o_t)",
+     "$$\ns_{t+1} = U(s_t, a_t, o_t)\n$$"),
+    # §7  tool cost decomposition
+    ("C_tool = C_selection + C_observation",
+     "$$\nC_{\\text{tool}} = C_{\\text{selection}} + C_{\\text{observation}}\n$$"),
+    # §7  the two costs, spelled out in the following prose
+    ("C_selection 是选出正确工具和参数的难度。C_observation 是返回结果所带来的上下文与推理负担。",
+     "$C_{\\text{selection}}$ 是选出正确工具和参数的难度。"
+     "$C_{\\text{observation}}$ 是返回结果所带来的上下文与推理负担。"),
+    # §15  compaction is lossy
+    ("设 H 为一段历史，C(H) 为压缩后的表示。一般而言：C(H) ≠ H",
+     "设 H 为一段历史，C(H) 为压缩后的表示。一般而言：\n\n$$\nC(H) \\neq H\n$$"),
+    # §22  observation provenance
+    ("o_i = (content, source, trust, time, permissions)",
+     "$$\no_i = (\\text{content}, \\text{source}, \\text{trust}, "
+     "\\text{time}, \\text{permissions})\n$$"),
+    # §23  completion vs termination
+    ("task complete ≠ turn budget exhausted",
+     "$$\n\\text{task complete} \\neq \\text{turn budget exhausted}\n$$"),
+    # §24  budget vector
+    ("B = (B_turns, B_tokens, B_time, B_cost, B_tools, B_concurrency) "
+     "这个向量是我们的概念记号。",
+     "$$\nB = (B_{\\text{turns}}, B_{\\text{tokens}}, B_{\\text{time}}, "
+     "B_{\\text{cost}}, B_{\\text{tools}}, B_{\\text{concurrency}})\n$$\n\n"
+     "这个向量是我们的概念记号。"),
+    # §31  idempotency
+    ("f(f(s)) = f(s)", "$$\nf(f(s)) = f(s)\n$$"),
+    # §37  measured agent performance
+    ("measured agent performance = F(model, harness, environment, task, grader) "
+     "这不是一个统计模型，只是一个关于依赖关系的提醒。改变执行框架可以在不改变模型权重的情况下改变结果。改变环境也能如此。",
+     "$$\n\\text{measured agent performance} = F(\\text{model}, "
+     "\\text{harness}, \\text{environment}, \\text{task}, \\text{grader})\n$$\n\n"
+     "这不是一个统计模型，只是一个关于依赖关系的提醒。改变执行框架可以在不改变模型权重的情况下改变结果。改变环境也能如此。"),
+]
+
+
 # A standalone `[label]` line — a diagram box from the source PDF.
 BOX_RE = re.compile(r"^\[[^\[\]]+\]$")
+
 
 
 def stash_diagrams(text):
@@ -94,8 +155,25 @@ def stash_diagrams(text):
     return "\n".join(out), diagrams
 
 
+def apply_math(text):
+    """Turn the book's concept formulas into KaTeX source.
+
+    output.md keeps readable pseudo-notation (it also feeds the PDF/EPUB
+    builds), so the LaTeX lives here rather than in the translation.
+    """
+    for old, new in MATH_SUBS:
+        if old not in text:
+            raise SystemExit(f"math rule target not found: {old[:48]!r}")
+        text = text.replace(old, new)
+    return text
+
+
 def md_to_html(text):
-    """Markdown -> HTML with code/diagram protected from markdown rules."""
+    """Markdown -> HTML with math/code/diagram protected from markdown rules.
+
+    Math is stashed *before* markdown runs: python-markdown would otherwise
+    read the underscores in ``$s_t$`` / ``$C_selection$`` as emphasis and split
+    the formula across list/paragraph rules."""
     text, diagrams = stash_diagrams(text)
 
     fences = []
@@ -114,6 +192,21 @@ def md_to_html(text):
 
     text = re.sub(r"`([^`\n]+)`", code_repl, text)
 
+    # display math, then inline (order matters: $$..$$ must not be eaten by $..$)
+    maths = []
+
+    def display_repl(m):
+        maths.append(("display", m.group(1).strip()))
+        return f"@@MATH{len(maths) - 1}@@"
+
+    text = re.sub(r"\$\$(.+?)\$\$", display_repl, text, flags=re.S)
+
+    def inline_repl(m):
+        maths.append(("inline", m.group(1)))
+        return f"@@MATH{len(maths) - 1}@@"
+
+    text = re.sub(r"\$([^$\n]+?)\$", inline_repl, text)
+
     html = md.markdown(text, extensions=["tables", "fenced_code", "sane_lists"])
 
     for i, body in enumerate(fences):
@@ -126,13 +219,20 @@ def md_to_html(text):
     for i, body in enumerate(codes):
         html = html.replace(f"@@CODE{i}@@", f"<code>{html_mod.escape(body)}</code>")
 
-    # diagram blocks -> dark code cards (same treatment the MoE reader uses for
-    # its ASCII diagrams)
     for i, body in enumerate(diagrams):
         block = ('<pre><code class="language-text">'
                  + html_mod.escape(body) + "</code></pre>")
         html = html.replace(f"<p>@@DIAGRAM{i}@@</p>", block)
         html = html.replace(f"@@DIAGRAM{i}@@", block)
+
+    # restore math: display -> centred div, inline -> span, KaTeX-ready
+    for i, (kind, body) in enumerate(maths):
+        if kind == "display":
+            frag = f'<div class="math-display">$$&#10;{html_mod.escape(body)}&#10;$$</div>'
+        else:
+            frag = f'<span class="math-inline">${html_mod.escape(body)}$</span>'
+        html = re.sub(r"<p>\s*@@MATH%d@@\s*</p>" % i, lambda m: frag, html)
+        html = html.replace(f"@@MATH{i}@@", frag)
 
     html = re.sub(r"<p>\s*</p>", "", html)
     html = re.sub(r"\n{3,}", "\n\n", html)
@@ -143,6 +243,8 @@ def build():
     text = open(SRC, encoding="utf-8").read()
     # payload carries the book title; drop the leading `# ` heading
     text = re.sub(r"^# .+?\n", "", text, count=1)
+    # concept formulas -> KaTeX source (fails loudly if a target moved)
+    text = apply_math(text)
 
     # front matter: book title plate + "本手册要阐明什么", up to section 1
     marks = []
@@ -192,7 +294,9 @@ def build():
               f"table={h.count('<table')} p={h.count('<p>')}")
     print("figures:", sum(c["html"].count("<figure") for c in chapters),
           "| fences:", sum(c["html"].count('<pre class="fence">') for c in chapters),
-          "| diagrams:", sum(c["html"].count('<pre><code class="language-text">') for c in chapters))
+          "| diagrams:", sum(c["html"].count('<pre><code class="language-text">') for c in chapters),
+          "| math:", sum(c["html"].count('<div class="math-display">') for c in chapters),
+          "display +", sum(c["html"].count('<span class="math-inline">') for c in chapters), "inline")
     leftovers = re.findall(r"\{\.[^}]*\}|\{target=[^}]*\}|@@[A-Z]+\d+@@",
                            "".join(c["html"] for c in chapters))
     print("unresolved tokens:", len(leftovers), leftovers[:5])

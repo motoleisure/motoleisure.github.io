@@ -580,11 +580,24 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
   （13 chunks 并行翻译 + 术语表合并，43 个编号章节全部还原）。
 - 新管线 `tools/build_harness_engineering_book.py`（scaling-inference 的
   SPLITS 思路 + kv-cache 的单文件 payload 形态），本书三处与既有书不同：
-  1. **无 KaTeX**：全书只有行内伪记号（`y ~ p_theta(. | c)`、`C(H) ≠ H`、
-     `f(f(s)) = f(s)`、`B = (B_turns, ...)`），没有 `$` 定界符。原文里的
-     两个 `$`（"cost $9 / $200"）在翻译时已转成「9 美元 / 200 美元」，
-     译文 `$` 计数为 0，因此阅读器直接摘掉 KaTeX 的 link/script、
-     `.katex*` CSS 和整个 `renderMath` helper，每次进入少两个 CDN 请求。
+  1. **概念公式走 KaTeX**：全书只有概念伪记号（`y ~ p_theta(. | c)`、
+     `agent system ~= model + harness + environment`、`s_(t+1) = U(...)`、
+     `C_tool = C_selection + C_observation`、`C(H) ≠ H`、
+     `task complete ≠ turn budget exhausted`、
+     `o_i = (content, source, trust, time, permissions)`、
+     `B = (B_turns, ...)`、`f(f(s)) = f(s)`、
+     `measured agent performance = F(...)`，以及 §2 定义 s_t/c_t/a_t/o_t
+     的四条 bullet），译文 `$` 计数为 0，所以可以直接加定界符。**LaTeX
+     放在构建脚本 `MATH_SUBS`，不放 `output.md`**——后者同时喂 PDF/EPUB/
+     DOCX，写死 `\sim`/`\text{}` 会漏进那三种格式；构建脚本用
+     `SystemExit` 兜底，规则目标文本一改动就直接报错而不是静默跳过。
+     md 转换复用 llm-inference 的 math stash，顺序是硬要求：**math stash
+     必须早于 markdown**，否则 `$s_t$` / `$C_selection$` 里的下划线会被
+     python-markdown 读成 emphasis、把公式按 list/段落规则拆散；显示与
+     行内分两趟（`$$..$$` 先走，才不会被 `$..$` 吃掉）。首版只处理了
+     公式本体，漏了 `C_tool = ...` 紧跟其后的解释段里的 `C_selection` /
+     `C_observation`——审计「剥掉 math 标记后散文残留的 `X_y` 伪记号」才发现。
+     阅读器相应恢复 KaTeX 的 link/script、`.katex*` CSS 和 `renderMath`。
   2. **`[框线]` 重组为图示块**：原 PDF 的流程图是方框，convert 后散成
      59 个独立 `[label]` 行（每行一个 `<p>`），读起来是一叠单行段落。
      `stash_diagrams()` 把连续（容忍中间空行）的 `[label]` 行并成一个
@@ -598,12 +611,17 @@ payload：agents 2470KB/12 章/58 代码块/114 图；infra 2626KB/
 - 分章：1 章封面/导言 + 10 章正文，按原书 running-head 的分部边界切
   （导言 / 模型·会话·工具 / 工具设计 / MCP·上下文 / 状态面 / 沙箱·审批 /
   停止·预算·验证 / 反馈·幂等 / 可强制·评估 / 误解·心智模型·参考文献）。
-- 接入：阅读器 `books/harness-engineering/`（kv-cache 模板去 KaTeX；
-  目录 11 项，`fetch` 载荷 61KB）；封面 SVG（accent `#b91c1c`，
-  书架首个绯红）；书架「智能体开发」第 3 卡，added-tag 2026-10-05。
-- 验证：8899 headless 截图（阅读器 ch1/ch4/ch11 + 书架 10 卡）+
+- 接入：阅读器 `books/harness-engineering/`（kv-cache 模板 + KaTeX，
+  `fetch` 载荷 62KB）；封面 SVG（accent `#b91c1c`，书架首个绯红）；
+  书架「智能体开发」第 3 卡，added-tag 2026-10-05。
+- 验证：8899 headless 截图（阅读器 ch1/ch4/ch8/ch11 + 书架 10 卡）+
   payload 审计（43/43 h3 无缺号、20 图示块、1 表格、0 未解析 token、
-  0 console error / 0 requestfailed）。
+  10 个 `.math-display` + 6 个 `.math-inline`、0 console error /
+  0 requestfailed）；逐章 sweep 全 11 章，10 个 `.katex-display` 落在
+  7 章里全部渲染成功，`.katex-error` 计数 0（截图确认 `y ~ p_θ(· | c)`、
+  `agent system ≈ model + harness + environment`、
+  `s_{t+1} = U(s_t, a_t, o_t)`、`C_tool = ...`、`task complete ≠ ...`
+  的斜体/下标/居中排版）。
 - 重跑构建：`python3 tools/build_harness_engineering_book.py`。
 
 ## 2026-09-28 上传《Transformer 推理全解》到书架
